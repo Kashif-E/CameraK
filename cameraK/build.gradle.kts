@@ -12,7 +12,7 @@ group = "com.kashif.camera_compose"
 version = "1.0"
 
 kotlin {
-    jvmToolchain(11)
+    jvmToolchain(17)
     androidTarget {
         publishLibraryVariants("release")
     }
@@ -23,7 +23,7 @@ kotlin {
         iosSimulatorArm64()
     ).forEach {
         it.binaries.framework {
-            baseName = "shared"
+            baseName = "cameraK"
             isStatic = true
         }
     }

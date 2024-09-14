@@ -29,5 +29,5 @@ dependencyResolutionManagement {
     }
 }
 includeBuild("convention-plugins")
-include(":shared")
+include(":cameraK")
 
