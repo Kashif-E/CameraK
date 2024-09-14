@@ -9,6 +9,10 @@ agp = "8.5.2"
 kotlinx-coroutines = "1.9.0-RC.2"
 kermit = "2.0.4"
 
+compose-multiplatform = "1.7.0-beta02"
+activity = "1.9.2" # https://developer.android.com/jetpack/androidx/releases/activity
+coil-mp-version = "3.0.0-alpha10"
+
 [libraries]
 
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camera-view" }
@@ -21,8 +25,16 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
+composeGradle = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "compose-multiplatform" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
+
+coil3 = { module = "io.coil-kt.coil3:coil", version.ref = "coil-mp-version" }
+coil3-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil-mp-version" }
+coil3-compose-core = { module = "io.coil-kt.coil3:coil-compose-core", version.ref = "coil-mp-version" }
+coil3-ktor = { module = "io.coil-kt.coil3:coil-network-ktor2", version.ref = "coil-mp-version" }
 
 [plugins]
 
 multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

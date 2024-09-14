@@ -1,7 +1,11 @@
+import org.jetbrains.compose.compose
+
 plugins {
     alias(libs.plugins.multiplatform)
     alias(libs.plugins.android.library)
     id("convention.publication")
+    id("org.jetbrains.compose")
+    alias(libs.plugins.compose.compiler)
 }
 
 group = "com.kashif.camera_compose"
@@ -29,11 +33,13 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.kermit)
-
+            implementation(compose.ui)
+            implementation(compose.foundation)
         }
 
         commonTest.dependencies {
             implementation(kotlin("test"))
+
         }
 
         androidMain.dependencies {
@@ -43,6 +49,7 @@ kotlin {
             implementation(libs.androidx.camera.view)
             implementation(libs.camera.lifecycle)
             implementation(libs.camera.extensions)
+            implementation(libs.androidx.activity.compose)
         }
 
     }
