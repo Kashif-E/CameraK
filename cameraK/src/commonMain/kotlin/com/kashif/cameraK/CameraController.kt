@@ -5,10 +5,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 expect class CameraController() {
     var cameraState : MutableStateFlow<CameraState>
         private set
-    fun takePicture(imageFormat: ImageFormat) :ImageCaptureResult
+    suspend fun takePicture(imageFormat: ImageFormat) :ImageCaptureResult
     fun savePicture(name: String, file: ByteArray, directory: Directory)
-    fun setFlashMode(flashMode: FlashMode)
-    fun setCameraLens(lens: CameraLens)
+    fun changeFlashMode(flashMode: FlashMode)
+    fun changeCameraLens(lens: CameraLens)
     fun getFlashMode():Int
     fun getCameraLens(): Int
     fun getCameraRotation(): Int

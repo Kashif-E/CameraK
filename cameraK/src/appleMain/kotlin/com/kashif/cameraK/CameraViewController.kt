@@ -1,125 +1,219 @@
 package com.kashif.cameraK
 
-import kotlinx.cinterop.*
-import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.AVFoundation.*
-import platform.CoreMedia.CMSampleBufferRef
-import platform.Foundation.NSCoder
-import platform.Foundation.NSError
-import platform.UIKit.UIImage
-import platform.UIKit.UIImageJPEGRepresentation
-import platform.UIKit.UIView
-import platform.darwin.NSObject
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+import platform.Foundation.*
+import platform.UIKit.*
+import platform.darwin.*
+import kotlinx.cinterop.*
+
+class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol {
+
+    private var captureSession: AVCaptureSession? = null
+    private var backCamera: AVCaptureDevice? = null
+    private var frontCamera: AVCaptureDevice? = null
+    var currentCamera: AVCaptureDevice? = null
+    private var photoOutput: AVCapturePhotoOutput? = null
+    var cameraPreviewLayer: AVCaptureVideoPreviewLayer? = null
+
+    private var isUsingFrontCamera = false
+
+    // Output handling closures
+    var onPhotoCapture: ((UIImage?) -> Unit)? = null
+    var onError: ((Exception) -> Unit)? = null
+
+    // Flash mode: Can be auto, on, or off
+    var flashMode: AVCaptureFlashMode = AVCaptureFlashModeAuto
 
 
-class CameraView : UIView(NSCoder()), AVCapturePhotoCaptureDelegateProtocol {
-    private val captureSession = AVCaptureSession()
-    private val photoOutput = AVCapturePhotoOutput()
+    fun setupSession() {
+        captureSession = AVCaptureSession()
+        captureSession?.beginConfiguration()
 
-    init {
-        setupCamera()
+        // Setup inputs
+        setupInputs()
+
+        // Setup photo output
+        photoOutput = AVCapturePhotoOutput()
+        photoOutput?.setHighResolutionCaptureEnabled(true)
+        captureSession?.addOutput(photoOutput!!)
+
+        captureSession?.commitConfiguration()
     }
 
     @OptIn(ExperimentalForeignApi::class)
-    private fun setupCamera() {
-        val videoDevice = AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo)
-        val videoDeviceInput = AVCaptureDeviceInput.deviceInputWithDevice(videoDevice!!, null) as AVCaptureDeviceInput
-        captureSession.addInput(videoDeviceInput)
-        captureSession.addOutput(photoOutput)
+    private fun setupInputs() {
+        // Find the back and front cameras
+        val availableDevices = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
+            listOf(AVCaptureDeviceTypeBuiltInWideAngleCamera),
+            AVMediaTypeVideo,
+            AVCaptureDevicePositionUnspecified
+        ).devices
 
-        val previewLayer = AVCaptureVideoPreviewLayer(session = captureSession).apply {
-            frame = bounds
-            videoGravity = AVLayerVideoGravityResizeAspectFill
+        for (device in availableDevices) {
+            when ((device as AVCaptureDevice).position) {
+                AVCaptureDevicePositionBack -> backCamera = device
+                AVCaptureDevicePositionFront -> frontCamera = device
+            }
         }
-        layer.addSublayer(previewLayer)
 
-        captureSession.startRunning()
+        // Set the back camera as default
+        currentCamera = backCamera
+
+        // Add input to session
+        try {
+            val input = AVCaptureDeviceInput.deviceInputWithDevice(backCamera!!, null) as AVCaptureDeviceInput
+            if (captureSession?.canAddInput(input) == true) {
+                captureSession?.addInput(input)
+            }
+        } catch (e: Exception) {
+            onError?.let { it(e) }
+        }
     }
 
-
-    @ExperimentalForeignApi
-    suspend fun capturePhoto(): UIImage? = suspendCancellableCoroutine { continuation ->
-        val settings = AVCapturePhotoSettings.photoSettings()
-        photoOutput.capturePhotoWithSettings(settings, object : NSObject(), AVCapturePhotoCaptureDelegateProtocol {
-            override fun captureOutput(
-                output: AVCapturePhotoOutput,
-                didFinishProcessingPhotoSampleBuffer: CMSampleBufferRef?,
-                previewPhotoSampleBuffer: CMSampleBufferRef?,
-                resolvedSettings: AVCaptureResolvedPhotoSettings,
-                bracketSettings: AVCaptureBracketedStillImageSettings?,
-                error: NSError?
-            ) {
-                if (error != null) {
-                    continuation.resumeWithException(Exception(error.localizedDescription))
-                    return
-                }
-
-                val imageData = AVCapturePhotoOutput.JPEGPhotoDataRepresentationForJPEGSampleBuffer(
-                    didFinishProcessingPhotoSampleBuffer, previewPhotoSampleBuffer
-                )
-                val image = UIImage(data = imageData!!)
-                continuation.resume(image)
-            }
-        })
+    fun startSession() {
+        if (captureSession?.isRunning() == false) {
+            captureSession?.startRunning()
+        }
     }
 
-    fun setFlashMode(flashMode: FlashMode) {
-        when (flashMode) {
-            FlashMode.OFF -> {
-                photoOutput.capturePhotoWithSettings(AVCapturePhotoSettings().also {
-                    it.flashMode = AVCaptureFlashModeOff
-                }, delegate = this)
-            }
-
-            FlashMode.ON -> {
-                photoOutput.capturePhotoWithSettings(AVCapturePhotoSettings().also {
-                    it.flashMode = AVCaptureFlashModeOn
-                }, delegate = this)
-            }
+    fun stopSession() {
+        if (captureSession?.isRunning() == true) {
+            captureSession?.stopRunning()
         }
     }
 
     @OptIn(ExperimentalForeignApi::class)
-    fun setCameraLens(lens: CameraLens) {
-        captureSession.beginConfiguration()
-        captureSession.inputs.forEach { input ->
-            captureSession.removeInput(input as AVCaptureInput)
+    fun setupPreviewLayer(view: UIView) {
+        captureSession?.let { captureSession ->
+            cameraPreviewLayer = AVCaptureVideoPreviewLayer(session = captureSession)
+            cameraPreviewLayer?.videoGravity = AVLayerVideoGravityResizeAspectFill
+            cameraPreviewLayer?.setFrame(view.bounds)
+            view.layer.addSublayer(cameraPreviewLayer!!)
         }
 
-        val newDevice: AVCaptureDevice? = when (lens) {
-            CameraLens.DEFAULT, CameraLens.BACK -> AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo)
-            CameraLens.FRONT -> AVCaptureDevice.devicesWithMediaType(AVMediaTypeVideo).first() as? AVCaptureDevice
-            else -> null
-        }
-
-        newDevice?.let {
-            val newInput = AVCaptureDeviceInput.deviceInputWithDevice(it, null) as AVCaptureDeviceInput
-            captureSession.addInput(newInput)
-        }
-
-        captureSession.commitConfiguration()
-        captureSession.startRunning()
     }
 
-    fun setRotation(rotation: Rotation) {
-        val orientation = when {
-            (rotation == Rotation.ROTATION_0 || rotation == Rotation.ROTATION_270) -> AVCaptureVideoOrientationPortrait
-            else -> AVCaptureVideoOrientationLandscapeRight
+    // Flash Handling
+    fun setFlashMode(mode: AVCaptureFlashMode) {
+        flashMode = mode
+    }
+
+    // Capture Image
+    fun captureImage() {
+        val settings = AVCapturePhotoSettings()
+        settings.flashMode = flashMode // Use the current flash mode setting
+        settings.isHighResolutionPhotoEnabled()
+        photoOutput?.capturePhotoWithSettings(settings, delegate = this)
+    }
+
+    // Switch Camera
+    @OptIn(ExperimentalForeignApi::class)
+    fun switchCamera() {
+        captureSession?.beginConfiguration()
+
+        // Remove current input
+        val currentInput = captureSession?.inputs?.first() as? AVCaptureDeviceInput
+        if (currentInput != null) {
+            captureSession?.removeInput(currentInput)
         }
-        (layer as? AVCaptureVideoPreviewLayer)?.connection?.videoOrientation = orientation
+
+        // Toggle between front and back camera
+        isUsingFrontCamera = !isUsingFrontCamera
+        currentCamera = if (isUsingFrontCamera) frontCamera else backCamera
+
+        // Add new input
+        try {
+            val newInput = AVCaptureDeviceInput.deviceInputWithDevice(currentCamera!!, null) as AVCaptureDeviceInput
+            if (captureSession?.canAddInput(newInput) == true) {
+                captureSession?.addInput(newInput)
+            }
+        } catch (e: Exception) {
+            onError?.invoke(e)
+        }
+
+        // Adjust connection settings for mirroring
+        val connection = cameraPreviewLayer?.connection
+        if (connection?.isVideoMirroringSupported() == true) {
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.setVideoMirrored(isUsingFrontCamera)
+        }
+
+        captureSession?.commitConfiguration()
+    }
+
+    // AVCapturePhotoCaptureDelegate
+    override fun captureOutput(
+        output: AVCapturePhotoOutput,
+        didFinishProcessingPhoto: AVCapturePhoto,
+        error: NSError?
+    ) {
+        if (error != null) {
+            onError?.invoke(Exception(error.localizedDescription))
+            return
+        }
+
+        val imageData = didFinishProcessingPhoto.fileDataRepresentation()
+        val image = imageData?.let { UIImage(data = it) }
+        onPhotoCapture?.invoke(image)
     }
 }
 
-@OptIn(ExperimentalForeignApi::class)
-fun UIImage.toByteArray(): ByteArray {
-    val imageData = UIImageJPEGRepresentation(this, 0.3) ?: throw IllegalArgumentException("image data is null")
-    val bytes = imageData.bytes ?: throw IllegalArgumentException("image bytes is null")
-    val length = imageData.length
 
-    val data: CPointer<ByteVar> = bytes.reinterpret()
-    return ByteArray(length.toInt()) { index ->
-        data[index]
+class CameraViewController : UIViewController(nibName = null, bundle = null) {
+
+    private lateinit var cameraController: CustomCameraController
+
+    override fun viewDidLoad() {
+        super.viewDidLoad()
+
+        // Initialize camera controller
+        cameraController = CustomCameraController()
+        cameraController.setupSession()
+
+        // Set the preview layer to a full-screen view
+        cameraController.setupPreviewLayer(view)
+
+        // Start the session after everything is set up
+        cameraController.startSession()
+
+        // Configure the callbacks if needed
+        configureCameraCallbacks()
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    override fun viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        cameraController.cameraPreviewLayer?.setFrame(view.bounds)
+    }
+
+    // MARK: - Camera Functionality Exposure
+
+    // Exposes a method to capture the image externally
+    fun captureImage() {
+        cameraController.captureImage()
+    }
+
+    // Exposes a method to switch the camera externally
+    fun switchCamera() {
+        cameraController.switchCamera()
+    }
+
+    // Exposes a method to control the flash mode externally
+    fun setFlashMode(mode: AVCaptureFlashMode) {
+        cameraController.setFlashMode(mode)
+    }
+
+    // Optionally, you can handle the photo capture callback and error handling
+    private fun configureCameraCallbacks() {
+        cameraController.onPhotoCapture = { image ->
+            // Handle the captured image as needed, or pass it to another view controller
+            // For example, you could notify another component that the photo has been taken
+            println("Photo captured: $image")
+        }
+
+        cameraController.onError = { error ->
+            // Handle the error, or notify another component
+            println("Camera Error: $error")
+        }
     }
 }

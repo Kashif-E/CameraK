@@ -1,103 +1,148 @@
 package com.kashif.cameraK
 
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.viewinterop.UIKitInteropProperties
-import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.*
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.suspendCancellableCoroutine
+import platform.AVFoundation.*
 import platform.Foundation.*
-import platform.Photos.*
+import platform.UIKit.UIImage
+import platform.UIKit.UIImageJPEGRepresentation
+import platform.UIKit.UIViewController
+import kotlin.coroutines.resume
 
-actual class CameraController actual constructor() {
-    private val cameraView = CameraView()
+
+actual class CameraController : UIViewController(nibName = null, bundle = null) {
     actual var cameraState: MutableStateFlow<CameraState> = MutableStateFlow(CameraState())
+    private lateinit var cameraController: CustomCameraController
+
+    override fun viewDidLoad() {
+        super.viewDidLoad()
+
+        // Initialize camera controller
+        cameraController = CustomCameraController()
+        cameraController.setupSession()
+
+        // Set the preview layer to a full-screen view
+        cameraController.setupPreviewLayer(view)
+
+        // Start the session after everything is set up
+        cameraController.startSession()
+
+        // Configure the callbacks if needed
+        configureCameraCallbacks()
+    }
 
     @OptIn(ExperimentalForeignApi::class)
-    actual fun takePicture(imageFormat: ImageFormat): ImageCaptureResult = runBlocking {
-        try {
-            val photo = cameraView.capturePhoto()
-            if (photo != null) {
-                val byteArray = photo.toByteArray()
-                ImageCaptureResult.Success(byteArray, "")
-            } else {
-                ImageCaptureResult.Error(Exception("Failed to capture photo"))
-            }
-        } catch (e: Exception) {
-            ImageCaptureResult.Error(e)
-        }
+    override fun viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        cameraController.cameraPreviewLayer?.setFrame(view.bounds)
     }
 
 
-    actual fun savePicture(name: String, file: ByteArray, directory: Directory) {
-        when (directory) {
-            Directory.DCIM -> {
-                val fileManager = NSFileManager.defaultManager
-                val paths = fileManager.URLsForDirectory(NSPicturesDirectory, inDomains = NSUserDomainMask)
-                val documentsDirectory = paths.first() as NSURL
-                val fileURL = documentsDirectory.URLByAppendingPathComponent(name)
-
-                fileURL?.let {
-                    val nsData = file.toNSData()
-                    nsData.writeToURL(it, atomically = true)
+    actual suspend fun takePicture(imageFormat: ImageFormat): ImageCaptureResult {
+        return suspendCancellableCoroutine { continuation ->
+            cameraController.onPhotoCapture = { image ->
+                if (image != null) {
+                    val imageData = UIImageJPEGRepresentation(image, 0.9)
+                    val byteArray = UIImage(data = imageData!!).toByteArray()
+                    continuation.resume(ImageCaptureResult.Success(byteArray, "captured_image.jpg"))
+                } else {
+                    continuation.resume(ImageCaptureResult.Error(Exception("Failed to capture image")))
                 }
             }
-
-            Directory.PICTURES -> {
-                val nsData = file.toNSData()
-                PHPhotoLibrary.sharedPhotoLibrary().performChanges({
-                    val request = PHAssetCreationRequest.creationRequestForAsset()
-                    request.addResourceWithType(PHAssetResourceTypePhoto, data = nsData, options = null)
-                }, completionHandler = { success, error ->
-                    if (!success) {
-                        println("Error saving photo to library: ${error?.localizedDescription}")
-                    }
-                })
-            }
+            cameraController.captureImage()
         }
     }
 
+    actual fun savePicture(name: String, file: ByteArray, directory: Directory) {
+        val fileManager = NSFileManager.defaultManager
+        val paths = fileManager.URLsForDirectory(NSDocumentDirectory, inDomains = NSUserDomainMask)
+        val documentsDirectory = paths.first() as NSURL
+        val fileURL = documentsDirectory.URLByAppendingPathComponent(name)
 
-    actual fun setFlashMode(flashMode: FlashMode) {
-        cameraView.setFlashMode(flashMode)
+        try {
+            val nsData = file.toNSData()
+            fileURL.let { nsData.writeToURL(it!!, atomically = true) }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
-    actual fun setCameraLens(lens: CameraLens) {
-        cameraView.setCameraLens(lens)
+    actual fun changeFlashMode(flashMode: FlashMode) {
+        val mode = when (flashMode) {
+            FlashMode.ON -> AVCaptureFlashModeOn
+            FlashMode.OFF -> AVCaptureFlashModeOff
+        }
+        cameraController.setFlashMode(mode)
+        cameraState.update { it.copy(flashMode = flashMode) }
+    }
+
+    actual fun changeCameraLens(lens: CameraLens) {
+
+        cameraController.switchCamera()
+        cameraState.update { it.copy(cameraLens = lens) }
     }
 
     actual fun getFlashMode(): Int {
-        return cameraState.value.flashMode.value
+        return when (cameraController.flashMode) {
+            AVCaptureFlashModeOn -> FlashMode.ON.value
+            AVCaptureFlashModeOff -> FlashMode.OFF.value
+            else -> FlashMode.OFF.value
+
+        }
     }
 
     actual fun getCameraLens(): Int {
-        return cameraState.value.cameraLens.value
+        return when (cameraController.currentCamera?.position) {
+            AVCaptureDevicePositionFront -> CameraLens.FRONT.value
+            AVCaptureDevicePositionBack -> CameraLens.BACK.value
+            else -> CameraLens.BACK.value
+        }
     }
 
     actual fun getCameraRotation(): Int {
-        return cameraState.value.rotation.value
-    }
-
-    @Composable
-    fun CameraPreview(modifier: Modifier) {
-
-        UIKitView(
-            factory = { cameraView },
-            modifier = modifier,
-            properties = UIKitInteropProperties(isInteractive = true, isNativeAccessibilityEnabled = true)
-        )
-
-
+        return when (cameraController.cameraPreviewLayer?.connection?.videoOrientation) {
+            AVCaptureVideoOrientationPortrait -> Rotation.ROTATION_0.value
+            AVCaptureVideoOrientationLandscapeRight -> Rotation.ROTATION_90.value
+            AVCaptureVideoOrientationPortraitUpsideDown -> Rotation.ROTATION_180.value
+            AVCaptureVideoOrientationLandscapeLeft -> Rotation.ROTATION_270.value
+            else -> Rotation.ROTATION_0.value
+        }
     }
 
     actual fun setCameraRotation(rotation: Rotation) {
-        cameraView.setRotation(rotation)
+        val orientation = when (rotation) {
+            Rotation.ROTATION_0 -> AVCaptureVideoOrientationPortrait
+            Rotation.ROTATION_90 -> AVCaptureVideoOrientationLandscapeRight
+            Rotation.ROTATION_180 -> AVCaptureVideoOrientationPortraitUpsideDown
+            Rotation.ROTATION_270 -> AVCaptureVideoOrientationLandscapeLeft
+        }
+        cameraController.cameraPreviewLayer?.connection?.videoOrientation = orientation
+        cameraState.update { it.copy(rotation = rotation) }
     }
 
+    private fun configureCameraCallbacks() {
+        cameraController.onPhotoCapture = { image ->
+            println("Photo captured: $image")
+        }
+
+        cameraController.onError = { error ->
+            println("Camera Error: $error")
+        }
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    private fun ByteArray.toNSData(): NSData = usePinned {
+        NSData.create(bytes = it.addressOf(0), length = size.toULong())
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    private fun UIImage.toByteArray(): ByteArray {
+        val imageData = UIImageJPEGRepresentation(this, 0.9) ?: throw IllegalArgumentException("image data is null")
+        val bytes = imageData.bytes?.reinterpret<ByteVar>()
+        return ByteArray(imageData.length.toInt()) { i -> bytes!![i] }
+    }
 }
 
-@OptIn(ExperimentalForeignApi::class)
-fun ByteArray.toNSData() = usePinned {
-    NSData.create(bytes = it.addressOf(0), this.size.convert())
-}

@@ -111,6 +111,7 @@ class CameraK(
         absolutePath: String
     ): ImageCaptureResult {
         return try {
+
             val result = CompletableDeferred<ImageCaptureResult>()
             imageCapture.takePicture(
                 outputOptions,

@@ -3,24 +3,26 @@ import org.jetbrains.compose.compose
 plugins {
     alias(libs.plugins.multiplatform)
     alias(libs.plugins.android.library)
-    id("convention.publication")
+    //  id("convention.publication")
     id("org.jetbrains.compose")
     alias(libs.plugins.compose.compiler)
+    id("com.vanniktech.maven.publish") version "0.28.0"
 }
 
 group = "com.kashif.camera_compose"
 version = "1.0"
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(11)
     androidTarget {
-        publishLibraryVariants("release")
+        publishLibraryVariants("release", "debug")
     }
+
 
     listOf(
         iosX64(),
         iosArm64(),
-        iosSimulatorArm64()
+        iosSimulatorArm64(),
     ).forEach {
         it.binaries.framework {
             baseName = "cameraK"
@@ -55,9 +57,9 @@ kotlin {
     }
 
     //https://kotlinlang.org/docs/native_objc_interop.html#export_of_kdoc_comments_to_generated_objective_c_headers
-    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
-        compilations["main"].compilerOptions.options.freeCompilerArgs.add("_Xexport_kdoc")
-    }
+//    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
+//        compilations["main"].compilerOptions.options.freeCompilerArgs.add("_Xexport_kdoc")
+//    }
 
 }
 
