@@ -54,7 +54,7 @@ kotlin {
             implementation(libs.camera.lifecycle)
             implementation(libs.camera.extensions)
             implementation(libs.androidx.activityCompose)
-            implementation ("androidx.startup:startup-runtime:1.1.1")
+            implementation (libs.androidx.startup.runtime)
         }
 
     }
@@ -91,7 +91,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "camerak",
-        version = "0.0.3"
+        version = "0.0.4"
     )
 
 

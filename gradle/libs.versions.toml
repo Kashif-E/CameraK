@@ -14,10 +14,12 @@ activity = "1.9.2" # https://developer.android.com/jetpack/androidx/releases/act
 coil-mp-version = "3.0.0-alpha10"
 jetbrains-kotlin-jvm = "1.9.23"
 androidx-activityCompose = "1.9.1"
+startupRuntime = "1.1.1"
 
 [libraries]
 
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camera-view" }
+androidx-startup-runtime = { module = "androidx.startup:startup-runtime", version.ref = "startupRuntime" }
 camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camera-core" }
 camera-core = { module = "androidx.camera:camera-core", version.ref = "camera-core" }
 camera-extensions = { module = "androidx.camera:camera-extensions", version.ref = "camera-extensions" }
