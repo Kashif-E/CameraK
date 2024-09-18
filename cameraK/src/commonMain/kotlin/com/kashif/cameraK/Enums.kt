@@ -4,13 +4,7 @@ enum class FlashMode(val value: Int) {
     ON(1), OFF(0)
 }
 
-fun Int.toFlashMode(): FlashMode {
-    return when (this) {
-        0 -> FlashMode.OFF
-        1 -> FlashMode.ON
-        else -> FlashMode.OFF
-    }
-}
+
 enum class CameraLens(val value: Int) {
     DEFAULT(2), FRONT(0), BACK(1)
 }

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.util.Log
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -16,35 +17,39 @@ import androidx.core.content.ContextCompat
 private const val CAMERA_PERMISSION_REQUEST_CODE = 1001
 private const val STORAGE_PERMISSION_REQUEST_CODE = 1002
 
-@Composable
+
 actual fun checkCameraPermission(): Boolean {
+    val context = AppContext.get()
     val permission = android.Manifest.permission.CAMERA
-    return ContextCompat.checkSelfPermission(LocalContext.current, permission) == PackageManager.PERMISSION_GRANTED
+    return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 }
 
-@Composable
-actual fun requestCameraPermission(onGranted: () -> Unit, onDenied: () -> Unit) {
-    val context = LocalContext.current
+
+
+
+actual fun requestCameraPermission( onGranted: () -> Unit, onDenied: () -> Unit) {
+    val context = AppContext.get()
     val permission = Manifest.permission.CAMERA
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            onGranted()
-        } else {
-            onDenied()
-        }
-    }
+    val activity = context.findAndroidActivity() as ComponentActivity
 
     if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) {
         onGranted()
     } else {
-        launcher.launch(permission)
+
+       val cameraPermissionLauncher = activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+
+                onGranted()
+            } else {
+
+                onDenied()
+            }
+        }
+
+        cameraPermissionLauncher.launch(permission)
     }
 }
-
-
 private fun Context.findAndroidActivity(): Activity? {
     var context = this
     while (context is ContextWrapper) {
@@ -54,30 +59,30 @@ private fun Context.findAndroidActivity(): Activity? {
     return null
 }
 
-@Composable
 actual fun checkStoragePermission(): Boolean {
+    val context = AppContext.get()
     val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
-    return ContextCompat.checkSelfPermission(LocalContext.current, permission) == PackageManager.PERMISSION_GRANTED
+    return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 }
 
-@Composable
-actual fun requestStoragePermission(onGranted: () -> Unit, onDenied: () -> Unit) {
-    val context = LocalContext.current
+
+actual fun requestStoragePermission( onGranted: () -> Unit, onDenied: () -> Unit) {
+    val activity = (AppContext.get()).findAndroidActivity() as ComponentActivity
     val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            onGranted()
-        } else {
-            onDenied()
-        }
-    }
 
-    if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) {
+    // Check if permission is already granted
+    if (ContextCompat.checkSelfPermission(activity, permission) == PackageManager.PERMISSION_GRANTED) {
         onGranted()
     } else {
-        launcher.launch(permission)
+
+       val storagePermissionLauncher = activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                onGranted()
+            } else {
+                onDenied()
+            }
+        }
+        storagePermissionLauncher.launch(permission)
     }
 }

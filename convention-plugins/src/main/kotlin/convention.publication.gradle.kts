@@ -61,9 +61,10 @@ publishing {
 
         // Provide artifacts information requited by Maven Central
         pom {
+
             name.set("CameraCompose")
-            description.set("Kotlin Multiplatform library")
-            //url.set("") todo
+            description.set("Compose Multiplatform Camera library")
+            url.set("https://github.com/Kashif-E/CameraK")
 
             licenses {
                 license {
@@ -71,15 +72,18 @@ publishing {
                     url.set("https://opensource.org/licenses/MIT")
                 }
             }
+            // Specify developers information
             developers {
                 developer {
-                    //id.set("") todo
-                    //name.set("") todo
-                    //email.set("") todo
+                    id.set("Kashif-E")
+                    name.set("Kashif")
+                    email.set("kashismails@gmail.com")
                 }
             }
+
+            // Specify SCM information
             scm {
-                //url.set("") todo
+                url.set("https://github.com/Kashif-E/CameraK")
             }
         }
     }

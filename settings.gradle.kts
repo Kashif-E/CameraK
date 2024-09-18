@@ -31,3 +31,4 @@ dependencyResolutionManagement {
 includeBuild("convention-plugins")
 include(":cameraK")
 
+include(":Sample")

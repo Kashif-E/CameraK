@@ -1,18 +1,17 @@
 package com.kashif.cameraK
 
-import kotlinx.coroutines.flow.MutableStateFlow
-
 expect class CameraController() {
-    var cameraState : MutableStateFlow<CameraState>
-        private set
     suspend fun takePicture(imageFormat: ImageFormat) :ImageCaptureResult
-    fun savePicture(name: String, file: ByteArray, directory: Directory)
-    fun changeFlashMode(flashMode: FlashMode)
-    fun changeCameraLens(lens: CameraLens)
+    fun savePicture(fileName: String, fileData: ByteArray, directory: Directory)
+    fun toggleFlashMode()
+    fun toggleCameraLens()
     fun getFlashMode():Int
     fun getCameraLens(): Int
     fun getCameraRotation(): Int
     fun setCameraRotation(rotation: Rotation)
+    fun isPermissionGranted(): Boolean
+    fun bindCamera()
+
 }
 
 

@@ -101,7 +101,7 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
     // Capture Image
     fun captureImage() {
         val settings = AVCapturePhotoSettings()
-        settings.flashMode = flashMode // Use the current flash mode setting
+        settings.flashMode = flashMode
         settings.isHighResolutionPhotoEnabled()
         photoOutput?.capturePhotoWithSettings(settings, delegate = this)
     }

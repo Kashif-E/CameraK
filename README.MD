@@ -1,33 +1,13 @@
-# CameraCompose
+# CameraK App
 
-Kotlin Multiplatform Library
+## Overview
 
-### Publish to MavenCentral
+The CameraK App is a sample application demonstrating the use of the CameraX library in a Jetpack Compose environment. It provides functionalities to capture images, toggle flash mode, and switch between front and back cameras.
 
-1) Registering a Sonatype account as described here: 
-   https://dev.to/kotlin/how-to-build-and-publish-a-kotlin-multiplatform-library-going-public-4a8k
-2) Add developer id, name, email and the project url to
-   `/convention-plugins/src/main/kotlin/convention.publication.gradle.kts`
-3) Add the secrets to `local.properties`:
+## Features
 
-```
-signing.keyId=...
-signing.password=...
-signing.secretKeyRingFile=...
-ossrhUsername=...
-ossrhPassword=...
-```
-
-4) Run `./gradlew :shared:publishAllPublicationsToSonatypeRepository`
-
-### Build platform artifacts
-
-#### Android aar
-
-- Run `./gradlew :shared:assembleRelease`
-- Output: `/shared/build/outputs/aar/shared-release.aar`
-
-#### iOS Framework
-
-- Run `./gradlew :shared:linkReleaseFrameworkIosArm64`
-- Output: `/shared/build/bin/iosArm64/releaseFramework/shared.framework`
+- **Camera Preview**: Displays a live camera feed using `CameraKPreview`.
+- **Capture Image**: Allows users to capture images in JPEG format.
+- **Toggle Flash**: Users can toggle the flash mode (on/off).
+- **Switch Camera**: Users can switch between the front and back cameras.
+- **Save Captured Images**: Captured images are saved to the device's storage.
