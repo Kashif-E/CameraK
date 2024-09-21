@@ -5,11 +5,11 @@ expect class CameraController() {
     fun savePicture(fileName: String, fileData: ByteArray, directory: Directory)
     fun toggleFlashMode()
     fun toggleCameraLens()
-    fun getFlashMode():Int
-    fun getCameraLens(): Int
+    fun getFlashMode(): FlashMode
+    fun getCameraLens(): CameraLens
     fun getCameraRotation(): Int
     fun setCameraRotation(rotation: Rotation)
-    fun isPermissionGranted(): Boolean
+    fun allPermissionsGranted(): Boolean
     fun bindCamera()
 
 }

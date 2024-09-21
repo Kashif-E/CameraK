@@ -1,5 +1,8 @@
 package com.kashif.cameraK
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.cinterop.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -22,9 +25,9 @@ actual class CameraController : UIViewController(nibName = null, bundle = null) 
     private lateinit var cameraController: CustomCameraController
 
     // Variables to store the current camera settings
-    private var currentFlashMode: FlashMode = FlashMode.OFF
-    private var currentCameraLens: CameraLens = CameraLens.BACK
-    private var currentRotation: Rotation = Rotation.ROTATION_0
+    private var currentFlashMode: FlashMode by mutableStateOf(FlashMode.OFF)
+    private var currentCameraLens: CameraLens by mutableStateOf(CameraLens.BACK)
+    private var currentRotation: Rotation by mutableStateOf(Rotation.ROTATION_0)
 
     override fun viewDidLoad() {
         super.viewDidLoad()
@@ -111,12 +114,12 @@ actual class CameraController : UIViewController(nibName = null, bundle = null) 
         cameraController.switchCamera()
     }
 
-    actual fun getFlashMode(): Int {
-        return currentFlashMode.value
+    actual fun getFlashMode(): FlashMode{
+        return currentFlashMode
     }
 
-    actual fun getCameraLens(): Int {
-        return currentCameraLens.value
+    actual fun getCameraLens(): CameraLens {
+        return currentCameraLens
     }
 
     actual fun getCameraRotation(): Int {
@@ -146,7 +149,7 @@ actual class CameraController : UIViewController(nibName = null, bundle = null) 
         return ByteArray(this.length.toInt()) { i -> bytes!![i] }
     }
 
-    actual fun isPermissionGranted(): Boolean {
+    actual fun allPermissionsGranted(): Boolean {
         return checkCameraPermission() && checkPhotoLibraryPermission()
     }
 

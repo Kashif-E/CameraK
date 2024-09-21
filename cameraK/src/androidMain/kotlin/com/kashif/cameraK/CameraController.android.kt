@@ -12,6 +12,9 @@ import android.widget.Toast
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.Dispatchers
@@ -33,9 +36,9 @@ actual class CameraController {
     private var lifecycleOwner: LifecycleOwner? = null
 
     // Variables to store the current camera settings
-    private var currentFlashMode: FlashMode = FlashMode.OFF
-    private var currentCameraLens: CameraLens = CameraLens.BACK
-    private var currentRotation: Rotation = Rotation.ROTATION_0
+    private var currentFlashMode: FlashMode by mutableStateOf(FlashMode.OFF)
+    private var currentCameraLens: CameraLens by mutableStateOf(CameraLens.BACK)
+    private var currentRotation: Rotation by mutableStateOf(Rotation.ROTATION_0)
 
     // Store the Preview use case to update rotation
     private var previewUseCase: Preview? = null
@@ -162,9 +165,9 @@ actual class CameraController {
         previewView?.let { startCamera(it) }
     }
 
-    actual fun getFlashMode(): Int = currentFlashMode.value
+    actual fun getFlashMode(): FlashMode = currentFlashMode
 
-    actual fun getCameraLens(): Int = currentCameraLens.value
+    actual fun getCameraLens(): CameraLens = currentCameraLens
 
     actual fun getCameraRotation(): Int = currentRotation.value
 
@@ -193,7 +196,7 @@ actual class CameraController {
         }
     }
 
-    actual fun isPermissionGranted(): Boolean {
+    actual fun allPermissionsGranted(): Boolean {
         return checkStoragePermission() && checkCameraPermission()
     }
 

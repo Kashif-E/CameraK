@@ -2,14 +2,19 @@ package org.company.app
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.semantics.Role.Companion.Switch
 import androidx.compose.ui.unit.dp
 import com.kashif.cameraK.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.company.app.theme.AppTheme
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -20,74 +25,102 @@ import org.jetbrains.compose.resources.decodeToImageBitmap
 internal fun App() = AppTheme {
     val controller = remember { CameraController() }
     val scope = rememberCoroutineScope()
-    var imageBitmap: ImageBitmap? by remember { mutableStateOf(null) }
+
+    var cameraPermissionGranted by remember { mutableStateOf(false) }
+    var storagePermissionGranted by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        if (controller.isPermissionGranted()) {
+
+        if (controller.allPermissionsGranted()) {
+            cameraPermissionGranted = true
+            storagePermissionGranted = true
             controller.bindCamera()
-        } else {
-            requestCameraPermission({}, {})
-            requestStoragePermission({}, {})
+
         }
     }
 
+    if (!cameraPermissionGranted) {
+        RequestCameraPermission(
+            onGranted = {
+                cameraPermissionGranted = true
+                if (storagePermissionGranted) {
+                    controller.bindCamera()
+                }
+            },
+            onDenied = {
+                // Handle the case where camera permission is denied
+            }
+        )
+    }
 
-    Box {
+    if (!storagePermissionGranted) {
+        RequestStoragePermission(
+            onGranted = {
+                storagePermissionGranted = true
+                if (cameraPermissionGranted) {
+                    controller.bindCamera()
+                }
+            },
+            onDenied = {
+                // Handle the case where storage permission is denied
+            }
+        )
+    }
+
+
+    CameraK(controller, scope)
+
+}
+
+@OptIn(ExperimentalResourceApi::class)
+@Composable
+private fun CameraK(
+    controller: CameraController,
+    scope: CoroutineScope,
+) {
+    var imageBitmap: ImageBitmap? by remember { mutableStateOf(null) }
+
+    val flashMode = remember(controller.getFlashMode()) {
+        controller.getFlashMode() == FlashMode.ON
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
 
         CameraKPreview(
             modifier = Modifier.fillMaxSize(),
             cameraController = controller
         )
-        Row(modifier = Modifier.fillMaxWidth().align(Alignment.TopStart)) {
-            Row {
-                // Button to toggle flash
-                Button(onClick = { controller.toggleFlashMode() }) {
-                    Text("Toggle Flash")
-                }
-                // Button to toggle camera lens
-                Button(onClick = { controller.toggleCameraLens() }) {
-                    Text("Toggle Camera Lens")
-                }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth().align(Alignment.TopStart),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
 
+            Switch(
+                checked = flashMode,
+                onCheckedChange = { controller.toggleFlashMode() }
+            )
+
+            Button(onClick = { controller.toggleCameraLens() }) {
+                Text("Toggle Camera Lens")
+            }
         }
-        Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomStart)) {
-            Row {
 
-                Button(onClick = {
-                    scope.launch {
-                        val imageResult = controller.takePicture(ImageFormat.JPEG)
+        Button(onClick = {
+            scope.launch {
+                when (val result = controller.takePicture(ImageFormat.PNG)) {
+                    is ImageCaptureResult.Success -> {
+                        imageBitmap = result.image.decodeToImageBitmap()
 
-                        when (imageResult) {
-                            is ImageCaptureResult.Success -> {
-                                imageBitmap = imageResult.image.decodeToImageBitmap()
-                                controller.savePicture(imageResult.path, imageResult.image, Directory.PICTURES)
-                            }
-
-                            is ImageCaptureResult.Error -> {
-                               println("Error: ${imageResult.exception.message}")
-                            }
-                        }
+                        controller.savePicture("image.png", result.image, Directory.PICTURES)
                     }
-                }) {
-                    Text("Toggle Flash")
-                }
-                // Button to toggle camera lens
-                Button(onClick = { controller.toggleCameraLens() }) {
-                    Text("Toggle Camera Lens")
+
+                    is ImageCaptureResult.Error -> {
+                        println(result.exception.message ?: "Error")
+                    }
                 }
             }
 
-            imageBitmap?.let {
-                Image(
-                    bitmap = imageBitmap!!,
-                    contentDescription = "Captured Image",
-                    modifier = Modifier.size(50.dp)
-                )
-            }
-
-
+        }, modifier = Modifier.clip(CircleShape).align(Alignment.BottomCenter).padding(16.dp)) {
+            Text("Capture")
         }
     }
-
 }

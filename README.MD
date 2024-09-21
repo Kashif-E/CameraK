@@ -16,86 +16,84 @@ The CameraK App is a sample application demonstrating the use of the CameraX lib
 ## Installation
 
 ```Kotlin
-implementation("io.github.kashif-mehmood-km:camerak:0.0.4")
-
+implementation("io.github.kashif-mehmood-km:camerak:+")
 ```
 
 ## Usage
 
 This is a simple example of how to use the CameraK library in your app.
 
+### Permissions
+
+Add the following permissions to your `AndroidManifest.xml` file:
+
+```xml
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+```
+Add the following to your info.plist file for iOS
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Camera permission is required for the app to work.</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Photo Library permission is required for the app to work.</string>
+```
+
+### Compose Implementation
 ```Kotlin
- LaunchedEffect(Unit) {
-        if (controller.isPermissionGranted()) {
-            controller.bindCamera()
-        } else {
-            requestCameraPermission({}, {})
-            requestStoragePermission({}, {})
-        }
+@Composable
+private fun CameraK(
+    controller: CameraController,
+    scope: CoroutineScope,
+) {
+    var imageBitmap: ImageBitmap? by remember { mutableStateOf(null) }
+
+    val flashMode = remember(controller.getFlashMode()) {
+        controller.getFlashMode() == FlashMode.ON
     }
-
-
-    Box {
+    Box(modifier = Modifier.fillMaxSize()) {
 
         CameraKPreview(
             modifier = Modifier.fillMaxSize(),
             cameraController = controller
         )
-        Row(modifier = Modifier.fillMaxWidth().align(Alignment.TopStart)) {
-            Row {
-                // Button to toggle flash
-                Button(onClick = { controller.toggleFlashMode() }) {
-                    Text("Toggle Flash")
-                }
-                // Button to toggle camera lens
-                Button(onClick = { controller.toggleCameraLens() }) {
-                    Text("Toggle Camera Lens")
-                }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth().align(Alignment.TopStart),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
 
+            Switch(
+                checked = flashMode,
+                onCheckedChange = { controller.toggleFlashMode() }
+            )
+
+            Button(onClick = { controller.toggleCameraLens() }) {
+                Text("Toggle Camera Lens")
+            }
         }
-        Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomStart)) {
-            Row {
 
-                Button(onClick = {
-                    scope.launch {
-                        val imageResult = controller.takePicture(ImageFormat.JPEG)
+        Button(onClick = {
+            scope.launch {
+                when (val result = controller.takePicture(ImageFormat.PNG)) {
+                    is ImageCaptureResult.Success -> {
+                        imageBitmap = result.image.decodeToImageBitmap()
 
-                        when (imageResult) {
-                            is ImageCaptureResult.Success -> {
-                                imageBitmap = imageResult.image.decodeToImageBitmap()
-                                controller.savePicture(imageResult.path, imageResult.image, Directory.PICTURES)
-                            }
-
-                            is ImageCaptureResult.Error -> {
-                               println("Error: ${imageResult.exception.message}")
-                            }
-                        }
+                        controller.savePicture("image.png", result.image, Directory.PICTURES)
                     }
-                }) {
-                    Text("Toggle Flash")
-                }
-                // Button to toggle camera lens
-                Button(onClick = { controller.toggleCameraLens() }) {
-                    Text("Toggle Camera Lens")
+
+                    is ImageCaptureResult.Error -> {
+                        println(result.exception.message ?: "Error")
+                    }
                 }
             }
 
-            imageBitmap?.let {
-                Image(
-                    bitmap = imageBitmap!!,
-                    contentDescription = "Captured Image",
-                    modifier = Modifier.size(50.dp)
-                )
-            }
-
-
+        }, modifier = Modifier.clip(CircleShape).align(Alignment.BottomCenter).padding(16.dp)) {
+            Text("Capture")
         }
     }
-
 }
 ```
-You can check the sample for more details.
+You can check the `Sample` for more details.
 
 ## License
 

@@ -1,6 +1,8 @@
 package com.kashif.cameraK
 
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import platform.AVFoundation.*
 import platform.Photos.PHAuthorizationStatusAuthorized
 import platform.Photos.PHPhotoLibrary
@@ -11,15 +13,18 @@ actual fun checkCameraPermission(): Boolean {
     return status == AVAuthorizationStatusAuthorized
 }
 
-
-actual fun requestCameraPermission(onGranted: () -> Unit, onDenied: () -> Unit) {
-    AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
-        if (granted) {
-            onGranted()
-        } else {
-            onDenied()
+@Composable
+actual fun RequestCameraPermission(onGranted: () -> Unit, onDenied: () -> Unit) {
+    LaunchedEffect(Unit){
+        AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
+            if (granted) {
+                onGranted()
+            } else {
+                onDenied()
+            }
         }
     }
+
 }
 
 
@@ -29,12 +34,15 @@ actual fun checkStoragePermission(): Boolean {
 }
 
 
-actual fun requestStoragePermission(onGranted: () -> Unit, onDenied: () -> Unit) {
-    PHPhotoLibrary.requestAuthorization { status ->
-        if (status == PHAuthorizationStatusAuthorized) {
-            onGranted()
-        } else {
-            onDenied()
+@Composable
+actual fun RequestStoragePermission(onGranted: () -> Unit, onDenied: () -> Unit) {
+    LaunchedEffect(Unit){
+        PHPhotoLibrary.requestAuthorization { status ->
+            if (status == PHAuthorizationStatusAuthorized) {
+                onGranted()
+            } else {
+                onDenied()
+            }
         }
     }
 }

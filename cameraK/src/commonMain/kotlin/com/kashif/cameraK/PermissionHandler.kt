@@ -4,10 +4,11 @@ import androidx.compose.runtime.Composable
 
 
 expect fun checkCameraPermission(): Boolean
-expect fun requestCameraPermission(onGranted: () -> Unit, onDenied: () -> Unit)
+@Composable
+expect fun RequestCameraPermission(onGranted: () -> Unit, onDenied: () -> Unit)
 
 
 expect fun checkStoragePermission(): Boolean
 
-
-expect fun requestStoragePermission(onGranted: () -> Unit, onDenied: () -> Unit)
+@Composable
+expect fun RequestStoragePermission(onGranted: () -> Unit, onDenied: () -> Unit)
