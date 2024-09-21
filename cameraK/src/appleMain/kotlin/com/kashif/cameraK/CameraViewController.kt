@@ -17,7 +17,6 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
 
     private var isUsingFrontCamera = false
 
-    // Output handling closures
     var onPhotoCapture: ((UIImage?) -> Unit)? = null
     var onError: ((Exception) -> Unit)? = null
 
@@ -29,10 +28,8 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         captureSession = AVCaptureSession()
         captureSession?.beginConfiguration()
 
-        // Setup inputs
         setupInputs()
 
-        // Setup photo output
         photoOutput = AVCapturePhotoOutput()
         photoOutput?.setHighResolutionCaptureEnabled(true)
         captureSession?.addOutput(photoOutput!!)
@@ -42,7 +39,7 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
 
     @OptIn(ExperimentalForeignApi::class)
     private fun setupInputs() {
-        // Find the back and front cameras
+
         val availableDevices = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
             listOf(AVCaptureDeviceTypeBuiltInWideAngleCamera),
             AVMediaTypeVideo,
@@ -56,10 +53,9 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
             }
         }
 
-        // Set the back camera as default
         currentCamera = backCamera
 
-        // Add input to session
+
         try {
             val input = AVCaptureDeviceInput.deviceInputWithDevice(backCamera!!, null) as AVCaptureDeviceInput
             if (captureSession?.canAddInput(input) == true) {
@@ -93,12 +89,12 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
 
     }
 
-    // Flash Handling
+
     fun setFlashMode(mode: AVCaptureFlashMode) {
         flashMode = mode
     }
 
-    // Capture Image
+
     fun captureImage() {
         val settings = AVCapturePhotoSettings()
         settings.flashMode = flashMode
@@ -106,22 +102,22 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         photoOutput?.capturePhotoWithSettings(settings, delegate = this)
     }
 
-    // Switch Camera
+
     @OptIn(ExperimentalForeignApi::class)
     fun switchCamera() {
         captureSession?.beginConfiguration()
 
-        // Remove current input
+
         val currentInput = captureSession?.inputs?.first() as? AVCaptureDeviceInput
         if (currentInput != null) {
             captureSession?.removeInput(currentInput)
         }
 
-        // Toggle between front and back camera
+
         isUsingFrontCamera = !isUsingFrontCamera
         currentCamera = if (isUsingFrontCamera) frontCamera else backCamera
 
-        // Add new input
+
         try {
             val newInput = AVCaptureDeviceInput.deviceInputWithDevice(currentCamera!!, null) as AVCaptureDeviceInput
             if (captureSession?.canAddInput(newInput) == true) {
@@ -131,7 +127,7 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
             onError?.invoke(e)
         }
 
-        // Adjust connection settings for mirroring
+
         val connection = cameraPreviewLayer?.connection
         if (connection?.isVideoMirroringSupported() == true) {
             connection.automaticallyAdjustsVideoMirroring = false
@@ -166,17 +162,17 @@ class CameraViewController : UIViewController(nibName = null, bundle = null) {
     override fun viewDidLoad() {
         super.viewDidLoad()
 
-        // Initialize camera controller
+
         cameraController = CustomCameraController()
         cameraController.setupSession()
 
-        // Set the preview layer to a full-screen view
+
         cameraController.setupPreviewLayer(view)
 
-        // Start the session after everything is set up
+
         cameraController.startSession()
 
-        // Configure the callbacks if needed
+
         configureCameraCallbacks()
     }
 
@@ -186,33 +182,30 @@ class CameraViewController : UIViewController(nibName = null, bundle = null) {
         cameraController.cameraPreviewLayer?.setFrame(view.bounds)
     }
 
-    // MARK: - Camera Functionality Exposure
 
-    // Exposes a method to capture the image externally
     fun captureImage() {
         cameraController.captureImage()
     }
 
-    // Exposes a method to switch the camera externally
+
     fun switchCamera() {
         cameraController.switchCamera()
     }
 
-    // Exposes a method to control the flash mode externally
+
     fun setFlashMode(mode: AVCaptureFlashMode) {
         cameraController.setFlashMode(mode)
     }
 
-    // Optionally, you can handle the photo capture callback and error handling
+
     private fun configureCameraCallbacks() {
         cameraController.onPhotoCapture = { image ->
-            // Handle the captured image as needed, or pass it to another view controller
-            // For example, you could notify another component that the photo has been taken
+
             println("Photo captured: $image")
         }
 
         cameraController.onError = { error ->
-            // Handle the error, or notify another component
+
             println("Camera Error: $error")
         }
     }
