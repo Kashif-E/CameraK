@@ -16,9 +16,14 @@ import kotlin.coroutines.resume
 import platform.AVFoundation.*
 import platform.CoreGraphics.CGRectMake
 import platform.Foundation.*
+import platform.Photos.PHAssetChangeRequest
 import platform.Photos.PHAuthorizationStatusAuthorized
 import platform.Photos.PHPhotoLibrary
 import platform.UIKit.*
+import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
+import platform.darwin.NSObject
+import platform.darwin.dispatch_async
+import platform.darwin.dispatch_get_global_queue
 
 actual class CameraController : UIViewController(nibName = null, bundle = null) {
 
@@ -34,7 +39,9 @@ actual class CameraController : UIViewController(nibName = null, bundle = null) 
         cameraController = CustomCameraController()
         cameraController.setupSession()
         cameraController.setupPreviewLayer(view)
-        cameraController.startSession()
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT.toLong(), 0u)) {
+            cameraController.startSession()
+        }
         configureCameraCallbacks()
     }
 
@@ -87,19 +94,36 @@ actual class CameraController : UIViewController(nibName = null, bundle = null) 
     }
 
 
+    @OptIn(ExperimentalForeignApi::class)
     actual fun savePicture(fileName: String, fileData: ByteArray, directory: Directory) {
-        val fileManager = NSFileManager.defaultManager
-        val urls = fileManager.URLsForDirectory(directory.toNSSearchPathDirectory(), inDomains = NSUserDomainMask)
-        val documentsDirectory = urls.first() as? NSURL
-
-        documentsDirectory?.let {
-            val fileURL = it.URLByAppendingPathComponent(fileName)
-            val nsData = fileData.toNSData()
-
-            val success = nsData.writeToURL(fileURL!!, atomically = true)
-            if (!success) {
-                println("Failed to save image to ($fileURL)")
+        when (directory) {
+            Directory.PICTURES -> {
+                UIImageWriteToSavedPhotosAlbum(
+                    UIImage(fileData.toNSData()),
+                    null,
+                    null,
+                    null
+                )
             }
+
+            Directory.DCIM -> {
+                val nsData = fileData.toNSData()
+                val fileManager = NSFileManager.defaultManager
+                val urls =
+                    fileManager.URLsForDirectory(directory.toNSSearchPathDirectory(), inDomains = NSUserDomainMask)
+                val documentsDirectory = urls.first() as? NSURL
+
+                documentsDirectory?.let {
+                    val fileURL = it.URLByAppendingPathComponent(fileName)
+                    val success = nsData.writeToURL(fileURL!!, atomically = true)
+                    if (!success) {
+                        println("Failed to save image to ($fileURL)")
+                    }
+                } ?: kotlin.run {
+                    println("Failed to save image to directory ($directory)")
+                }
+            }
+
         }
     }
 
@@ -114,15 +138,18 @@ actual class CameraController : UIViewController(nibName = null, bundle = null) 
         cameraController.switchCamera()
     }
 
-    actual fun getFlashMode(): FlashMode{
+    actual fun getFlashMode()
+            : FlashMode {
         return currentFlashMode
     }
 
-    actual fun getCameraLens(): CameraLens {
+    actual fun getCameraLens()
+            : CameraLens {
         return currentCameraLens
     }
 
-    actual fun getCameraRotation(): Int {
+    actual fun getCameraRotation()
+            : Int {
         return currentRotation.value
     }
 
@@ -144,12 +171,15 @@ actual class CameraController : UIViewController(nibName = null, bundle = null) 
     }
 
     @OptIn(ExperimentalForeignApi::class)
-    private fun NSData.toByteArray(): ByteArray {
+
+    private fun NSData.toByteArray()
+            : ByteArray {
         val bytes = this.bytes?.reinterpret<ByteVar>()
         return ByteArray(this.length.toInt()) { i -> bytes!![i] }
     }
 
-    actual fun allPermissionsGranted(): Boolean {
+    actual fun allPermissionsGranted()
+            : Boolean {
         return checkCameraPermission() && checkPhotoLibraryPermission()
     }
 
@@ -157,24 +187,28 @@ actual class CameraController : UIViewController(nibName = null, bundle = null) 
         // Binding is handled in viewDidLoad
     }
 
-    private fun checkCameraPermission(): Boolean {
+    private fun checkCameraPermission()
+            : Boolean {
         val status = AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)
         return status == AVAuthorizationStatusAuthorized
     }
 
-    private fun checkPhotoLibraryPermission(): Boolean {
+    private fun checkPhotoLibraryPermission()
+            : Boolean {
         val status = PHPhotoLibrary.authorizationStatus()
         return status == PHAuthorizationStatusAuthorized
     }
 
-    private fun FlashMode.toAVCaptureFlashMode(): AVCaptureFlashMode {
+    private fun FlashMode.toAVCaptureFlashMode()
+            : AVCaptureFlashMode {
         return when (this) {
             FlashMode.ON -> AVCaptureFlashModeOn
             FlashMode.OFF -> AVCaptureFlashModeOff
         }
     }
 
-    private fun Rotation.toAVCaptureVideoOrientation(): AVCaptureVideoOrientation {
+    private fun Rotation.toAVCaptureVideoOrientation()
+            : AVCaptureVideoOrientation {
         return when (this) {
             Rotation.ROTATION_0 -> AVCaptureVideoOrientationPortrait
             Rotation.ROTATION_90 -> AVCaptureVideoOrientationLandscapeRight
@@ -183,10 +217,14 @@ actual class CameraController : UIViewController(nibName = null, bundle = null) 
         }
     }
 
-    private fun Directory.toNSSearchPathDirectory(): NSSearchPathDirectory {
+    private fun Directory.toNSSearchPathDirectory()
+            : NSSearchPathDirectory {
         return when (this) {
             Directory.PICTURES -> NSDocumentDirectory
             Directory.DCIM -> NSPicturesDirectory
         }
     }
 }
+
+
+

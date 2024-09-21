@@ -72,4 +72,11 @@ android {
 dependencies {
 
 }
+tasks.named("embedAndSignAppleFrameworkForXcode") {
+    doFirst {
+        if (gradle.startParameter.isConfigurationCacheRequested) {
+            throw GradleException("Configuration cache is not supported for this task")
+        }
+    }
+}
 

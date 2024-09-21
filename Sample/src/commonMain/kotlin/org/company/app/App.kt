@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -83,44 +84,52 @@ private fun CameraK(
     val flashMode = remember(controller.getFlashMode()) {
         controller.getFlashMode() == FlashMode.ON
     }
-    Box(modifier = Modifier.fillMaxSize()) {
+    Scaffold(modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
+        Box(modifier = Modifier.fillMaxSize()) {
 
-        CameraKPreview(
-            modifier = Modifier.fillMaxSize(),
-            cameraController = controller
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().align(Alignment.TopStart),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-
-            Switch(
-                checked = flashMode,
-                onCheckedChange = { controller.toggleFlashMode() }
+            CameraKPreview(
+                modifier = Modifier.fillMaxSize(),
+                cameraController = controller
             )
+            Row(
+                modifier = Modifier.fillMaxWidth().align(Alignment.TopStart),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
 
-            Button(onClick = { controller.toggleCameraLens() }) {
-                Text("Toggle Camera Lens")
-            }
-        }
+                Switch(
+                    checked = flashMode,
+                    onCheckedChange = { controller.toggleFlashMode() }
+                )
 
-        Button(onClick = {
-            scope.launch {
-                when (val result = controller.takePicture(ImageFormat.PNG)) {
-                    is ImageCaptureResult.Success -> {
-                        imageBitmap = result.image.decodeToImageBitmap()
-
-                        controller.savePicture("image.png", result.image, Directory.PICTURES)
-                    }
-
-                    is ImageCaptureResult.Error -> {
-                        println(result.exception.message ?: "Error")
-                    }
+                Button(onClick = { controller.toggleCameraLens() }) {
+                    Text("Toggle Camera Lens")
                 }
             }
 
-        }, modifier = Modifier.clip(CircleShape).align(Alignment.BottomCenter).padding(16.dp)) {
-            Text("Capture")
+            Button(onClick = {
+                scope.launch {
+                    when (val result = controller.takePicture(ImageFormat.PNG)) {
+                        is ImageCaptureResult.Success -> {
+                            imageBitmap = result.image.decodeToImageBitmap()
+                            controller.savePicture(result.path, result.image, Directory.PICTURES)
+                        }
+
+                        is ImageCaptureResult.Error -> {
+                            println(result.exception.message ?: "Error")
+                        }
+                    }
+                }
+
+            }, modifier = Modifier.clip(CircleShape).align(Alignment.BottomCenter).padding(16.dp)) {
+                Text("Capture")
+            }
+            imageBitmap?.let {
+                Image(bitmap = imageBitmap!!, contentDescription = null, modifier = Modifier.fillMaxSize())
+                LaunchedEffect(Unit) {
+                    imageBitmap = null
+                }
+            }
         }
     }
+
 }
