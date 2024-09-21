@@ -1,6 +1,6 @@
 # CameraK App
 
-[![Version](https://img.shields.io/github/v/release/kashif-e/camerak)](https://github.com/kashif-e/camerak/releases)
+[![Version](https://img.shields.io/github/v/release/kashif-e/camerak)](https://github.com/Kashif-E/CameraK/releases/tag/0.0.5)
 ## Overview
 
 The CameraK App is a sample application demonstrating the use of the CameraX library in a Jetpack Compose environment. It provides functionalities to capture images, toggle flash mode, and switch between front and back cameras.
