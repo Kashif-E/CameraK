@@ -19,6 +19,11 @@ The CameraK App is a sample application demonstrating the use of the CameraX lib
 ```Kotlin
 implementation("io.github.kashif-mehmood-km:camerak:+")
 ```
+## Supported Platforms
+
+- Android 
+- IOS
+- More will be added later
 
 ## Usage
 
@@ -95,6 +100,8 @@ private fun CameraK(
 }
 ```
 You can check the `Sample` for more details.
+
+
 
 ## License
 
