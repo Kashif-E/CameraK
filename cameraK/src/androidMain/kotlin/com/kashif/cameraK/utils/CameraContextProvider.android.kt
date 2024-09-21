@@ -1,4 +1,4 @@
-package com.kashif.cameraK
+package com.kashif.cameraK.utils
 
 import android.app.Application
 import android.content.Context
@@ -21,7 +21,7 @@ internal object AppContext {
     }
 
     fun get(): Context {
-        if (!::application.isInitialized) {
+        if (!AppContext::application.isInitialized) {
             throw Exception("Context is not initialized.")
         }
         return application.applicationContext

@@ -1,4 +1,4 @@
-package com.kashif.cameraK
+package com.kashif.cameraK.utils
 
 import androidx.compose.runtime.Composable
 
