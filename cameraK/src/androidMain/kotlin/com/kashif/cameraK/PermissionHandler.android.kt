@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -65,18 +66,22 @@ private fun Context.findAndroidActivity(): ComponentActivity? {
     var context = this
     while (context is ContextWrapper) {
         if (context is ComponentActivity) return context
-        context = (context as ContextWrapper).baseContext
+        context = context.baseContext
     }
     return null
 }
 
 actual fun checkStoragePermission(): Boolean {
     val context = AppContext.get()
-    val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
-    return ContextCompat.checkSelfPermission(
-        context,
-        permission
-    ) == PackageManager.PERMISSION_GRANTED
+
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        // handle using mediastore
+        true
+    } else {
+        // For Android 12 and below, check WRITE_EXTERNAL_STORAGE
+        val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+    }
 }
 
 
