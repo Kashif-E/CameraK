@@ -9,7 +9,7 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.28.0"
 }
 
-group = "com.kashif.camera_compose"
+group = "com.kashif.image_saver_plugin"
 version = "1.0"
 
 kotlin {
@@ -25,36 +25,23 @@ kotlin {
         iosSimulatorArm64(),
     ).forEach {
         it.binaries.framework {
-            baseName = "cameraK"
+            baseName = "imagesaverplugin"
             isStatic = true
         }
     }
 
     sourceSets {
         commonMain.dependencies {
-            api(libs.kotlinx.coroutines.core)
-            api(libs.kotlinx.coroutines.test)
-            api(libs.kermit)
-            api(compose.ui)
-            api(compose.foundation)
-            api(libs.coil3.compose)
-            api(libs.coil3.ktor)
+            api(projects.cameraK)
         }
 
         commonTest.dependencies {
-            api(kotlin("test"))
+            implementation(kotlin("test"))
 
         }
 
         androidMain.dependencies {
-            api(libs.kotlinx.coroutines.android)
-            api(libs.camera.core)
-            api(libs.camera.camera2)
-            api(libs.androidx.camera.view)
-            api(libs.camera.lifecycle)
-            api(libs.camera.extensions)
-            api(libs.androidx.activityCompose)
-            api(libs.androidx.startup.runtime)
+
         }
 
     }
@@ -67,7 +54,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.kashif.cameraK"
+    namespace = "com.kashif.image_saver_plugin"
     compileSdk = 34
 
     defaultConfig {
@@ -90,15 +77,15 @@ android {
 mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
-        artifactId = "camerak",
-        version = "0.0.6"
+        artifactId = "image_saver_plugin",
+        version = "0.0.1"
     )
 
 
 
     pom {
-        name.set("CameraK")
-        description.set("Camera Library to work on both Android/iOS.")
+        name.set("ImageSaverPlugin")
+        description.set("Image Saver Plugin for CameraK")
         inceptionYear.set("2024")
         url.set("https://github.com/kashif-e/CameraK")
 

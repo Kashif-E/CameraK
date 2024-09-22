@@ -1,4 +1,4 @@
-package com.kashif.cameraK.plugins.imageSaverPlugin
+package com.kashif.imageSaverPlugin
 
 import coil3.PlatformContext
 import com.kashif.cameraK.utils.toNSData

@@ -1,5 +1,5 @@
 rootProject.name = "CameraCompose"
-
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 pluginManagement {
     repositories {
         google {
@@ -30,5 +30,5 @@ dependencyResolutionManagement {
 }
 includeBuild("convention-plugins")
 include(":cameraK")
-
 include(":Sample")
+include(":ImageSaverPlugin")

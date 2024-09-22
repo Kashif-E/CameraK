@@ -37,11 +37,11 @@ import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.permissions.Permissions
 import com.kashif.cameraK.permissions.providePermissions
-import com.kashif.cameraK.plugins.imageSaverPlugin.ImageSaverConfig
-import com.kashif.cameraK.plugins.imageSaverPlugin.ImageSaverPlugin
-import com.kashif.cameraK.plugins.imageSaverPlugin.createImageSaverPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.ui.CameraPreview
+import com.kashif.imageSaverPlugin.ImageSaverConfig
+import com.kashif.imageSaverPlugin.ImageSaverPlugin
+import com.kashif.imageSaverPlugin.createImageSaverPlugin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.company.app.theme.AppTheme
