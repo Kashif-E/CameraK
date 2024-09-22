@@ -37,8 +37,8 @@ kotlin {
             implementation(libs.kermit)
             implementation(compose.ui)
             implementation(compose.foundation)
-            implementation(libs.coil3.compose)
-            implementation(libs.coil3.ktor)
+            api(libs.coil3.compose)
+            api(libs.coil3.ktor)
         }
 
         commonTest.dependencies {
@@ -54,7 +54,7 @@ kotlin {
             implementation(libs.camera.lifecycle)
             implementation(libs.camera.extensions)
             implementation(libs.androidx.activityCompose)
-            implementation (libs.androidx.startup.runtime)
+            implementation(libs.androidx.startup.runtime)
         }
 
     }

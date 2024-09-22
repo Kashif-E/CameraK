@@ -37,6 +37,9 @@ import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.permissions.Permissions
 import com.kashif.cameraK.permissions.providePermissions
+import com.kashif.cameraK.plugins.imageSaverPlugin.ImageSaverConfig
+import com.kashif.cameraK.plugins.imageSaverPlugin.ImageSaverPlugin
+import com.kashif.cameraK.plugins.imageSaverPlugin.createImageSaverPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.ui.CameraPreview
 import kotlinx.coroutines.delay
@@ -44,32 +47,51 @@ import kotlinx.coroutines.launch
 import org.company.app.theme.AppTheme
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.decodeToImageBitmap
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 @Composable
 fun App() = AppTheme {
     val permissions: Permissions = providePermissions()
-    val cameraPermissionState = remember { mutableStateOf(false) }
-    val storagePermissionState = remember { mutableStateOf(false) }
+
+
+    // Initialize Camera Permission State based on current permission status
+    val cameraPermissionState = remember {
+        mutableStateOf(
+            permissions.hasCameraPermission()
+        )
+    }
+
+    // Initialize Storage Permission State
+    val storagePermissionState = remember {
+        mutableStateOf(
+            permissions.hasStoragePermission()
+        )
+    }
     val cameraController = remember { mutableStateOf<CameraController?>(null) }
+    val imageSaverPlugin = createImageSaverPlugin(
+        config = ImageSaverConfig(
+            isAutoSave = false, // Set to true to enable automatic saving
+            prefix = "MyApp", // Prefix for image names when auto-saving
+            directory = Directory.PICTURES, // Directory to save images
+            customFolderName = "CustomFolder" // Custom folder name within the directory, only works on android for now
+        )
+    )
 
 
     if (!cameraPermissionState.value) {
-        permissions.RequestStoragePermission(
-            onGranted = { cameraPermissionState.value = true },
+        permissions.RequestStoragePermission(onGranted = { cameraPermissionState.value = true },
             onDenied = {
                 println("Camera Permission Denied")
-            }
-        )
+            })
     }
 
 
     if (!storagePermissionState.value) {
-        permissions.RequestStoragePermission(
-            onGranted = { storagePermissionState.value = true },
+        permissions.RequestStoragePermission(onGranted = { storagePermissionState.value = true },
             onDenied = {
                 println("Storage Permission Denied")
-            }
-        )
+            })
     }
 
     // Initialize CameraController only when permissions are granted
@@ -78,21 +100,18 @@ fun App() = AppTheme {
             modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.captionBar)
         ) { paddingValues ->
             Box {
-                CameraPreview(
-                    modifier = Modifier.fillMaxSize(),
-                    cameraConfiguration = {
-                        setCameraLens(CameraLens.BACK)
-                        setFlashMode(FlashMode.OFF)
-                        setImageFormat(ImageFormat.JPEG)
-                        setDirectory(Directory.PICTURES)
-                    },
-                    onCameraControllerReady = {
-                        // Use the CameraController instance
-                        cameraController.value = it
-                    }
-                )
-                cameraController.value?.let {
-                    CameraScreen(cameraController = cameraController.value!!)
+                CameraPreview(modifier = Modifier.fillMaxSize(), cameraConfiguration = {
+                    setCameraLens(CameraLens.BACK)
+                    setFlashMode(FlashMode.OFF)
+                    setImageFormat(ImageFormat.JPEG)
+                    setDirectory(Directory.PICTURES)
+                    addPlugin(imageSaverPlugin)
+                }, onCameraControllerReady = {
+                    // Use the CameraController instance
+                    cameraController.value = it
+                })
+                cameraController.value?.let { controller ->
+                    CameraScreen(cameraController = controller, imageSaverPlugin)
                 }
 
             }
@@ -101,20 +120,18 @@ fun App() = AppTheme {
     }
 }
 
-
-@OptIn(ExperimentalResourceApi::class)
+@OptIn(ExperimentalResourceApi::class, ExperimentalUuidApi::class)
 @Composable
-fun CameraScreen(cameraController: CameraController) {
+fun CameraScreen(cameraController: CameraController, imageSaverPlugin: ImageSaverPlugin) {
     val scope = rememberCoroutineScope()
     var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var isFlashOn by remember { mutableStateOf(false) }
-    val imageSaver: ImageSaver = provideImageSaver()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-
     ) {
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -135,6 +152,7 @@ fun CameraScreen(cameraController: CameraController) {
                 )
             }
 
+            // Camera Lens Toggle Button
             Button(onClick = { cameraController.toggleCameraLens() }) {
                 Text(text = "Toggle Lens")
             }
@@ -148,16 +166,18 @@ fun CameraScreen(cameraController: CameraController) {
                         is ImageCaptureResult.Success -> {
 
                             imageBitmap = result.byteArray.decodeToImageBitmap()
-                            // Save the captured image
-                            imageSaver.saveImage(
-                                byteArray = result.byteArray,
-                                imageFormat = ImageFormat.JPEG,
-                                directory = Directory.PICTURES
-                            )
+                            // If auto-save is disabled, manually save the image
+                            if (!imageSaverPlugin.config.isAutoSave) {
+                                // Generate a custom name or use default
+                                val customName = "Manual_${Uuid.random().toHexString()}"
+                                imageSaverPlugin.saveImage(
+                                    byteArray = result.byteArray,
+                                    imageName = customName
+                                )
+                            }
                         }
 
                         is ImageCaptureResult.Error -> {
-                            // Handle image capture error
                             println("Image Capture Error: ${result.exception.message}")
                         }
                     }
@@ -167,7 +187,7 @@ fun CameraScreen(cameraController: CameraController) {
                 .size(70.dp)
                 .clip(CircleShape)
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp)
+
         ) {
             Text(text = "Capture")
         }
@@ -183,7 +203,7 @@ fun CameraScreen(cameraController: CameraController) {
             )
 
             LaunchedEffect(bitmap) {
-                delay(300)
+                delay(3000)
                 imageBitmap = null
             }
         }

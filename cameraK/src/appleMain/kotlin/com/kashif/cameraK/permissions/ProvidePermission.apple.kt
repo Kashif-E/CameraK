@@ -2,10 +2,13 @@ package com.kashif.cameraK.permissions
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import platform.AVFoundation.AVAuthorizationStatusAuthorized
 import platform.AVFoundation.AVCaptureDevice
 import platform.AVFoundation.AVMediaTypeVideo
+import platform.AVFoundation.authorizationStatusForMediaType
 import platform.AVFoundation.requestAccessForMediaType
 import platform.Photos.PHAuthorizationStatusAuthorized
+import platform.Photos.PHAuthorizationStatusLimited
 import platform.Photos.PHPhotoLibrary
 
 /**
@@ -23,6 +26,23 @@ actual fun providePermissions(): Permissions {
 fun rememberIOSPermissions(): Permissions {
     return remember {
         object : Permissions {
+
+            /**
+             * Checks if the camera permission is granted.
+             */
+            override fun hasCameraPermission(): Boolean {
+                val status = AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)
+                return status == AVAuthorizationStatusAuthorized
+            }
+
+            /**
+             * Checks if the Photo Library access is granted or limited.
+             */
+            override fun hasStoragePermission(): Boolean {
+                val status = PHPhotoLibrary.authorizationStatus()
+                return status == PHAuthorizationStatusAuthorized || status == PHAuthorizationStatusLimited
+            }
+
             @Composable
             override fun RequestCameraPermission(onGranted: () -> Unit, onDenied: () -> Unit) {
                 AVCaptureDevice.requestAccessForMediaType(

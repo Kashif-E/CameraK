@@ -8,7 +8,6 @@ import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.enums.Rotation
 import com.kashif.cameraK.plugins.CameraPlugin
 
-expect class CameraControllerBuilderImpl() : CameraControllerBuilder
 /**
  * Builder interface for constructing a [CameraController] with customizable configurations and plugins.
  */

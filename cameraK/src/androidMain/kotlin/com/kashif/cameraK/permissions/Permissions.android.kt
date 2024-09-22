@@ -2,6 +2,7 @@ package com.kashif.cameraK.permissions
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
@@ -17,6 +18,26 @@ actual fun providePermissions(): Permissions {
 
     return remember {
         object : Permissions {
+            override fun hasCameraPermission(): Boolean {
+                return ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.CAMERA
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+
+            override fun hasStoragePermission(): Boolean {
+                return if (Build.VERSION.SDK_INT >= 32) {
+                    // Storage permission not required from API level 32 onwards
+                    true
+                } else {
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    ) == PackageManager.PERMISSION_GRANTED
+                }
+            }
+
+
             @Composable
             override fun RequestCameraPermission(onGranted: () -> Unit, onDenied: () -> Unit) {
                 val launcher = rememberLauncherForActivityResult(
@@ -37,9 +58,15 @@ actual fun providePermissions(): Permissions {
 
                 when (permissionStatus) {
                     PackageManager.PERMISSION_GRANTED -> onGranted()
-                    PackageManager.PERMISSION_DENIED -> launcher.launch(Manifest.permission.CAMERA)
+                    PackageManager.PERMISSION_DENIED -> {
+                        // Ensure that launcher.launch is called within a LaunchedEffect or similar
+                        LaunchedEffect(Unit) {
+                            launcher.launch(Manifest.permission.CAMERA)
+                        }
+                    }
                 }
             }
+
             @Composable
             override fun RequestStoragePermission(onGranted: () -> Unit, onDenied: () -> Unit) {
                 val launcher = rememberLauncherForActivityResult(
@@ -60,7 +87,11 @@ actual fun providePermissions(): Permissions {
 
                 when (permissionStatus) {
                     PackageManager.PERMISSION_GRANTED -> onGranted()
-                    PackageManager.PERMISSION_DENIED -> launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    PackageManager.PERMISSION_DENIED -> {
+                        LaunchedEffect(Unit) {
+                            launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        }
+                    }
                 }
             }
         }
