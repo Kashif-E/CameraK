@@ -1,5 +1,6 @@
 # CameraK App
 
+### The Library is very much WIP and is being redesigned in a seperate branch you can play around with it but dont use it in a critical project.
 [![Version](https://img.shields.io/github/v/release/kashif-e/camerak)](https://github.com/Kashif-E/CameraK/releases/tag/0.0.5)
 ## Overview
 
