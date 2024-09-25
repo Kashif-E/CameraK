@@ -7,12 +7,6 @@ import com.kashif.cameraK.result.ImageCaptureResult
  * Interface defining the core functionalities of the CameraController.
  */
 interface CameraController {
-    /**
-     * Binds the camera to the provided preview view.
-     *
-     * @param previewView The preview view to display the camera feed.
-     */
-    fun bindCamera(previewView: Any) // 'Any' can be replaced with platform-specific types using expect/actual
 
     /**
      * Captures an image.
@@ -54,4 +48,5 @@ interface CameraController {
      * @param listener The listener to add, receiving image data as [ByteArray].
      */
     fun addImageCaptureListener(listener: (ByteArray) -> Unit)
+    fun initializePlugins()
 }

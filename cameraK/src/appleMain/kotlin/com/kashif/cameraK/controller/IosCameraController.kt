@@ -1,82 +1,50 @@
 package com.kashif.cameraK.controller
 
-
-import com.kashif.cameraK.enums.CameraLens
-import com.kashif.cameraK.enums.Directory
-import com.kashif.cameraK.enums.FlashMode
-import com.kashif.cameraK.enums.ImageFormat
-import com.kashif.cameraK.enums.Rotation
+import com.kashif.cameraK.enums.*
+import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.utils.InvalidConfigurationException
 import com.kashif.cameraK.utils.toByteArray
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.AVFoundation.AVCaptureDevice
-import platform.AVFoundation.AVCaptureDeviceDiscoverySession
-import platform.AVFoundation.AVCaptureDeviceInput
-import platform.AVFoundation.AVCaptureDevicePositionBack
-import platform.AVFoundation.AVCaptureDevicePositionFront
-import platform.AVFoundation.AVCaptureDeviceTypeBuiltInWideAngleCamera
-import platform.AVFoundation.AVCaptureFlashMode
-import platform.AVFoundation.AVCaptureFlashModeAuto
-import platform.AVFoundation.AVCaptureFlashModeOff
-import platform.AVFoundation.AVCaptureFlashModeOn
-import platform.AVFoundation.AVCaptureInput
-import platform.AVFoundation.AVCapturePhoto
-import platform.AVFoundation.AVCapturePhotoCaptureDelegateProtocol
-import platform.AVFoundation.AVCapturePhotoOutput
-import platform.AVFoundation.AVCapturePhotoSettings
-import platform.AVFoundation.AVCaptureSession
-import platform.AVFoundation.AVCaptureVideoOrientation
-import platform.AVFoundation.AVCaptureVideoOrientationLandscapeLeft
-import platform.AVFoundation.AVCaptureVideoOrientationLandscapeRight
-import platform.AVFoundation.AVCaptureVideoOrientationPortrait
-import platform.AVFoundation.AVCaptureVideoOrientationPortraitUpsideDown
-import platform.AVFoundation.AVCaptureVideoPreviewLayer
-import platform.AVFoundation.AVLayerVideoGravityResizeAspectFill
-import platform.AVFoundation.AVMediaTypeVideo
-import platform.AVFoundation.fileDataRepresentation
+import kotlinx.coroutines.sync.Mutex
+import platform.AVFoundation.*
 import platform.Foundation.NSError
 import platform.UIKit.UIViewController
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import kotlin.experimental.ExperimentalObjCRefinement
 
-/**
- * iOS-specific implementation of [CameraController] using AVFoundation.
- *
- * @param flashMode The desired [FlashMode].
- * @param cameraLens The desired [CameraLens].
- * @param rotation The desired [Rotation].
- * @param imageFormat The desired [ImageFormat].
- * @param directory The desired [Directory] to save images.
- */
-class IOSCameraController(
-    private var flashMode: FlashMode,
-    private var cameraLens: CameraLens,
-    private var rotation: Rotation,
-    private var imageFormat: ImageFormat,
-    private var directory: Directory
-) : UIViewController(), CameraController {
+class IosCameraController(
+    internal var flashMode: FlashMode,
+    internal var cameraLens: CameraLens,
+    internal var rotation: Rotation,
+    internal var imageFormat: ImageFormat,
+    internal var directory: Directory,
+    internal var plugins: MutableList<CameraPlugin>
+) :  CameraController, UIViewController(null, null) {
 
     private val session = AVCaptureSession()
     private var photoOutput = AVCapturePhotoOutput()
     private var previewLayer: AVCaptureVideoPreviewLayer? = null
     private var imageCaptureListeners = mutableListOf<(ByteArray) -> Unit>()
+    private var metadataOutput = AVCaptureMetadataOutput()
+    private var metadataObjectsDelegate: AVCaptureMetadataOutputObjectsDelegateProtocol? = null
+    private val mutex = Mutex()
 
     override fun viewDidLoad() {
         super.viewDidLoad()
         setupCamera()
+        initializePlugins()
     }
 
     @OptIn(ExperimentalForeignApi::class)
     private fun setupCamera() {
         session.beginConfiguration()
 
-        // Select camera device
         val device = selectCameraDevice(cameraLens)
             ?: throw InvalidConfigurationException("Camera device not found.")
 
-        // Add input
         val input = try {
             AVCaptureDeviceInput.deviceInputWithDevice(device, null)
         } catch (e: Exception) {
@@ -89,21 +57,26 @@ class IOSCameraController(
             throw InvalidConfigurationException("Cannot add camera input to session.")
         }
 
-        // Add photo output
         if (session.canAddOutput(photoOutput)) {
             session.addOutput(photoOutput)
         } else {
             throw InvalidConfigurationException("Cannot add photo output to session.")
         }
 
+        if (session.canAddOutput(metadataOutput)) {
+            session.addOutput(metadataOutput)
+            metadataObjectsDelegate?.let { delegate ->
+                metadataOutput.setMetadataObjectsDelegate(delegate, null)
+            }
+            metadataOutput.metadataObjectTypes = listOf(AVMetadataObjectTypeQRCode)
+        }
+
         session.commitConfiguration()
 
-        // Setup preview layer
         previewLayer =
             AVCaptureVideoPreviewLayer.layerWithSession(session) as? AVCaptureVideoPreviewLayer
         previewLayer?.videoGravity = AVLayerVideoGravityResizeAspectFill
-        previewLayer?.connection()?.setVideoOrientation(rotation.toAVCaptureVideoOrientation())
-        previewLayer?.let { view.layer.addSublayer(it) }
+        view.layer.addSublayer(previewLayer!!)
     }
 
     private fun selectCameraDevice(lens: CameraLens): AVCaptureDevice? {
@@ -120,14 +93,9 @@ class IOSCameraController(
         return discoverySession.devices().firstOrNull() as AVCaptureDevice?
     }
 
-    @OptIn(ExperimentalForeignApi::class)
     override fun viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        previewLayer?.setFrame(view.bounds)
-    }
-
-    override fun bindCamera(previewView: Any) {
-        // No-op since iOS handles the preview internally
+        previewLayer?.frame = view.bounds
     }
 
     override suspend fun takePicture(): ImageCaptureResult = suspendCoroutine { cont ->
@@ -141,6 +109,8 @@ class IOSCameraController(
         )
     }
 
+
+
     override fun toggleFlashMode() {
         flashMode = when (flashMode) {
             FlashMode.OFF -> FlashMode.ON
@@ -149,39 +119,27 @@ class IOSCameraController(
         }
     }
 
-
-    @OptIn(ExperimentalForeignApi::class)
     override fun toggleCameraLens() {
-        // Implement camera lens switching by reconfiguring the session with a different device
         val newLens = if (cameraLens == CameraLens.BACK) CameraLens.FRONT else CameraLens.BACK
         cameraLens = newLens
 
         session.beginConfiguration()
-        // Remove existing input
         session.inputs().forEach { session.removeInput(it as AVCaptureInput) }
 
-        // Add new input
         val newDevice = selectCameraDevice(newLens)
             ?: throw InvalidConfigurationException("Camera device not found.")
 
         val newInput = try {
-            AVCaptureDeviceInput.deviceInputWithDevice(
-                newDevice,
-                null
-            )
+            AVCaptureDeviceInput.deviceInputWithDevice(newDevice, null)
         } catch (e: Exception) {
             throw InvalidConfigurationException("Failed to create camera input: ${e.message}")
         }
 
         if (newInput != null && session.canAddInput(newInput)) {
             session.addInput(newInput)
-        } else {
-            throw InvalidConfigurationException("Cannot add camera input to session.")
         }
 
-        // Update preview orientation
         previewLayer?.connection()?.setVideoOrientation(rotation.toAVCaptureVideoOrientation())
-
         session.commitConfiguration()
     }
 
@@ -191,29 +149,42 @@ class IOSCameraController(
     }
 
     override fun startSession() {
-        session.startRunning()
+        if (!session.isRunning()) {
+            session.startRunning()
+        }
     }
 
     override fun stopSession() {
-        session.stopRunning()
+        if (session.isRunning()) {
+            session.stopRunning()
+        }
     }
 
     override fun addImageCaptureListener(listener: (ByteArray) -> Unit) {
         imageCaptureListeners.add(listener)
     }
 
-    /**
-     * Converts [FlashMode] to [AVCaptureFlashMode].
-     */
+    fun setMetadataObjectsDelegate(delegate: AVCaptureMetadataOutputObjectsDelegateProtocol) {
+        metadataObjectsDelegate = delegate
+        metadataOutput.setMetadataObjectsDelegate(delegate, null)
+    }
+
+    override fun initializePlugins() {
+        plugins.forEach {
+            it.initialize(this)
+        }
+    }
+
+    fun getSession(): AVCaptureSession {
+        return session
+    }
+
     private fun FlashMode.toAVCaptureFlashMode(): AVCaptureFlashMode = when (this) {
         FlashMode.ON -> AVCaptureFlashModeOn
         FlashMode.OFF -> AVCaptureFlashModeOff
         FlashMode.AUTO -> AVCaptureFlashModeAuto
     }
 
-    /**
-     * Converts [Rotation] to [AVCaptureVideoOrientation].
-     */
     private fun Rotation.toAVCaptureVideoOrientation(): AVCaptureVideoOrientation = when (this) {
         Rotation.ROTATION_0 -> AVCaptureVideoOrientationPortrait
         Rotation.ROTATION_90 -> AVCaptureVideoOrientationLandscapeRight
@@ -221,18 +192,11 @@ class IOSCameraController(
         Rotation.ROTATION_270 -> AVCaptureVideoOrientationLandscapeLeft
     }
 
-    /**
-     * Delegate class for handling photo capture callbacks.
-     */
     private class PhotoCaptureDelegate(
         private val listeners: List<(ByteArray) -> Unit>,
         private val cont: kotlin.coroutines.Continuation<ImageCaptureResult>,
         private val imageFormat: ImageFormat
     ) : NSObject(), AVCapturePhotoCaptureDelegateProtocol {
-
-
-
-
         override fun captureOutput(
             output: AVCapturePhotoOutput,
             didFinishProcessingPhoto: AVCapturePhoto,
@@ -249,7 +213,6 @@ class IOSCameraController(
                 return
             }
 
-            // Convert NSData to ByteArray
             val byteArray = imageData.toByteArray()
             listeners.forEach { it(byteArray) }
             cont.resume(ImageCaptureResult.Success(byteArray))

@@ -1,7 +1,7 @@
 package com.kashif.cameraK.plugins
 
 import com.kashif.cameraK.controller.CameraController
-import com.kashif.cameraK.controller.IOSCameraController
+import com.kashif.cameraK.controller.IosCameraController
 
 /**
  * Plugin to add barcode scanning capabilities to the [CameraController] on iOS.
@@ -10,7 +10,7 @@ class BarcodeScannerPlugin : CameraPlugin {
 
     override fun initialize(cameraController: CameraController) {
         // Ensure the controller is of type IOSCameraController
-        if (cameraController !is IOSCameraController) {
+        if (cameraController !is IosCameraController) {
             throw IllegalArgumentException("BarcodeScannerPlugin is only compatible with IOSCameraController.")
         }
 

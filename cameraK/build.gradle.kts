@@ -55,6 +55,7 @@ kotlin {
             api(libs.camera.extensions)
             api(libs.androidx.activityCompose)
             api(libs.androidx.startup.runtime)
+            implementation ("com.google.zxing:core:3.4.1")
         }
 
     }

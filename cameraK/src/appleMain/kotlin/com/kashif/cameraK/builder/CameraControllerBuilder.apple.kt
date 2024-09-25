@@ -2,7 +2,7 @@ package com.kashif.cameraK.builder
 
 
 import com.kashif.cameraK.controller.CameraController
-import com.kashif.cameraK.controller.IOSCameraController
+import com.kashif.cameraK.controller.IosCameraController
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
@@ -54,27 +54,24 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
     }
 
     override fun build(): CameraController {
-        // Validate mandatory parameters
+
         val format = imageFormat ?: throw InvalidConfigurationException("ImageFormat must be set.")
         val dir = directory ?: throw InvalidConfigurationException("Directory must be set.")
 
-        // Validate configurations
-        if (flashMode == FlashMode.ON && cameraLens == CameraLens.FRONT) {
-            // Handle iOS-specific flash capabilities if necessary
-            // For simplicity, we'll allow it here but manage support within the controller
-        }
-
         // Initialize the iOS-specific CameraController
-        val cameraController = IOSCameraController(
+        val cameraController = IosCameraController(
             flashMode = flashMode,
             cameraLens = cameraLens,
             rotation = rotation,
             imageFormat = format,
-            directory = dir
+            directory = dir,
+            plugins = plugins
         )
 
-        // Initialize all plugins
-        plugins.forEach { it.initialize(cameraController) }
+        plugins.forEach {
+            it.initialize(cameraController)
+        }
+
 
         return cameraController
     }

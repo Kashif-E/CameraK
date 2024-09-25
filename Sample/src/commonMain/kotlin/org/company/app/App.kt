@@ -37,6 +37,8 @@ import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.permissions.Permissions
 import com.kashif.cameraK.permissions.providePermissions
+import com.kashif.cameraK.plugins.QRScannerPlugin
+import com.kashif.cameraK.plugins.createQRScannerPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.ui.CameraPreview
 import com.kashif.imageSaverPlugin.ImageSaverConfig
@@ -67,6 +69,9 @@ fun App() = AppTheme {
         mutableStateOf(
             permissions.hasStoragePermission()
         )
+    }
+    val qrScannerPlugin = createQRScannerPlugin {
+        println("QR Code Scanned: $it")
     }
     val cameraController = remember { mutableStateOf<CameraController?>(null) }
     val imageSaverPlugin = createImageSaverPlugin(
@@ -106,8 +111,8 @@ fun App() = AppTheme {
                     setImageFormat(ImageFormat.JPEG)
                     setDirectory(Directory.PICTURES)
                     addPlugin(imageSaverPlugin)
+                    addPlugin(qrScannerPlugin)
                 }, onCameraControllerReady = {
-                    // Use the CameraController instance
                     cameraController.value = it
                 })
                 cameraController.value?.let { controller ->

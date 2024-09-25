@@ -17,7 +17,7 @@ import com.kashif.cameraK.controller.CameraController
 fun CameraPreview(
     modifier: Modifier = Modifier,
     cameraConfiguration: CameraControllerBuilder.() -> Unit,
-    onCameraControllerReady: (CameraController) -> Unit
+    onCameraControllerReady: (CameraController) -> Unit,
 ) {
     expectCameraPreview(modifier, cameraConfiguration, onCameraControllerReady)
 }

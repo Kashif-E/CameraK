@@ -3,7 +3,6 @@ package com.kashif.cameraK.builder
 import com.kashif.cameraK.utils.InvalidConfigurationException
 import android.content.Context
 import androidx.lifecycle.LifecycleOwner
-import coil3.PlatformContext
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.controller.AndroidCameraController
 import com.kashif.cameraK.enums.CameraLens
@@ -63,16 +62,14 @@ class AndroidCameraControllerBuilder(
     }
 
     override fun build(): CameraController {
-        // Validate mandatory parameters
+
         val format = imageFormat ?: throw InvalidConfigurationException("ImageFormat must be set.")
         val dir = directory ?: throw InvalidConfigurationException("Directory must be set.")
 
-        // Validate configurations
+
         if (flashMode == FlashMode.ON && cameraLens == CameraLens.FRONT) {
             throw InvalidConfigurationException("Flash mode ON is not supported with the front camera.")
         }
-
-        // Initialize the Android-specific CameraController
         val cameraController = AndroidCameraController(
             context = context,
             lifecycleOwner = lifecycleOwner,
@@ -80,11 +77,9 @@ class AndroidCameraControllerBuilder(
             cameraLens = cameraLens,
             rotation = rotation,
             imageFormat = format,
-            directory = dir
+            directory = dir,
+            plugins = plugins
         )
-
-        // Initialize all plugins
-        plugins.forEach { it.initialize(cameraController) }
 
         return cameraController
     }

@@ -19,7 +19,7 @@ fun NSData.toByteArray()
     return ByteArray(this.length.toInt()) { i -> bytes!![i] }
 }
 
-@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
+@OptIn(ExperimentalForeignApi::class)
 fun ByteArray.toNSData(): NSData? = memScoped {
     val string = NSString.create(string = this@toNSData.decodeToString())
     return string.dataUsingEncoding(NSUTF8StringEncoding)

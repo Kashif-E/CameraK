@@ -1,15 +1,19 @@
 package com.kashif.cameraK.ui
 
+import android.view.WindowInsets.Side
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.kashif.cameraK.builder.CameraControllerBuilder
 import com.kashif.cameraK.builder.createAndroidCameraControllerBuilder
+import com.kashif.cameraK.controller.AndroidCameraController
 import com.kashif.cameraK.controller.CameraController
 
 /**
@@ -28,16 +32,11 @@ actual fun expectCameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
-
+    val isCameraReady = remember { mutableStateOf(false) }
     val cameraController = remember {
         createAndroidCameraControllerBuilder(context, lifecycleOwner)
             .apply(cameraConfiguration)
-            .build()
-    }
-
-    // Invoke the callback to provide the CameraController to the parent composable
-    LaunchedEffect(cameraController) {
-        onCameraControllerReady(cameraController)
+            .build() as AndroidCameraController
     }
 
     val previewView = remember { PreviewView(context) }
@@ -49,9 +48,21 @@ actual fun expectCameraPreview(
         }
     }
 
+    LaunchedEffect(isCameraReady) {
+        if (isCameraReady.value) {
+            onCameraControllerReady(cameraController)
+        }
+
+    }
+
 
     AndroidView(
         factory = { previewView },
-        modifier = modifier
+        modifier = modifier,
+        update = {
+            isCameraReady.value = true
+        }
     )
+
 }
+

@@ -34,6 +34,7 @@ actual fun expectCameraPreview(
     // Invoke the callback to provide the CameraController to the parent composable
     LaunchedEffect(cameraController) {
         onCameraControllerReady(cameraController)
+        cameraController.initializePlugins()
     }
 
 
