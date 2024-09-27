@@ -1,4 +1,4 @@
-package com.kashif.cameraK.plugins
+package com.kashif.qrscannerplugin
 
 import android.graphics.ImageFormat
 import android.util.Log

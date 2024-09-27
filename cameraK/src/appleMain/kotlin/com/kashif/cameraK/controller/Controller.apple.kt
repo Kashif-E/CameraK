@@ -8,23 +8,15 @@ import com.kashif.cameraK.enums.Rotation
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.utils.toByteArray
-import kotlinx.cinterop.BetaInteropApi
-import kotlinx.cinterop.ByteVar
+import com.kashif.cameraK.utils.toUIImage
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.addressOf
-import kotlinx.cinterop.get
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.usePinned
+import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.AVFoundation.*
-import platform.Foundation.NSData
-import platform.Foundation.create
+import platform.UIKit.UIImageJPEGRepresentation
+import platform.UIKit.UIImagePNGRepresentation
 import platform.UIKit.UIViewController
-import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
-import platform.darwin.dispatch_async
-import platform.darwin.dispatch_get_global_queue
 import platform.darwin.dispatch_get_main_queue
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 actual class CameraController(
     internal var flashMode: FlashMode,
@@ -89,17 +81,41 @@ actual class CameraController(
         customCameraController.cameraPreviewLayer?.setFrame(view.bounds)
     }
 
-    actual suspend fun takePicture(): ImageCaptureResult = suspendCoroutine { cont ->
+    actual suspend fun takePicture(): ImageCaptureResult =  suspendCancellableCoroutine { continuation ->
+       customCameraController.onPhotoCapture = { image ->
+            if (image != null) {
+                when (imageFormat) {
+                    ImageFormat.JPEG -> {
+                        UIImageJPEGRepresentation(image.toUIImage(), 0.9)?.toByteArray()?.let { imageData ->
+                            continuation.resume(
+                                ImageCaptureResult.Success(
+                                    imageData,
+                                )
+                            )
+
+                        }
+                    }
+
+                    ImageFormat.PNG -> {
+                        UIImagePNGRepresentation(image.toUIImage())?.toByteArray()?.let { imageData ->
+                            continuation.resume(
+                                ImageCaptureResult.Success(
+                                    imageData,
+                                )
+                            )
+
+                        }
+                    }
+
+                    else -> {
+                        continuation.resume(ImageCaptureResult.Error(Exception("Failed to capture image")))
+                    }
+                }
+            } else {
+                continuation.resume(ImageCaptureResult.Error(Exception("Failed to capture image")))
+            }
+        }
         customCameraController.captureImage()
-
-        customCameraController.onPhotoCapture = { image ->
-            val byteArray = image?.toByteArray() ?: byteArrayOf()
-            cont.resume(ImageCaptureResult.Success(byteArray))
-        }
-
-        customCameraController.onError = { error ->
-            cont.resume(ImageCaptureResult.Error(error))
-        }
     }
 
     actual fun toggleFlashMode() {
@@ -158,14 +174,4 @@ actual class CameraController(
     }
 }
 
-@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-private fun ByteArray.toNSData(): NSData = usePinned {
-    NSData.create(bytes = it.addressOf(0), length = size.toULong())
-}
 
-@OptIn(ExperimentalForeignApi::class)
-
-private fun NSData.toByteArray(): ByteArray {
-    val bytes = this.bytes?.reinterpret<ByteVar>()
-    return ByteArray(this.length.toInt()) { i -> bytes!![i] }
-}

@@ -185,6 +185,8 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
 
         val imageData = didFinishProcessingPhoto.fileDataRepresentation()
 
+        println("image data $imageData")
+
         onPhotoCapture?.invoke(imageData)
     }
 }

@@ -1,8 +1,9 @@
-package com.kashif.cameraK.plugins
+package com.kashif.qrscannerplugin
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.kashif.cameraK.controller.CameraController
+import com.kashif.cameraK.plugins.CameraPlugin
 
 /**
  * A plugin for scanning QR codes using the camera.

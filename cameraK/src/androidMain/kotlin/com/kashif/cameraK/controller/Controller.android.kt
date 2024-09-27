@@ -42,11 +42,11 @@ import kotlin.coroutines.resume
  * @param directory The desired [Directory] to save images.
  */
 actual class CameraController(
-    internal val context: Context,
+    val context: Context,
     val lifecycleOwner: LifecycleOwner,
     internal var flashMode: FlashMode,
     internal var cameraLens: CameraLens,
-    internal var rotation: Rotation,
+    var rotation: Rotation,
     internal var imageFormat: ImageFormat,
     internal var directory: Directory,
     internal var plugins: MutableList<CameraPlugin>

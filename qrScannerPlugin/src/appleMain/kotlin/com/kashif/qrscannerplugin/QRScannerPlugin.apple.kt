@@ -1,4 +1,4 @@
-package com.kashif.cameraK.plugins
+package com.kashif.qrscannerplugin
 
 
 import com.kashif.cameraK.controller.CameraController
