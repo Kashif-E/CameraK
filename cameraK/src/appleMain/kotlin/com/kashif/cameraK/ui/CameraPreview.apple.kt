@@ -9,7 +9,6 @@ import androidx.compose.ui.viewinterop.UIKitViewController
 import com.kashif.cameraK.builder.CameraControllerBuilder
 import com.kashif.cameraK.builder.createIOSCameraControllerBuilder
 import com.kashif.cameraK.controller.CameraController
-import platform.UIKit.UIViewController
 
 /**
  * iOS-specific implementation of [CameraPreview].
@@ -31,15 +30,15 @@ actual fun expectCameraPreview(
             .build()
     }
 
-    // Invoke the callback to provide the CameraController to the parent composable
+
     LaunchedEffect(cameraController) {
         onCameraControllerReady(cameraController)
-        cameraController.initializePlugins()
     }
 
 
     UIKitViewController(
-        factory = { cameraController as UIViewController },
-        modifier = modifier
+        factory = { cameraController },
+        modifier = modifier,
+
     )
 }

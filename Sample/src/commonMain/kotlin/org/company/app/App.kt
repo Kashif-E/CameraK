@@ -114,6 +114,8 @@ fun App() = AppTheme {
                     addPlugin(qrScannerPlugin)
                 }, onCameraControllerReady = {
                     cameraController.value = it
+                    println("Camera Controller Ready ${cameraController.value}")
+                    qrScannerPlugin.startScanning()
                 })
                 cameraController.value?.let { controller ->
                     CameraScreen(cameraController = controller, imageSaverPlugin)

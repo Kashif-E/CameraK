@@ -4,7 +4,6 @@ import com.kashif.cameraK.utils.InvalidConfigurationException
 import android.content.Context
 import androidx.lifecycle.LifecycleOwner
 import com.kashif.cameraK.controller.CameraController
-import com.kashif.cameraK.controller.AndroidCameraController
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
@@ -70,7 +69,7 @@ class AndroidCameraControllerBuilder(
         if (flashMode == FlashMode.ON && cameraLens == CameraLens.FRONT) {
             throw InvalidConfigurationException("Flash mode ON is not supported with the front camera.")
         }
-        val cameraController = AndroidCameraController(
+        val cameraController = CameraController(
             context = context,
             lifecycleOwner = lifecycleOwner,
             flashMode = flashMode,
@@ -80,6 +79,10 @@ class AndroidCameraControllerBuilder(
             directory = dir,
             plugins = plugins
         )
+        plugins.forEach {
+            it.initialize(cameraController)
+        }
+
 
         return cameraController
     }

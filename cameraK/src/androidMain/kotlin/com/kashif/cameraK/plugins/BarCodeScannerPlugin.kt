@@ -9,9 +9,6 @@ class BarcodeScannerPlugin : CameraPlugin {
 
     override fun initialize(cameraController: CameraController) {
 
-        if (cameraController !is com.kashif.cameraK.controller.AndroidCameraController) {
-            throw IllegalArgumentException("BarcodeScannerPlugin is only compatible with AndroidCameraController.")
-        }
         cameraController.addImageCaptureListener { byteArray ->
             // Perform barcode scanning on the captured image
             val barcode = scanBarcode(byteArray)

@@ -6,7 +6,7 @@ import com.kashif.cameraK.result.ImageCaptureResult
 /**
  * Interface defining the core functionalities of the CameraController.
  */
-interface CameraController {
+expect class CameraController {
 
     /**
      * Captures an image.
@@ -48,5 +48,5 @@ interface CameraController {
      * @param listener The listener to add, receiving image data as [ByteArray].
      */
     fun addImageCaptureListener(listener: (ByteArray) -> Unit)
-    fun initializePlugins()
+    fun initializeControllerPlugins()
 }

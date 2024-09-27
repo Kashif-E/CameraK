@@ -3,6 +3,7 @@ package com.kashif.cameraK.plugins
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.kashif.cameraK.controller.CameraController
+
 /**
  * A plugin for scanning QR codes using the camera.
  *
@@ -21,8 +22,8 @@ class QRScannerPlugin(
      * @param cameraController The CameraController to be used for scanning.
      */
     override fun initialize(cameraController: CameraController) {
+        println("QRScannerPlugin initialized")
         this.cameraController = cameraController
-
     }
 
     /**
@@ -30,7 +31,7 @@ class QRScannerPlugin(
      *
      * @throws IllegalStateException If the CameraController is not initialized.
      */
-    private fun startScanning() {
+    fun startScanning() {
         if (isScanning) return
         isScanning = true
         cameraController?.let {

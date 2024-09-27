@@ -9,11 +9,10 @@ import com.google.zxing.BinaryBitmap
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
-import com.kashif.cameraK.controller.AndroidCameraController
 import androidx.camera.core.ExperimentalGetImage
 import com.kashif.cameraK.controller.CameraController
 
-fun AndroidCameraController.enableQrCodeScanner(onQrScanner: (String) -> Unit) {
+fun CameraController.enableQrCodeScanner(onQrScanner: (String) -> Unit) {
     Log.e("QRScanner", "Enabling QR code scanner")
     imageAnalyzer = ImageAnalysis.Builder()
         .setTargetRotation(rotation.toSurfaceRotation())
@@ -66,5 +65,5 @@ actual fun startScanning(
     onQrScanner: (String) -> Unit
 ) {
     Log.e("QRScanner", "startScanning called")
-    (controller as AndroidCameraController).enableQrCodeScanner(onQrScanner)
+    controller.enableQrCodeScanner(onQrScanner)
 }

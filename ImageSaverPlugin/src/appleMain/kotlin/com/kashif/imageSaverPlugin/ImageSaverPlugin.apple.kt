@@ -35,37 +35,37 @@ class IOSImageSaverPlugin(
             }
             UIImageWriteToSavedPhotosAlbum(
                 image,
-                SaveCallback(onImageSaved, onImageSavedFailed),
+             nil,
                 null,
                 null
             )
         }
     }
 
-    /**
-     * Helper class to handle UIImageWriteToSavedPhotosAlbum callbacks.
-     */
-    private class SaveCallback(
-        private val onSuccess: () -> Unit,
-        private val onError: (String) -> Unit
-    ) : NSObject() {
-
-        @OptIn(ExperimentalForeignApi::class)
-        @ObjCAction
-        fun image_didFinishSavingWithError_contextInfo(
-            image: UIImage,
-            error: NSError?,
-            contextInfo: COpaquePointer?
-        ) {
-            if (error == null) {
-                println("Image saved to Photo Library.")
-                onSuccess()
-            } else {
-                println("Failed to save image: ${error.localizedDescription}")
-                onError(error.localizedDescription ?: "Unknown error")
-            }
-        }
-    }
+//    /**
+//     * Helper class to handle UIImageWriteToSavedPhotosAlbum callbacks.
+//     */
+//    private class SaveCallback(
+//        private val onSuccess: () -> Unit,
+//        private val onError: (String) -> Unit
+//    ) : NSObject() {
+//
+//        @OptIn(ExperimentalForeignApi::class)
+//        @ObjCAction
+//        fun image_didFinishSavingWithError_contextInfo(
+//            image: UIImage,
+//            error: NSError?,
+//            contextInfo: COpaquePointer?
+//        ) {
+//            if (error == null) {
+//                println("Image saved to Photo Library.")
+//                onSuccess()
+//            } else {
+//                println("Failed to save image: ${error.localizedDescription}")
+//                onError(error.localizedDescription ?: "Unknown error")
+//            }
+//        }
+//    }
 }
 
 /**

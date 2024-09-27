@@ -2,7 +2,6 @@ package com.kashif.cameraK.builder
 
 
 import com.kashif.cameraK.controller.CameraController
-import com.kashif.cameraK.controller.IosCameraController
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
@@ -59,7 +58,7 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
         val dir = directory ?: throw InvalidConfigurationException("Directory must be set.")
 
         // Initialize the iOS-specific CameraController
-        val cameraController = IosCameraController(
+        val cameraController = CameraController(
             flashMode = flashMode,
             cameraLens = cameraLens,
             rotation = rotation,
@@ -67,11 +66,6 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
             directory = dir,
             plugins = plugins
         )
-
-        plugins.forEach {
-            it.initialize(cameraController)
-        }
-
 
         return cameraController
     }

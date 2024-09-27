@@ -1,11 +1,9 @@
 package com.kashif.cameraK.ui
 
-import android.view.WindowInsets.Side
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -13,7 +11,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.kashif.cameraK.builder.CameraControllerBuilder
 import com.kashif.cameraK.builder.createAndroidCameraControllerBuilder
-import com.kashif.cameraK.controller.AndroidCameraController
 import com.kashif.cameraK.controller.CameraController
 
 /**
@@ -36,33 +33,27 @@ actual fun expectCameraPreview(
     val cameraController = remember {
         createAndroidCameraControllerBuilder(context, lifecycleOwner)
             .apply(cameraConfiguration)
-            .build() as AndroidCameraController
+            .build()
     }
+
 
     val previewView = remember { PreviewView(context) }
 
     DisposableEffect(previewView) {
-        cameraController.bindCamera(previewView)
+        cameraController.bindCamera(previewView) {
+            onCameraControllerReady(cameraController)
+        }
         onDispose {
             cameraController.stopSession()
         }
     }
 
-    LaunchedEffect(isCameraReady) {
-        if (isCameraReady.value) {
-            onCameraControllerReady(cameraController)
-        }
-
-    }
 
 
     AndroidView(
         factory = { previewView },
         modifier = modifier,
-        update = {
-            isCameraReady.value = true
-        }
-    )
+
+        )
 
 }
-

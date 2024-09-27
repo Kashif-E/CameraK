@@ -3,7 +3,13 @@ package com.kashif.cameraK.controller
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.camera.core.*
+import androidx.camera.core.Camera
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
+import androidx.camera.core.UseCase
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -20,14 +26,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 import kotlin.coroutines.resume
 
-
-interface CameraSetupListener {
-    fun onCameraSetupComplete()
-    fun onCameraSetupError(exception: Exception)
-}
 /**
  * Android-specific implementation of [CameraController] using CameraX.
  *
@@ -39,7 +41,7 @@ interface CameraSetupListener {
  * @param imageFormat The desired [ImageFormat].
  * @param directory The desired [Directory] to save images.
  */
-class AndroidCameraController(
+actual class CameraController(
     internal val context: Context,
     val lifecycleOwner: LifecycleOwner,
     internal var flashMode: FlashMode,
@@ -48,7 +50,7 @@ class AndroidCameraController(
     internal var imageFormat: ImageFormat,
     internal var directory: Directory,
     internal var plugins: MutableList<CameraPlugin>
-) : CameraController {
+) {
 
     var cameraProvider: ProcessCameraProvider? = null
     var imageCapture: ImageCapture? = null
@@ -56,15 +58,14 @@ class AndroidCameraController(
     var camera: Camera? = null
     var imageAnalyzer: ImageAnalysis? = null
 
-
     private val imageCaptureListeners = mutableListOf<(ByteArray) -> Unit>()
 
-    fun bindCamera(previewView: PreviewView) {
+    fun bindCamera(previewView: PreviewView, onCameraReady: () -> Unit = {}) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
             try {
                 cameraProvider = cameraProviderFuture.get()
-                cameraProvider?.unbindAll() // Unbind previous use cases
+                cameraProvider?.unbindAll()
 
                 preview = Preview.Builder()
                     .setTargetRotation(rotation.toSurfaceRotation())
@@ -85,18 +86,17 @@ class AndroidCameraController(
                     .build()
 
                 // Setup ImageAnalysis Use Case only if needed
-                val useCases = mutableListOf<UseCase>(preview!!, imageCapture!!)
+                val useCases = mutableListOf(preview!!, imageCapture!!)
                 imageAnalyzer?.let { useCases.add(it) }
 
-                // Bind the selected use cases to lifecycle
+
                 camera = cameraProvider?.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
                     *useCases.toTypedArray()
                 )
 
-                // Notify the listener that the camera is set up
-                initializePlugins()
+                onCameraReady()
 
             } catch (exc: Exception) {
                 println("Use case binding failed: ${exc.message}")
@@ -111,25 +111,16 @@ class AndroidCameraController(
             imageAnalyzer?.let { analyzer ->
                 cameraProvider?.bindToLifecycle(
                     lifecycleOwner,
-                    CameraSelector.Builder().requireLensFacing(cameraLens.toCameraXLensFacing()).build(),
+                    CameraSelector.Builder().requireLensFacing(cameraLens.toCameraXLensFacing())
+                        .build(),
                     analyzer // Only bind the analyzer without touching the rest of the setup
                 )
             }
         } ?: throw InvalidConfigurationException("Camera not initialized.")
     }
 
-    /**
-     * Set or update the ImageAnalyzer. This will automatically restart the camera
-     * to apply the new configuration.
-     */
-    fun setImageAnalyzer() {
-        // Restart the camera to bind the new analyzer
-        bindCamera(preview?.let { PreviewView(context) }
-            ?: throw InvalidConfigurationException("PreviewView not initialized."))
-    }
 
-
-    override suspend fun takePicture(): ImageCaptureResult =
+    actual suspend fun takePicture(): ImageCaptureResult =
         suspendCancellableCoroutine { cont ->
             val outputOptions = ImageCapture.OutputFileOptions.Builder(createTempFile()).build()
 
@@ -173,7 +164,7 @@ class AndroidCameraController(
                 ?: cont.resume(ImageCaptureResult.Error(Exception("ImageCapture use case is not initialized.")))
         }
 
-    override fun toggleFlashMode() {
+    actual fun toggleFlashMode() {
         flashMode = when (flashMode) {
             FlashMode.OFF -> FlashMode.ON
             FlashMode.ON -> FlashMode.AUTO
@@ -182,31 +173,31 @@ class AndroidCameraController(
         imageCapture?.flashMode = flashMode.toCameraXFlashMode()
     }
 
-    override fun toggleCameraLens() {
+    actual fun toggleCameraLens() {
         cameraLens = if (cameraLens == CameraLens.BACK) CameraLens.FRONT else CameraLens.BACK
         bindCamera(preview?.let { PreviewView(context) }
             ?: throw InvalidConfigurationException("PreviewView not initialized."))
     }
 
-    override fun setCameraRotation(rotation: Rotation) {
+    actual fun setCameraRotation(rotation: Rotation) {
         this.rotation = rotation
         imageCapture?.targetRotation = rotation.toSurfaceRotation()
         preview?.targetRotation = rotation.toSurfaceRotation()
     }
 
-    override fun startSession() {
+    actual fun startSession() {
         // CameraX handles session start based on lifecycle
     }
 
-    override fun stopSession() {
+    actual fun stopSession() {
         cameraProvider?.unbindAll()
     }
 
-    override fun addImageCaptureListener(listener: (ByteArray) -> Unit) {
+    actual fun addImageCaptureListener(listener: (ByteArray) -> Unit) {
         imageCaptureListeners.add(listener)
     }
 
-    override fun initializePlugins() {
+    actual fun initializeControllerPlugins() {
         plugins.forEach { it.initialize(this) }
     }
 
