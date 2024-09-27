@@ -11,13 +11,6 @@ import platform.Photos.PHAuthorizationStatusAuthorized
 import platform.Photos.PHAuthorizationStatusLimited
 import platform.Photos.PHPhotoLibrary
 
-/**
- * iOS-specific implementation of [Permissions].
- */
-@Composable
-actual fun providePermissions(): Permissions {
-    return rememberIOSPermissions()
-}
 
 /**
  * Helper function to create and remember the IOSPermissions instance.
@@ -68,4 +61,12 @@ fun rememberIOSPermissions(): Permissions {
             }
         }
     }
+}
+
+/**
+ * Factory function to provide platform-specific [Permissions] implementation.
+ */
+@Composable
+actual fun providePermissions(): Permissions {
+    return rememberIOSPermissions()
 }

@@ -1,23 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-feature android:name="android.hardware.camera" android:required="false"/>
-    <uses-permission android:name="android.permission.CAMERA"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-feature android:name="android.hardware.camera" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
     <application
-            android:name=".Application"
-            android:icon="@android:drawable/ic_menu_compass"
-            android:label="CameraSample"
-            android:theme="@android:style/Theme.Material.NoActionBar">
+        android:name=".Application"
+        android:icon="@android:drawable/ic_menu_compass"
+        android:label="CameraSample"
+        android:theme="@android:style/Theme.Material.NoActionBar">
         <activity
-                android:name=".AppActivity"
-                android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-                android:launchMode="singleInstance"
-                android:windowSoftInputMode="adjustPan"
-                android:exported="true">
+            android:name=".AppActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:exported="true"
+            android:launchMode="singleInstance"
+            android:windowSoftInputMode="adjustPan">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
     </application>

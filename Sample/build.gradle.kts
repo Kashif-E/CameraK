@@ -36,6 +36,7 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(projects.cameraK)
             implementation(projects.imageSaverPlugin)
+            implementation(projects.qrScannerPlugin)
         }
 
         commonTest.dependencies {

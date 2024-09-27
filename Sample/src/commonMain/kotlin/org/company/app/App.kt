@@ -37,13 +37,12 @@ import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.permissions.Permissions
 import com.kashif.cameraK.permissions.providePermissions
-import com.kashif.cameraK.plugins.QRScannerPlugin
-import com.kashif.cameraK.plugins.createQRScannerPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.ui.CameraPreview
 import com.kashif.imageSaverPlugin.ImageSaverConfig
 import com.kashif.imageSaverPlugin.ImageSaverPlugin
 import com.kashif.imageSaverPlugin.createImageSaverPlugin
+import com.kashif.qrscannerplugin.createQRScannerPlugin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.company.app.theme.AppTheme
@@ -177,6 +176,7 @@ fun CameraScreen(cameraController: CameraController, imageSaverPlugin: ImageSave
                             if (!imageSaverPlugin.config.isAutoSave) {
                                 // Generate a custom name or use default
                                 val customName = "Manual_${Uuid.random().toHexString()}"
+
                                 imageSaverPlugin.saveImage(
                                     byteArray = result.byteArray,
                                     imageName = customName

@@ -24,23 +24,33 @@ class IOSImageSaverPlugin(
 
     @OptIn(ExperimentalForeignApi::class)
     override suspend fun saveImage(byteArray: ByteArray, imageName: String?) {
-        withContext(Dispatchers.Main) {
-            val image = UIImage.imageWithData(
-                byteArray.toNSData()!!
-            )
-            if (image == null) {
-                println("Failed to convert ByteArray to UIImage.")
-                onImageSavedFailed("Failed to create image from data.")
-                return@withContext
-            }
-            UIImageWriteToSavedPhotosAlbum(
-                image,
-             nil,
-                null,
-                null
-            )
+        //    withContext(Dispatchers.Main) {
+        val nsData = byteArray.toNSData()
+
+        if (nsData == null) {
+            println("Failed to convert ByteArray to NSData.")
+            onImageSavedFailed("Failed to convert ByteArray to NSData.")
+            return
         }
+
+
+        val image = UIImage.imageWithData(nsData)
+
+
+        if (image == null) {
+            println("Failed to convert NSData to UIImage.")
+            onImageSavedFailed("Failed to create UIImage from NSData.")
+            return
+        }
+
+        UIImageWriteToSavedPhotosAlbum(
+            image, null, null, null
+        )
+
+        println("Image successfully saved to Photos album.")
+        println("Image saved successfully.")
     }
+}
 
 //    /**
 //     * Helper class to handle UIImageWriteToSavedPhotosAlbum callbacks.
@@ -66,7 +76,7 @@ class IOSImageSaverPlugin(
 //            }
 //        }
 //    }
-}
+
 
 /**
  * Factory function to create an iOS-specific [ImageSaverPlugin].
@@ -76,19 +86,14 @@ class IOSImageSaverPlugin(
  */
 
 actual fun createPlatformImageSaverPlugin(
-    context: PlatformContext,
-    config: ImageSaverConfig
+    context: PlatformContext, config: ImageSaverConfig
 ): ImageSaverPlugin {
 
-    return IOSImageSaverPlugin(
-        config = config,
-        onImageSaved = {
+    return IOSImageSaverPlugin(config = config, onImageSaved = {
 
-            println("Image saved successfully!")
-        },
-        onImageSavedFailed = { errorMessage ->
+        println("Image saved successfully!")
+    }, onImageSavedFailed = { errorMessage ->
 
-            println("Failed to save image: $errorMessage")
-        }
-    )
+        println("Failed to save image: $errorMessage")
+    })
 }
