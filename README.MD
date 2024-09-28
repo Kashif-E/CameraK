@@ -35,7 +35,7 @@ implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.0.1")
 if you want to add QR scanning capability then you need the QR scanner plugin:
 
 ```Kotlin
-implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.0.1")
+implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.0.2")
 ```
 
 ## Supported Platforms
@@ -132,7 +132,6 @@ LaunchedEffect(Unit) {
             snackbarHostState.showSnackbar("QR Code Detected flow: $qrCode")
             qrScannerPlugin.pauseScanning()
         }
-}
 }
 ```
 
