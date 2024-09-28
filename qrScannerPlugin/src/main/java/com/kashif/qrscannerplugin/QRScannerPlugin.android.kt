@@ -11,6 +11,7 @@ import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import androidx.camera.core.ExperimentalGetImage
 import com.kashif.cameraK.controller.CameraController
+import kotlinx.atomicfu.AtomicBoolean
 
 fun CameraController.enableQrCodeScanner(onQrScanner: (String) -> Unit) {
     Log.e("QRScanner", "Enabling QR code scanner")
@@ -50,8 +51,7 @@ private class QRCodeAnalyzer(private val onQrScanner: (String) -> Unit) : ImageA
 
         try {
             val result = reader.decode(bitmap)
-            Log.e("QRScanner", "QR Code detected: ${result.text}")
-            onQrScanner(result.text)
+           onQrScanner(result.text)
         } catch (e: Exception) {
             Log.e("QRScanner", "No QR Code detected: ${e.message}")
         } finally {

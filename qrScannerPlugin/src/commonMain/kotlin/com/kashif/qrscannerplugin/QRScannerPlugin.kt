@@ -4,18 +4,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.plugins.CameraPlugin
+import kotlinx.atomicfu.AtomicBoolean
+import kotlinx.atomicfu.atomic
 
 /**
  * A plugin for scanning QR codes using the camera.
  *
  * @property onQrScanner A callback function that is invoked when a QR code is scanned.
  */
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+
 class QRScannerPlugin(
-    private val onQrScanner: (String) -> Unit
+    private val coroutineScope: CoroutineScope
 ) : CameraPlugin {
     private var cameraController: CameraController? = null
-
-    private var isScanning = false
+    private val qrCodeFlow = MutableSharedFlow<String>()
+    private var isScanning = atomic(false)
 
     /**
      * Initializes the QRScannerPlugin with the given CameraController.
@@ -33,10 +41,15 @@ class QRScannerPlugin(
      * @throws IllegalStateException If the CameraController is not initialized.
      */
     fun startScanning() {
-        if (isScanning) return
-        isScanning = true
-        cameraController?.let {
-            startScanning(cameraController!!, onQrScanner = onQrScanner)
+        cameraController?.let { controller ->
+            isScanning.value = true
+            startScanning(controller = controller) { qrCode ->
+                if (isScanning.value) {
+                    coroutineScope.launch {
+                        qrCodeFlow.emit(qrCode)
+                    }
+                }
+            }
         } ?: throw IllegalStateException("CameraController is not initialized")
     }
 
@@ -44,15 +57,23 @@ class QRScannerPlugin(
      * Pauses the QR code scanning process.
      */
     fun pauseScanning() {
-        isScanning = false
+        isScanning.value = false
     }
 
     /**
      * Resumes the QR code scanning process.
      */
     fun resumeScanning() {
+        isScanning.value = true
         startScanning()
     }
+
+    /**
+     * Returns a flow that emits QR codes.
+     *
+     * @return SharedFlow<String>
+     */
+    fun getQrCodeFlow(debounce: Long) = qrCodeFlow.asSharedFlow().debounce(debounce)
 }
 
 /**
@@ -61,7 +82,10 @@ class QRScannerPlugin(
  * @param controller The CameraController to be used for scanning.
  * @param onQrScanner A callback function that is invoked when a QR code is scanned.
  */
-expect fun startScanning(controller: CameraController, onQrScanner: (String) -> Unit)
+expect fun startScanning(
+    controller: CameraController,
+    onQrScanner: (String) -> Unit
+)
 
 /**
  * Creates and remembers a QRScannerPlugin composable.
@@ -71,9 +95,9 @@ expect fun startScanning(controller: CameraController, onQrScanner: (String) -> 
  */
 @Composable
 fun createQRScannerPlugin(
-    onQrScanner: (String) -> Unit,
+    coroutineScope: CoroutineScope
 ): QRScannerPlugin {
     return remember {
-        QRScannerPlugin(onQrScanner)
+        QRScannerPlugin(coroutineScope)
     }
 }

@@ -1,5 +1,6 @@
 [versions]
 
+atomicfu = "0.25.0"
 camera-core = "1.3.4"
 camera-extensions = "1.3.4"
 camera-lifecycle = "1.3.4"
@@ -21,6 +22,7 @@ startupRuntime = "1.1.1"
 
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camera-view" }
 androidx-startup-runtime = { module = "androidx.startup:startup-runtime", version.ref = "startupRuntime" }
+atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
 camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camera-core" }
 camera-core = { module = "androidx.camera:camera-core", version.ref = "camera-core" }
 camera-extensions = { module = "androidx.camera:camera-extensions", version.ref = "camera-extensions" }

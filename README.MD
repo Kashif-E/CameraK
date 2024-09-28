@@ -123,8 +123,16 @@ val imageSaverPlugin = createImageSaverPlugin(
         customFolderName = "CustomFolder" // Custom folder name within the directory, only works on android for now  
     )
 )
-val qrScannerPlugin = createQRScannerPlugin {
-    println("QR Code Scanned: $it")
+val qrScannerPlugin = createQRScannerPlugin(coroutineScope = coroutineScope)
+
+LaunchedEffect(Unit) {
+    qrScannerPlugin.getQrCodeFlow(500)
+        .collectLatest { qrCode ->
+            println("QR Code Detected flow: $qrCode")
+            snackbarHostState.showSnackbar("QR Code Detected flow: $qrCode")
+            qrScannerPlugin.pauseScanning()
+        }
+}
 }
 ```
 

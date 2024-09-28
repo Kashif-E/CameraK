@@ -11,20 +11,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.SnackbarHost
+import androidx.compose.material.SnackbarHostState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,7 +48,10 @@ import com.kashif.imageSaverPlugin.ImageSaverConfig
 import com.kashif.imageSaverPlugin.ImageSaverPlugin
 import com.kashif.imageSaverPlugin.createImageSaverPlugin
 import com.kashif.qrscannerplugin.createQRScannerPlugin
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import org.company.app.theme.AppTheme
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -51,77 +59,96 @@ import org.jetbrains.compose.resources.decodeToImageBitmap
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+@OptIn(FlowPreview::class)
 @Composable
 fun App() = AppTheme {
     val permissions: Permissions = providePermissions()
 
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Initialize Camera Permission State based on current permission status
-    val cameraPermissionState = remember {
-        mutableStateOf(
-            permissions.hasCameraPermission()
+
+
+    Scaffold(snackbarHost = {
+        SnackbarHost(snackbarHostState)
+    }, modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
+        // Initialize Camera Permission State based on current permission status
+        val cameraPermissionState = remember {
+            mutableStateOf(
+                permissions.hasCameraPermission()
+            )
+        }
+
+        // Initialize Storage Permission State
+        val storagePermissionState = remember {
+            mutableStateOf(
+                permissions.hasStoragePermission()
+            )
+        }
+        val qrScannerPlugin = createQRScannerPlugin(coroutineScope = coroutineScope)
+
+        LaunchedEffect(Unit) {
+           qrScannerPlugin.getQrCodeFlow(500)
+                .collectLatest { qrCode ->
+                    println("QR Code Detected flow: $qrCode")
+                    snackbarHostState.showSnackbar("QR Code Detected flow: $qrCode")
+                    qrScannerPlugin.pauseScanning()
+                }
+        }
+
+        val cameraController = remember { mutableStateOf<CameraController?>(null) }
+        val imageSaverPlugin = createImageSaverPlugin(
+            config = ImageSaverConfig(
+                isAutoSave = false, // Set to true to enable automatic saving
+                prefix = "MyApp", // Prefix for image names when auto-saving
+                directory = Directory.PICTURES, // Directory to save images
+                customFolderName = "CustomFolder" // Custom folder name within the directory, only works on android for now
+            )
         )
-    }
-
-    // Initialize Storage Permission State
-    val storagePermissionState = remember {
-        mutableStateOf(
-            permissions.hasStoragePermission()
-        )
-    }
-    val qrScannerPlugin = createQRScannerPlugin {
-        println("QR Code Scanned: $it")
-    }
-    val cameraController = remember { mutableStateOf<CameraController?>(null) }
-    val imageSaverPlugin = createImageSaverPlugin(
-        config = ImageSaverConfig(
-            isAutoSave = false, // Set to true to enable automatic saving
-            prefix = "MyApp", // Prefix for image names when auto-saving
-            directory = Directory.PICTURES, // Directory to save images
-            customFolderName = "CustomFolder" // Custom folder name within the directory, only works on android for now
-        )
-    )
 
 
-    if (!cameraPermissionState.value) {
-        permissions.RequestStoragePermission(onGranted = { cameraPermissionState.value = true },
-            onDenied = {
-                println("Camera Permission Denied")
-            })
-    }
-
-
-    if (!storagePermissionState.value) {
-        permissions.RequestStoragePermission(onGranted = { storagePermissionState.value = true },
-            onDenied = {
-                println("Storage Permission Denied")
-            })
-    }
-
-    // Initialize CameraController only when permissions are granted
-    if (cameraPermissionState.value && storagePermissionState.value) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.captionBar)
-        ) { paddingValues ->
-            Box {
-                CameraPreview(modifier = Modifier.fillMaxSize(), cameraConfiguration = {
-                    setCameraLens(CameraLens.BACK)
-                    setFlashMode(FlashMode.OFF)
-                    setImageFormat(ImageFormat.JPEG)
-                    setDirectory(Directory.PICTURES)
-                    addPlugin(imageSaverPlugin)
-                    addPlugin(qrScannerPlugin)
-                }, onCameraControllerReady = {
-                    cameraController.value = it
-                    println("Camera Controller Ready ${cameraController.value}")
-                    qrScannerPlugin.startScanning()
+        if (!cameraPermissionState.value) {
+            permissions.RequestStoragePermission(onGranted = { cameraPermissionState.value = true },
+                onDenied = {
+                    println("Camera Permission Denied")
                 })
-                cameraController.value?.let { controller ->
-                    CameraScreen(cameraController = controller, imageSaverPlugin)
+        }
+
+
+        if (!storagePermissionState.value) {
+            permissions.RequestStoragePermission(onGranted = {
+                storagePermissionState.value = true
+            },
+                onDenied = {
+                    println("Storage Permission Denied")
+                })
+        }
+
+        // Initialize CameraController only when permissions are granted
+        if (cameraPermissionState.value && storagePermissionState.value) {
+            Scaffold(
+                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.captionBar)
+            ) { paddingValues ->
+                Box {
+                    CameraPreview(modifier = Modifier.fillMaxSize(), cameraConfiguration = {
+                        setCameraLens(CameraLens.BACK)
+                        setFlashMode(FlashMode.OFF)
+                        setImageFormat(ImageFormat.JPEG)
+                        setDirectory(Directory.PICTURES)
+                        addPlugin(imageSaverPlugin)
+                        addPlugin(qrScannerPlugin)
+                    }, onCameraControllerReady = {
+                        cameraController.value = it
+                        println("Camera Controller Ready ${cameraController.value}")
+                        qrScannerPlugin.startScanning()
+                    })
+                    cameraController.value?.let { controller ->
+                        CameraScreen(cameraController = controller, imageSaverPlugin)
+                    }
+
                 }
 
             }
-
         }
     }
 }

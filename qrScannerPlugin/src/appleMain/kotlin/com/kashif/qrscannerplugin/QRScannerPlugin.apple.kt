@@ -2,6 +2,7 @@ package com.kashif.qrscannerplugin
 
 
 import com.kashif.cameraK.controller.CameraController
+import kotlinx.atomicfu.AtomicBoolean
 import platform.AVFoundation.AVCaptureConnection
 import platform.AVFoundation.AVCaptureMetadataOutputObjectsDelegateProtocol
 import platform.AVFoundation.AVCaptureOutput
@@ -14,8 +15,11 @@ import platform.AVFoundation.AVMetadataObjectTypePDF417Code
 import platform.AVFoundation.AVMetadataObjectTypeQRCode
 import platform.darwin.NSObject
 
-actual fun startScanning(controller: CameraController, onQrScanner: (String) -> Unit) {
-    val qrCodeAnalyzer = QRCodeAnalyzer(onQrScanner)
+actual fun startScanning(
+    controller: CameraController,
+    onQrScanner: (String) -> Unit
+) {
+    val qrCodeAnalyzer = QRCodeAnalyzer(onQrScanner = onQrScanner)
 
     controller.setMetadataObjectsDelegate(qrCodeAnalyzer)
     println("QR code scanning started")
@@ -43,10 +47,8 @@ private class QRCodeAnalyzer(private val onQrScanner: (String) -> Unit) : NSObje
     ) {
         for (metadata in didOutputMetadataObjects) {
             if (metadata is AVMetadataMachineReadableCodeObject && metadata.type == AVMetadataObjectTypeQRCode) {
-                println("QR code detected: ${metadata.stringValue}")
                 val qrCode = metadata.stringValue
                 if (qrCode != null) {
-                    println("QR code detected: $qrCode")
                     onQrScanner(qrCode)
                 }
             }
