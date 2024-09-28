@@ -234,6 +234,11 @@ You can check the `Sample` for more details.
 
 The library is in an experimental stage, APIs can change/break.
 
+### Plugin API
+
+CameraK has a plugin api which can be used by devs to enhance the capabilities of the library for their own needs, The design for it is not final but you can check `qrScannerPlugin` or `imageSaverPlugin` to check how you can build your own plugins.
+
+
 **Contributions**
 
 We welcome contributions! Before submitting a pull request, please open an issue so we can discuss
