@@ -1,25 +1,7 @@
 package com.kashif.cameraK.controller
 
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.AVFoundation.AVCaptureDevice
-import platform.AVFoundation.AVCaptureDeviceDiscoverySession
-import platform.AVFoundation.AVCaptureDeviceInput
-import platform.AVFoundation.AVCaptureDevicePositionBack
-import platform.AVFoundation.AVCaptureDevicePositionFront
-import platform.AVFoundation.AVCaptureDevicePositionUnspecified
-import platform.AVFoundation.AVCaptureDeviceTypeBuiltInWideAngleCamera
-import platform.AVFoundation.AVCaptureFlashMode
-import platform.AVFoundation.AVCaptureFlashModeAuto
-import platform.AVFoundation.AVCapturePhoto
-import platform.AVFoundation.AVCapturePhotoCaptureDelegateProtocol
-import platform.AVFoundation.AVCapturePhotoOutput
-import platform.AVFoundation.AVCapturePhotoSettings
-import platform.AVFoundation.AVCaptureSession
-import platform.AVFoundation.AVCaptureVideoPreviewLayer
-import platform.AVFoundation.AVLayerVideoGravityResizeAspectFill
-import platform.AVFoundation.AVMediaTypeVideo
-import platform.AVFoundation.fileDataRepresentation
-import platform.AVFoundation.position
+import platform.AVFoundation.*
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.UIKit.UIView
@@ -45,6 +27,8 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
     // Flash mode: Can be auto, on, or off
     var flashMode: AVCaptureFlashMode = AVCaptureFlashModeAuto
 
+    // Torch mode: Can be auto, on, or off
+    var torchMode: AVCaptureTorchMode = AVCaptureTorchModeAuto
 
     fun setupSession() {
         captureSession = AVCaptureSession()
@@ -76,7 +60,6 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         }
 
         currentCamera = backCamera
-
 
         try {
             val input = AVCaptureDeviceInput.deviceInputWithDevice(
@@ -124,6 +107,18 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
 
     fun setFlashMode(mode: AVCaptureFlashMode) {
         flashMode = mode
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    fun setTorchMode(mode: AVCaptureTorchMode) {
+        torchMode = mode
+        currentCamera?.run {
+            if (hasTorch) {
+                lockForConfiguration(null)
+                torchMode = mode
+                unlockForConfiguration()
+            }
+        }
     }
 
 

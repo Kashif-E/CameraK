@@ -1,10 +1,6 @@
 package com.kashif.cameraK.controller
 
-import com.kashif.cameraK.enums.CameraLens
-import com.kashif.cameraK.enums.Directory
-import com.kashif.cameraK.enums.FlashMode
-import com.kashif.cameraK.enums.ImageFormat
-import com.kashif.cameraK.enums.Rotation
+import com.kashif.cameraK.enums.*
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.utils.toByteArray
@@ -20,6 +16,7 @@ import kotlin.coroutines.resume
 
 actual class CameraController(
     internal var flashMode: FlashMode,
+    internal var torchMode: TorchMode,
     internal var cameraLens: CameraLens,
     internal var rotation: Rotation,
     internal var imageFormat: ImageFormat,
@@ -47,7 +44,7 @@ actual class CameraController(
             customCameraController.captureSession?.addOutput(metadataOutput)
         }
 
-       startSession()
+        startSession()
 
         customCameraController.onPhotoCapture = { image ->
             image?.let {
@@ -81,8 +78,8 @@ actual class CameraController(
         customCameraController.cameraPreviewLayer?.setFrame(view.bounds)
     }
 
-    actual suspend fun takePicture(): ImageCaptureResult =  suspendCancellableCoroutine { continuation ->
-       customCameraController.onPhotoCapture = { image ->
+    actual suspend fun takePicture(): ImageCaptureResult = suspendCancellableCoroutine { continuation ->
+        customCameraController.onPhotoCapture = { image ->
             if (image != null) {
                 when (imageFormat) {
                     ImageFormat.JPEG -> {
@@ -125,6 +122,15 @@ actual class CameraController(
             FlashMode.AUTO -> FlashMode.OFF
         }
         customCameraController.setFlashMode(flashMode.toAVCaptureFlashMode())
+    }
+
+    actual fun toggleTorchMode() {
+        torchMode = when (torchMode) {
+            TorchMode.OFF -> TorchMode.ON
+            TorchMode.ON -> TorchMode.AUTO
+            TorchMode.AUTO -> TorchMode.OFF
+        }
+        customCameraController.setTorchMode(torchMode.toAVCaptureTorchMode())
     }
 
     actual fun toggleCameraLens() {
@@ -171,6 +177,12 @@ actual class CameraController(
         Rotation.ROTATION_90 -> AVCaptureVideoOrientationLandscapeRight
         Rotation.ROTATION_180 -> AVCaptureVideoOrientationPortraitUpsideDown
         Rotation.ROTATION_270 -> AVCaptureVideoOrientationLandscapeLeft
+    }
+
+    private fun TorchMode.toAVCaptureTorchMode(): AVCaptureTorchMode = when (this) {
+        TorchMode.ON -> AVCaptureTorchModeOn
+        TorchMode.OFF -> AVCaptureTorchModeOff
+        TorchMode.AUTO -> AVCaptureTorchModeAuto
     }
 }
 
