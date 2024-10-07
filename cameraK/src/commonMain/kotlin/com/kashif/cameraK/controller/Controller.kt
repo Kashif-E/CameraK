@@ -22,6 +22,8 @@ expect class CameraController {
 
     /**
      * Toggles the torch mode between ON, OFF
+     *
+     * In IOS, torch mode include AUTO.
      */
     fun toggleTorchMode()
 
