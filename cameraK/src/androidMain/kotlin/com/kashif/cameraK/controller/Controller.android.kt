@@ -19,6 +19,7 @@ import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.enums.Rotation
+import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.utils.InvalidConfigurationException
@@ -45,6 +46,7 @@ actual class CameraController(
     val context: Context,
     val lifecycleOwner: LifecycleOwner,
     internal var flashMode: FlashMode,
+    internal var torchMode: TorchMode,
     internal var cameraLens: CameraLens,
     var rotation: Rotation,
     internal var imageFormat: ImageFormat,
@@ -171,6 +173,15 @@ actual class CameraController(
             FlashMode.AUTO -> FlashMode.OFF
         }
         imageCapture?.flashMode = flashMode.toCameraXFlashMode()
+    }
+
+    actual fun toggleTorchMode() {
+        torchMode = when (torchMode) {
+            TorchMode.OFF -> TorchMode.ON
+            TorchMode.ON -> TorchMode.OFF
+            else -> TorchMode.OFF
+        }
+        camera?.cameraControl?.enableTorch(torchMode == TorchMode.ON)
     }
 
     actual fun toggleCameraLens() {

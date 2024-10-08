@@ -3,6 +3,7 @@ package org.company.app
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -88,7 +89,7 @@ fun App() = AppTheme {
         val qrScannerPlugin = createQRScannerPlugin(coroutineScope = coroutineScope)
 
         LaunchedEffect(Unit) {
-           qrScannerPlugin.getQrCodeFlow(500)
+            qrScannerPlugin.getQrCodeFlow(500)
                 .collectLatest { qrCode ->
                     println("QR Code Detected flow: $qrCode")
                     snackbarHostState.showSnackbar("QR Code Detected flow: $qrCode")
@@ -108,7 +109,8 @@ fun App() = AppTheme {
 
 
         if (!cameraPermissionState.value) {
-            permissions.RequestStoragePermission(onGranted = { cameraPermissionState.value = true },
+            permissions.RequestStoragePermission(
+                onGranted = { cameraPermissionState.value = true },
                 onDenied = {
                     println("Camera Permission Denied")
                 })
@@ -116,9 +118,10 @@ fun App() = AppTheme {
 
 
         if (!storagePermissionState.value) {
-            permissions.RequestStoragePermission(onGranted = {
-                storagePermissionState.value = true
-            },
+            permissions.RequestStoragePermission(
+                onGranted = {
+                    storagePermissionState.value = true
+                },
                 onDenied = {
                     println("Storage Permission Denied")
                 })
@@ -159,7 +162,7 @@ fun CameraScreen(cameraController: CameraController, imageSaverPlugin: ImageSave
     val scope = rememberCoroutineScope()
     var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var isFlashOn by remember { mutableStateOf(false) }
-
+    var isTorchOn by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -172,17 +175,29 @@ fun CameraScreen(cameraController: CameraController, imageSaverPlugin: ImageSave
                 .align(Alignment.TopStart),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Flash Mode Switch
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "Flash")
-                Spacer(modifier = Modifier.width(8.dp))
-                Switch(
-                    checked = isFlashOn,
-                    onCheckedChange = {
-                        isFlashOn = it
-                        cameraController.toggleFlashMode()
-                    }
-                )
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Flash")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = isFlashOn,
+                        onCheckedChange = {
+                            isFlashOn = it
+                            cameraController.toggleFlashMode()
+                        }
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Torch")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = isTorchOn,
+                        onCheckedChange = {
+                            isTorchOn = it
+                            cameraController.toggleTorchMode()
+                        }
+                    )
+                }
             }
 
             // Camera Lens Toggle Button

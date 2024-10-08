@@ -2,11 +2,7 @@ package com.kashif.cameraK.builder
 
 
 import com.kashif.cameraK.controller.CameraController
-import com.kashif.cameraK.enums.CameraLens
-import com.kashif.cameraK.enums.Directory
-import com.kashif.cameraK.enums.FlashMode
-import com.kashif.cameraK.enums.ImageFormat
-import com.kashif.cameraK.enums.Rotation
+import com.kashif.cameraK.enums.*
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.utils.InvalidConfigurationException
 
@@ -16,6 +12,7 @@ import com.kashif.cameraK.utils.InvalidConfigurationException
 class IOSCameraControllerBuilder : CameraControllerBuilder {
 
     private var flashMode: FlashMode = FlashMode.OFF
+    private var torchMode: TorchMode = TorchMode.OFF
     private var cameraLens: CameraLens = CameraLens.BACK
     private var rotation: Rotation = Rotation.ROTATION_0
     private var imageFormat: ImageFormat? = null
@@ -60,6 +57,7 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
         // Initialize the iOS-specific CameraController
         val cameraController = CameraController(
             flashMode = flashMode,
+            torchMode = torchMode,
             cameraLens = cameraLens,
             rotation = rotation,
             imageFormat = format,

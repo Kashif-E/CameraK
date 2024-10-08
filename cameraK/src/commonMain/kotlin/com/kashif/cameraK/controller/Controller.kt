@@ -21,6 +21,13 @@ expect class CameraController {
     fun toggleFlashMode()
 
     /**
+     * Toggles the torch mode between ON, OFF
+     *
+     * In IOS, torch mode include AUTO.
+     */
+    fun toggleTorchMode()
+
+    /**
      * Toggles the camera lens between FRONT and BACK.
      */
     fun toggleCameraLens()
