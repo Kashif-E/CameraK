@@ -1,6 +1,5 @@
 package com.kashif.cameraK.builder
 
-import com.kashif.cameraK.utils.InvalidConfigurationException
 import android.content.Context
 import androidx.lifecycle.LifecycleOwner
 import com.kashif.cameraK.controller.CameraController
@@ -9,7 +8,9 @@ import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.enums.Rotation
+import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
+import com.kashif.cameraK.utils.InvalidConfigurationException
 
 
 /**
@@ -28,6 +29,7 @@ class AndroidCameraControllerBuilder(
     private var rotation: Rotation = Rotation.ROTATION_0
     private var imageFormat: ImageFormat? = null
     private var directory: Directory? = null
+    private var torchMode: TorchMode = TorchMode.AUTO
     private val plugins = mutableListOf<CameraPlugin>()
 
     override fun setFlashMode(flashMode: FlashMode): CameraControllerBuilder {
@@ -42,6 +44,11 @@ class AndroidCameraControllerBuilder(
 
     override fun setRotation(rotation: Rotation): CameraControllerBuilder {
         this.rotation = rotation
+        return this
+    }
+
+    override fun setTorchMode(torchMode: TorchMode): CameraControllerBuilder {
+        this.torchMode = torchMode
         return this
     }
 
@@ -66,9 +73,9 @@ class AndroidCameraControllerBuilder(
         val dir = directory ?: throw InvalidConfigurationException("Directory must be set.")
 
 
-        if (flashMode == FlashMode.ON && cameraLens == CameraLens.FRONT) {
-            throw InvalidConfigurationException("Flash mode ON is not supported with the front camera.")
-        }
+        /* if (flashMode == FlashMode.ON && cameraLens == CameraLens.FRONT) {
+             throw InvalidConfigurationException("Flash mode ON is not supported with the front camera.")
+         }*/
         val cameraController = CameraController(
             context = context,
             lifecycleOwner = lifecycleOwner,
@@ -77,7 +84,8 @@ class AndroidCameraControllerBuilder(
             rotation = rotation,
             imageFormat = format,
             directory = dir,
-            plugins = plugins
+            plugins = plugins,
+            torchMode = torchMode
         )
         plugins.forEach {
             it.initialize(cameraController)
