@@ -24,13 +24,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,12 +45,12 @@ import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.ui.CameraPreview
 import com.kashif.imageSaverPlugin.ImageSaverConfig
 import com.kashif.imageSaverPlugin.ImageSaverPlugin
-import com.kashif.imageSaverPlugin.createImageSaverPlugin
-import com.kashif.qrscannerplugin.createQRScannerPlugin
+import com.kashif.imageSaverPlugin.rememberImageSaverPlugin
+import com.kashif.qrscannerplugin.rememberQRScannerPlugin
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import org.company.app.theme.AppTheme
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -86,10 +84,10 @@ fun App() = AppTheme {
                 permissions.hasStoragePermission()
             )
         }
-        val qrScannerPlugin = createQRScannerPlugin(coroutineScope = coroutineScope)
+        val qrScannerPlugin = rememberQRScannerPlugin(coroutineScope = coroutineScope)
 
         LaunchedEffect(Unit) {
-            qrScannerPlugin.getQrCodeFlow(500)
+            qrScannerPlugin.getQrCodeFlow().distinctUntilChanged()
                 .collectLatest { qrCode ->
                     println("QR Code Detected flow: $qrCode")
                     snackbarHostState.showSnackbar("QR Code Detected flow: $qrCode")
@@ -98,7 +96,7 @@ fun App() = AppTheme {
         }
 
         val cameraController = remember { mutableStateOf<CameraController?>(null) }
-        val imageSaverPlugin = createImageSaverPlugin(
+        val imageSaverPlugin = rememberImageSaverPlugin(
             config = ImageSaverConfig(
                 isAutoSave = false, // Set to true to enable automatic saving
                 prefix = "MyApp", // Prefix for image names when auto-saving

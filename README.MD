@@ -122,7 +122,7 @@ val cameraController = remember { mutableStateOf<CameraController?>(null) }
 After this if needed, create plugins
 
 ```Kotlin
-val imageSaverPlugin = createImageSaverPlugin(
+val imageSaverPlugin = rememberImageSaverPlugin(
     config = ImageSaverConfig(
         isAutoSave = false, // Set to true to enable automatic saving  
         prefix = "MyApp", // Prefix for image names when auto-saving  
@@ -130,10 +130,10 @@ val imageSaverPlugin = createImageSaverPlugin(
         customFolderName = "CustomFolder" // Custom folder name within the directory, only works on android for now  
     )
 )
-val qrScannerPlugin = createQRScannerPlugin(coroutineScope = coroutineScope)
+val qrScannerPlugin = rememberQRScannerPlugin(coroutineScope = coroutineScope)
 
 LaunchedEffect(Unit) {
-    qrScannerPlugin.getQrCodeFlow(500)
+    qrScannerPlugin.getQrCodeFlow().distinctUntilChanged()
         .collectLatest { qrCode ->
             println("QR Code Detected flow: $qrCode")
             snackbarHostState.showSnackbar("QR Code Detected flow: $qrCode")

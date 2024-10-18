@@ -72,7 +72,7 @@ abstract class ImageSaverPlugin(
  * @return An instance of [ImageSaverPlugin].
  */
 @Composable
-fun createImageSaverPlugin(
+fun rememberImageSaverPlugin(
     config: ImageSaverConfig,
     context: PlatformContext = LocalPlatformContext.current
 ): ImageSaverPlugin {
@@ -82,7 +82,7 @@ fun createImageSaverPlugin(
 }
 
 /**
- * Platform-specific implementation of the [createImageSaverPlugin] factory function.
+ * Platform-specific implementation of the [rememberImageSaverPlugin] factory function.
  */
 
 expect fun createPlatformImageSaverPlugin(
