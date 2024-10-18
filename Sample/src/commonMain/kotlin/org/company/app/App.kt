@@ -108,7 +108,7 @@ fun App() = AppTheme {
 
 
         if (!cameraPermissionState.value) {
-            permissions.RequestStoragePermission(
+            permissions.RequestCameraPermission(   // Request Camera Permission
                 onGranted = { cameraPermissionState.value = true },
                 onDenied = {
                     println("Camera Permission Denied")
