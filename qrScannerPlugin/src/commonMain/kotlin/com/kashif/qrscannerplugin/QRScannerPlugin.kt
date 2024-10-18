@@ -1,21 +1,19 @@
 package com.kashif.qrscannerplugin
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import com.kashif.cameraK.controller.CameraController
-import com.kashif.cameraK.plugins.CameraPlugin
-import kotlinx.atomicfu.AtomicBoolean
-import kotlinx.atomicfu.atomic
-
 /**
  * A plugin for scanning QR codes using the camera.
  *
  * @property onQrScanner A callback function that is invoked when a QR code is scanned.
  */
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.asSharedFlow
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import com.kashif.cameraK.controller.CameraController
+import com.kashif.cameraK.plugins.CameraPlugin
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 class QRScannerPlugin(
@@ -73,7 +71,7 @@ class QRScannerPlugin(
      *
      * @return SharedFlow<String>
      */
-    fun getQrCodeFlow(debounce: Long) = qrCodeFlow.asSharedFlow().debounce(debounce)
+    fun getQrCodeFlow() = qrCodeFlow.asSharedFlow()
 }
 
 /**
@@ -94,8 +92,8 @@ expect fun startScanning(
  * @return A remembered instance of QRScannerPlugin.
  */
 @Composable
-fun createQRScannerPlugin(
-    coroutineScope: CoroutineScope
+fun rememberQRScannerPlugin(
+    coroutineScope: CoroutineScope = rememberCoroutineScope()
 ): QRScannerPlugin {
     return remember {
         QRScannerPlugin(coroutineScope)
