@@ -9,7 +9,6 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
-import androidx.camera.core.UseCase
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -54,15 +53,17 @@ actual class CameraController(
     internal var plugins: MutableList<CameraPlugin>
 ) {
 
-    var cameraProvider: ProcessCameraProvider? = null
-    var imageCapture: ImageCapture? = null
-    var preview: Preview? = null
-    var camera: Camera? = null
+    private var cameraProvider: ProcessCameraProvider? = null
+    private var imageCapture: ImageCapture? = null
+    private var preview: Preview? = null
+    private var camera: Camera? = null
     var imageAnalyzer: ImageAnalysis? = null
+    private var previewView: PreviewView? = null
 
     private val imageCaptureListeners = mutableListOf<(ByteArray) -> Unit>()
 
     fun bindCamera(previewView: PreviewView, onCameraReady: () -> Unit = {}) {
+        this.previewView = previewView
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
             try {
@@ -186,9 +187,9 @@ actual class CameraController(
 
     actual fun toggleCameraLens() {
         cameraLens = if (cameraLens == CameraLens.BACK) CameraLens.FRONT else CameraLens.BACK
-        bindCamera(preview?.let { PreviewView(context) }
-            ?: throw InvalidConfigurationException("PreviewView not initialized."))
+        previewView?.let { bindCamera(it) }
     }
+
 
     actual fun setCameraRotation(rotation: Rotation) {
         this.rotation = rotation

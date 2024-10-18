@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +39,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.permissions.Permissions
 import com.kashif.cameraK.permissions.providePermissions
 import com.kashif.cameraK.result.ImageCaptureResult
@@ -70,7 +71,7 @@ fun App() = AppTheme {
 
     Scaffold(snackbarHost = {
         SnackbarHost(snackbarHostState)
-    }, modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
+    }, modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars)) {
         // Initialize Camera Permission State based on current permission status
         val cameraPermissionState = remember {
             mutableStateOf(
@@ -107,7 +108,7 @@ fun App() = AppTheme {
 
 
         if (!cameraPermissionState.value) {
-            permissions.RequestStoragePermission(
+            permissions.RequestCameraPermission(   // Request Camera Permission
                 onGranted = { cameraPermissionState.value = true },
                 onDenied = {
                     println("Camera Permission Denied")
@@ -136,6 +137,7 @@ fun App() = AppTheme {
                         setFlashMode(FlashMode.OFF)
                         setImageFormat(ImageFormat.JPEG)
                         setDirectory(Directory.PICTURES)
+                        setTorchMode(TorchMode.OFF)
                         addPlugin(imageSaverPlugin)
                         addPlugin(qrScannerPlugin)
                     }, onCameraControllerReady = {

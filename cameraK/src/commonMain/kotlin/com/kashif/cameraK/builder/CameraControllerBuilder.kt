@@ -6,6 +6,7 @@ import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.enums.Rotation
+import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 
 /**
@@ -33,4 +34,5 @@ interface CameraControllerBuilder {
      * @return A fully configured [CameraController] instance.
      */
     fun build(): CameraController
+    fun setTorchMode(torchMode: TorchMode): CameraControllerBuilder
 }
