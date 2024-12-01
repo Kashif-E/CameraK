@@ -39,6 +39,11 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
         return this
     }
 
+    override fun setTorchMode(torchMode: TorchMode): CameraControllerBuilder {
+        this.torchMode = torchMode
+        return this
+    }
+
     override fun setDirectory(directory: Directory): CameraControllerBuilder {
         this.directory = directory
         return this
