@@ -1,5 +1,6 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.Rotation
 import com.kashif.cameraK.result.ImageCaptureResult
 
@@ -19,6 +20,18 @@ expect class CameraController {
      * Toggles the flash mode between ON, OFF, and AUTO.
      */
     fun toggleFlashMode()
+
+    /**
+     * Sets the flash mode of the camera
+     *
+     * @param mode The desired [FlashMode]
+     */
+    fun setFlashMode(mode: FlashMode)
+
+    /**
+     * @return the current [FlashMode] of the camera, if available
+     */
+    fun getFlashMode(): FlashMode?
 
     /**
      * Toggles the torch mode between ON, OFF
