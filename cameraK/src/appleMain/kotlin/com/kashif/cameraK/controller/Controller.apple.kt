@@ -124,6 +124,23 @@ actual class CameraController(
         customCameraController.setFlashMode(flashMode.toAVCaptureFlashMode())
     }
 
+    actual fun setFlashMode(mode: FlashMode) {
+        customCameraController.setFlashMode(mode.toAVCaptureFlashMode())
+    }
+
+    actual fun getFlashMode(): FlashMode? {
+        fun AVCaptureFlashMode.toCameraKFlashMode(): FlashMode? {
+            return when (this) {
+                AVCaptureFlashModeOn -> FlashMode.ON
+                AVCaptureFlashModeOff -> FlashMode.OFF
+                AVCaptureFlashModeAuto -> FlashMode.AUTO
+                else -> null
+            }
+        }
+
+        return customCameraController.flashMode.toCameraKFlashMode()
+    }
+
     actual fun toggleTorchMode() {
         torchMode = when (torchMode) {
             TorchMode.OFF -> TorchMode.ON
