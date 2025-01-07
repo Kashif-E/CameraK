@@ -93,7 +93,7 @@ val storagePermissionState = remember {
 }
 
 if (!cameraPermissionState.value) {
-    permissions.RequestStoragePermission(onGranted = { cameraPermissionState.value = true },
+    permissions.RequestCameraPermission(onGranted = { cameraPermissionState.value = true },
         onDenied = {
             println("Camera Permission Denied")
         })
