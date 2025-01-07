@@ -3,6 +3,10 @@ package com.kashif.cameraK.controller
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
+import android.os.Build
+import android.provider.MediaStore
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -122,51 +126,78 @@ actual class CameraController(
         } ?: throw InvalidConfigurationException("Camera not initialized.")
     }
 
-
     actual suspend fun takePicture(): ImageCaptureResult =
-        suspendCancellableCoroutine { cont ->
-            val outputOptions = ImageCapture.OutputFileOptions.Builder(createTempFile()).build()
+            suspendCancellableCoroutine { cont ->
+                val outputOptions = ImageCapture.OutputFileOptions.Builder(createTempFile()).build()
 
-            imageCapture?.takePicture(
-                outputOptions,
-                ContextCompat.getMainExecutor(context),
-                object : ImageCapture.OnImageSavedCallback {
-                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                        // Read the image data into a ByteArray
-                        val byteArray = try {
-                            BitmapFactory.decodeFile(output.savedUri?.path)
-                                ?.let { bitmap ->
-                                    val stream = ByteArrayOutputStream()
-                                    bitmap.compress(
-                                        when (imageFormat) {
-                                            ImageFormat.JPEG -> Bitmap.CompressFormat.JPEG
-                                            ImageFormat.PNG -> Bitmap.CompressFormat.PNG
-                                        },
-                                        100,
-                                        stream
-                                    )
-                                    stream.toByteArray()
+                imageCapture?.takePicture(
+                    outputOptions,
+                    ContextCompat.getMainExecutor(context),
+                    object : ImageCapture.OnImageSavedCallback {
+                        override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                            val byteArray = try {
+                                output.savedUri?.let { uri ->
+                                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                                        val bytes = inputStream.readBytes()
+                                        val originalBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+
+                                        // Rotate according to the specified rotation
+                                        val rotatedBitmap = if (originalBitmap != null) {
+                                            Matrix().apply {
+                                                postRotate(rotation.value.toFloat())
+                                            }.let { matrix ->
+                                                Bitmap.createBitmap(
+                                                    originalBitmap,
+                                                    0,
+                                                    0,
+                                                    originalBitmap.width,
+                                                    originalBitmap.height,
+                                                    matrix,
+                                                    true
+                                                )
+                                            }
+                                        } else {
+                                            originalBitmap
+                                        }
+
+                                        ByteArrayOutputStream().use { stream ->
+                                            rotatedBitmap?.compress(
+                                                when (imageFormat) {
+                                                    ImageFormat.JPEG -> Bitmap.CompressFormat.JPEG
+                                                    ImageFormat.PNG -> Bitmap.CompressFormat.PNG
+                                                },
+                                                100,
+                                                stream
+                                            )
+
+                                            if (originalBitmap != rotatedBitmap) {
+                                                rotatedBitmap?.recycle()
+                                            }
+                                            originalBitmap?.recycle()
+
+                                            stream.toByteArray()
+                                        }
+                                    }
                                 }
-                        } catch (e: Exception) {
-                            null
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                null
+                            }
+
+                            if (byteArray != null) {
+                                imageCaptureListeners.forEach { it(byteArray) }
+                                cont.resume(ImageCaptureResult.Success(byteArray))
+                            } else {
+                                cont.resume(ImageCaptureResult.Error(Exception("Failed to convert image to ByteArray.")))
+                            }
                         }
 
-                        if (byteArray != null) {
-                            imageCaptureListeners.forEach { it(byteArray) }
-                            cont.resume(ImageCaptureResult.Success(byteArray))
-                        } else {
-                            cont.resume(ImageCaptureResult.Error(Exception("Failed to convert image to ByteArray.")))
+                        override fun onError(exc: ImageCaptureException) {
+                            cont.resume(ImageCaptureResult.Error(exc))
                         }
                     }
-
-                    override fun onError(exc: ImageCaptureException) {
-                        cont.resume(ImageCaptureResult.Error(exc))
-                    }
-                }
-            )
-                ?: cont.resume(ImageCaptureResult.Error(Exception("ImageCapture use case is not initialized.")))
-        }
-
+                ) ?: cont.resume(ImageCaptureResult.Error(Exception("ImageCapture use case is not initialized.")))
+            }
     actual fun toggleFlashMode() {
         flashMode = when (flashMode) {
             FlashMode.OFF -> FlashMode.ON

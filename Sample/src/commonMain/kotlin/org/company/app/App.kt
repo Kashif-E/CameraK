@@ -39,14 +39,15 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.Rotation
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.permissions.Permissions
 import com.kashif.cameraK.permissions.providePermissions
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.ui.CameraPreview
-import com.kashif.imageSaverPlugin.ImageSaverConfig
-import com.kashif.imageSaverPlugin.ImageSaverPlugin
-import com.kashif.imageSaverPlugin.rememberImageSaverPlugin
+import com.kashif.imagesaverplugin.ImageSaverConfig
+import com.kashif.imagesaverplugin.ImageSaverPlugin
+import com.kashif.imagesaverplugin.rememberImageSaverPlugin
 import com.kashif.qrscannerplugin.rememberQRScannerPlugin
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -140,6 +141,8 @@ fun App() = AppTheme {
                         setTorchMode(TorchMode.OFF)
                         addPlugin(imageSaverPlugin)
                         addPlugin(qrScannerPlugin)
+                        setRotation(Rotation.ROTATION_180)
+
                     }, onCameraControllerReady = {
                         cameraController.value = it
                         println("Camera Controller Ready ${cameraController.value}")
@@ -219,10 +222,15 @@ fun CameraScreen(cameraController: CameraController, imageSaverPlugin: ImageSave
                                 // Generate a custom name or use default
                                 val customName = "Manual_${Uuid.random().toHexString()}"
 
-                                imageSaverPlugin.saveImage(
+                              val path =   imageSaverPlugin.saveImage(
                                     byteArray = result.byteArray,
                                     imageName = customName
                                 )
+                                path?.let {
+                                    println("Image saved at: $path")
+                                    imageSaverPlugin.getByteArrayFrom(path)
+                                }
+
                             }
                         }
 

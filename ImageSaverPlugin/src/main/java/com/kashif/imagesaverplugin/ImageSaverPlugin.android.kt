@@ -1,4 +1,5 @@
-package com.kashif.imageSaverPlugin
+package com.kashif.imagesaverplugin
+
 
 import android.content.ContentValues
 import android.content.Context
@@ -8,9 +9,11 @@ import android.provider.MediaStore
 import coil3.PlatformContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.FileInputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 /**
  * Android-specific implementation of [ImageSaverPlugin] using Scoped Storage.
@@ -23,8 +26,8 @@ class AndroidImageSaverPlugin(
     config: ImageSaverConfig
 ) : ImageSaverPlugin(config) {
 
-    override suspend fun saveImage(byteArray: ByteArray, imageName: String?) {
-        withContext(Dispatchers.IO) {
+    override suspend fun saveImage(byteArray: ByteArray, imageName: String?): String? {
+        return withContext(Dispatchers.IO) {
             val resolver = context.contentResolver
             val contentValues = ContentValues().apply {
                 val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
@@ -49,10 +52,10 @@ class AndroidImageSaverPlugin(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI
             }
 
-            var imageUri: Uri? = null
+
             try {
-                imageUri = resolver.insert(collection, contentValues)
-                if (imageUri == null) throw IOException("Failed to create new MediaStore record.")
+                val imageUri = resolver.insert(collection, contentValues)
+                    ?: throw IOException("Failed to create new MediaStore record.")
 
                 resolver.openOutputStream(imageUri).use { outputStream ->
                     if (outputStream == null) throw IOException("Failed to get output stream.")
@@ -66,13 +69,18 @@ class AndroidImageSaverPlugin(
                 }
 
                 println("Image saved successfully at URI: $imageUri")
+                imageUri.path
 
             } catch (e: IOException) {
                 e.printStackTrace()
                 println("Failed to save image: ${e.message}")
-                // Optionally, handle the error (e.g., notify the user)
+                null
             }
         }
+    }
+
+    override fun getByteArrayFrom(path: String): ByteArray {
+        return FileInputStream(path).use { it.readBytes() }
     }
 }
 

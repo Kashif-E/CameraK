@@ -15,6 +15,10 @@ import com.kashif.cameraK.plugins.CameraPlugin
 interface CameraControllerBuilder {
     fun setFlashMode(flashMode: FlashMode): CameraControllerBuilder
     fun setCameraLens(cameraLens: CameraLens): CameraControllerBuilder
+
+    /**
+     * Sets the rotation of the camera preview and image capture.
+     */
     fun setRotation(rotation: Rotation): CameraControllerBuilder
     fun setImageFormat(imageFormat: ImageFormat): CameraControllerBuilder
     fun setDirectory(directory: Directory): CameraControllerBuilder
