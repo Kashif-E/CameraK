@@ -17,7 +17,7 @@ public fun ByteArray.toNSData(): NSData = memScoped {
 }
 
 @OptIn(ExperimentalForeignApi::class)
-public fun NSData.toByteArray(): ByteArray = ByteArray(this@toByteArray.length.toInt()).apply {
+fun NSData.toByteArray(): ByteArray = ByteArray(this@toByteArray.length.toInt()).apply {
     usePinned {
         memcpy(it.addressOf(0), this@toByteArray.bytes, this@toByteArray.length)
     }

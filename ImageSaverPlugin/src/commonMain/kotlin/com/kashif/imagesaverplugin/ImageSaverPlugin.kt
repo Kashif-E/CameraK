@@ -1,4 +1,4 @@
-package com.kashif.imageSaverPlugin
+package com.kashif.imagesaverplugin
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -45,7 +45,7 @@ abstract class ImageSaverPlugin(
      * @param byteArray The image data as a [ByteArray].
      * @param imageName Optional custom name for the image. If not provided, a default name is generated.
      */
-    abstract suspend fun saveImage(byteArray: ByteArray, imageName: String? = null)
+    abstract suspend fun saveImage(byteArray: ByteArray, imageName: String? = null): String?
 
     /**
      * Initializes the plugin. If auto-save is enabled, sets up listeners to save images automatically.
@@ -55,14 +55,15 @@ abstract class ImageSaverPlugin(
     override fun initialize(cameraController: com.kashif.cameraK.controller.CameraController) {
         if (config.isAutoSave) {
             cameraController.addImageCaptureListener { byteArray ->
-                // Launch a coroutine to save the image asynchronously
-                CoroutineScope(Dispatchers.IO).launch {
+                 CoroutineScope(Dispatchers.IO).launch {
                     val imageName = config.prefix?.let { "CameraK" }
                     saveImage(byteArray, imageName)
                 }
             }
         }
     }
+
+    abstract fun getByteArrayFrom(path: String): ByteArray
 }
 
 /**
