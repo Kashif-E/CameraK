@@ -1,7 +1,7 @@
 # CameraK Library
 
 <p align="center">
-  <a href="https://github.com/Kashif-E/CameraK/releases/tag/0.0.5">
+  <a href="https://github.com/Kashif-E/CameraK/releases/tag/0.0.8">
     <img src="https://img.shields.io/github/v/release/kashif-e/camerak" alt="Version">
   </a>
   <a href="https://mailchi.mp/kotlinweekly/kotlin-weekly-425">
@@ -36,13 +36,13 @@ implementation("io.github.kashif-mehmood-km:camerak:+")
 if you want to save images to device add the plugin:
 
 ```Kotlin
-implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.0.1")
+implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.0.2")
 ````
 
 if you want to add QR scanning capability then you need the QR scanner plugin:
 
 ```Kotlin
-implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.0.2")
+implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.0.3")
 ```
 
 ## Supported Platforms
