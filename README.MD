@@ -61,7 +61,8 @@ Add the following permissions to your `AndroidManifest.xml` file:
 
 ```xml  
 
-<uses-permission android:name="android.permission.CAMERA" /><uses-permission
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission
 android:name="android.permission.WRITE_EXTERNAL_STORAGE" />  
 ```  
 
