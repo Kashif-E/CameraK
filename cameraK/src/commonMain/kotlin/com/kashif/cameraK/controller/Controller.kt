@@ -1,7 +1,6 @@
 package com.kashif.cameraK.controller
 
 import com.kashif.cameraK.enums.FlashMode
-import com.kashif.cameraK.enums.Rotation
 import com.kashif.cameraK.result.ImageCaptureResult
 
 /**
@@ -45,12 +44,6 @@ expect class CameraController {
      */
     fun toggleCameraLens()
 
-    /**
-     * Sets the rotation of the camera preview and image capture.
-     *
-     * @param rotation The desired [Rotation].
-     */
-    fun setCameraRotation(rotation: Rotation)
 
     /**
      * Starts the camera session.

@@ -7,7 +7,6 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
-import com.kashif.cameraK.enums.Rotation
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.utils.InvalidConfigurationException
@@ -26,7 +25,6 @@ class AndroidCameraControllerBuilder(
 
     private var flashMode: FlashMode = FlashMode.OFF
     private var cameraLens: CameraLens = CameraLens.BACK
-    private var rotation: Rotation = Rotation.ROTATION_0
     private var imageFormat: ImageFormat? = null
     private var directory: Directory? = null
     private var torchMode: TorchMode = TorchMode.AUTO
@@ -42,10 +40,6 @@ class AndroidCameraControllerBuilder(
         return this
     }
 
-    override fun setRotation(rotation: Rotation): CameraControllerBuilder {
-        this.rotation = rotation
-        return this
-    }
 
     override fun setTorchMode(torchMode: TorchMode): CameraControllerBuilder {
         this.torchMode = torchMode
@@ -81,7 +75,6 @@ class AndroidCameraControllerBuilder(
             lifecycleOwner = lifecycleOwner,
             flashMode = flashMode,
             cameraLens = cameraLens,
-            rotation = rotation,
             imageFormat = format,
             directory = dir,
             plugins = plugins,
