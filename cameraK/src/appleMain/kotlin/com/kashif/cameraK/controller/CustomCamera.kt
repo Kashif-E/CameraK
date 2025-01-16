@@ -5,52 +5,66 @@ import platform.AVFoundation.*
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.UIKit.UIView
-import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
-import platform.darwin.NSObject
-import platform.darwin.dispatch_async
-import platform.darwin.dispatch_get_global_queue
+import platform.darwin.*
 
 class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol {
-
     var captureSession: AVCaptureSession? = null
     private var backCamera: AVCaptureDevice? = null
     private var frontCamera: AVCaptureDevice? = null
-    var currentCamera: AVCaptureDevice? = null
+    private var currentCamera: AVCaptureDevice? = null
     private var photoOutput: AVCapturePhotoOutput? = null
     var cameraPreviewLayer: AVCaptureVideoPreviewLayer? = null
-
     private var isUsingFrontCamera = false
 
+
     var onPhotoCapture: ((NSData?) -> Unit)? = null
-    var onError: ((Exception) -> Unit)? = null
+    var onError: ((CameraException) -> Unit)? = null
 
-    // Flash mode: Can be auto, on, or off
     var flashMode: AVCaptureFlashMode = AVCaptureFlashModeAuto
-
-    // Torch mode: Can be auto, on, or off
     var torchMode: AVCaptureTorchMode = AVCaptureTorchModeAuto
 
+    sealed class CameraException : Exception() {
+        class DeviceNotAvailable : CameraException()
+        class ConfigurationError(message: String) : CameraException()
+        class CaptureError(message: String) : CameraException()
+    }
+
     fun setupSession() {
-        captureSession = AVCaptureSession()
-        captureSession?.beginConfiguration()
+        try {
+            captureSession = AVCaptureSession()
+            captureSession?.beginConfiguration()
 
-        setupInputs()
+            if (!setupInputs()) {
+                throw CameraException.DeviceNotAvailable()
+            }
 
+            setupPhotoOutput()
+            captureSession?.commitConfiguration()
+        } catch (e: CameraException) {
+            cleanupSession()
+            onError?.invoke(e)
+        }
+    }
+
+    private fun setupPhotoOutput() {
         photoOutput = AVCapturePhotoOutput()
         photoOutput?.setHighResolutionCaptureEnabled(true)
-        captureSession?.addOutput(photoOutput!!)
-
-        captureSession?.commitConfiguration()
+        if (captureSession?.canAddOutput(photoOutput!!) == true) {
+            captureSession?.addOutput(photoOutput!!)
+        } else {
+            throw CameraException.ConfigurationError("Cannot add photo output")
+        }
     }
 
     @OptIn(ExperimentalForeignApi::class)
-    private fun setupInputs() {
-
+    private fun setupInputs(): Boolean {
         val availableDevices = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
             listOf(AVCaptureDeviceTypeBuiltInWideAngleCamera),
             AVMediaTypeVideo,
             AVCaptureDevicePositionUnspecified
         ).devices
+
+        if (availableDevices.isEmpty()) return false
 
         for (device in availableDevices) {
             when ((device as AVCaptureDevice).position) {
@@ -59,19 +73,22 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
             }
         }
 
-        currentCamera = backCamera
+        currentCamera = backCamera ?: frontCamera ?: return false
 
         try {
             val input = AVCaptureDeviceInput.deviceInputWithDevice(
-                backCamera!!,
+                currentCamera!!,
                 null
-            ) as AVCaptureDeviceInput
+            ) ?: return false
+
             if (captureSession?.canAddInput(input) == true) {
                 captureSession?.addInput(input)
+                return true
             }
         } catch (e: Exception) {
-            onError?.let { it(e) }
+            throw CameraException.ConfigurationError(e.message ?: "Unknown error")
         }
+        return false
     }
 
     fun startSession() {
@@ -93,17 +110,26 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         }
     }
 
-    @OptIn(ExperimentalForeignApi::class)
-    fun setupPreviewLayer(view: UIView) {
-        captureSession?.let { captureSession ->
-            cameraPreviewLayer = AVCaptureVideoPreviewLayer(session = captureSession)
-            cameraPreviewLayer?.videoGravity = AVLayerVideoGravityResizeAspectFill
-            cameraPreviewLayer?.setFrame(view.bounds)
-            view.layer.addSublayer(cameraPreviewLayer!!)
-        }
-
+    fun cleanupSession() {
+        stopSession()
+        cameraPreviewLayer?.removeFromSuperlayer()
+        cameraPreviewLayer = null
+        captureSession = null
+        photoOutput = null
+        currentCamera = null
+        backCamera = null
+        frontCamera = null
     }
 
+    @OptIn(ExperimentalForeignApi::class)
+    fun setupPreviewLayer(view: UIView) {
+        captureSession?.let { session ->
+            cameraPreviewLayer = AVCaptureVideoPreviewLayer(session = session)
+            cameraPreviewLayer?.videoGravity = AVLayerVideoGravityResizeAspectFill
+            cameraPreviewLayer?.setFrame(view.bounds)
+            view.layer.addSublayer(cameraPreviewLayer ?: return)
+        }
+    }
 
     fun setFlashMode(mode: AVCaptureFlashMode) {
         flashMode = mode
@@ -112,15 +138,18 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
     @OptIn(ExperimentalForeignApi::class)
     fun setTorchMode(mode: AVCaptureTorchMode) {
         torchMode = mode
-        currentCamera?.run {
-            if (hasTorch) {
-                lockForConfiguration(null)
-                torchMode = mode
-                unlockForConfiguration()
+        currentCamera?.let { camera ->
+            if (camera.hasTorch) {
+                try {
+                    camera.lockForConfiguration(null)
+                    camera.torchMode = mode
+                    camera.unlockForConfiguration()
+                } catch (e: Exception) {
+                    onError?.invoke(CameraException.ConfigurationError("Failed to set torch mode"))
+                }
             }
         }
     }
-
 
     fun captureImage() {
         val settings = AVCapturePhotoSettings()
@@ -129,59 +158,70 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         photoOutput?.capturePhotoWithSettings(settings, delegate = this)
     }
 
-
     @OptIn(ExperimentalForeignApi::class)
     fun switchCamera() {
+        guard(captureSession != null) { return@guard }
+
         captureSession?.beginConfiguration()
 
-
-        val currentInput = captureSession?.inputs?.first() as? AVCaptureDeviceInput
-        if (currentInput != null) {
-            captureSession?.removeInput(currentInput)
-        }
-
-
-        isUsingFrontCamera = !isUsingFrontCamera
-        currentCamera = if (isUsingFrontCamera) frontCamera else backCamera
-
-
         try {
+            // Remove existing input
+            captureSession?.inputs?.firstOrNull()?.let { input ->
+                captureSession?.removeInput(input as AVCaptureInput)
+            }
+
+            // Switch camera
+            isUsingFrontCamera = !isUsingFrontCamera
+            currentCamera = if (isUsingFrontCamera) frontCamera else backCamera
+
+            // Validate camera availability
+            val newCamera = currentCamera ?: throw CameraException.DeviceNotAvailable()
+
+            // Add new input
             val newInput = AVCaptureDeviceInput.deviceInputWithDevice(
-                currentCamera!!,
+                newCamera,
                 null
-            ) as AVCaptureDeviceInput
+            ) ?: throw CameraException.ConfigurationError("Failed to create input")
+
             if (captureSession?.canAddInput(newInput) == true) {
                 captureSession?.addInput(newInput)
+            } else {
+                throw CameraException.ConfigurationError("Cannot add input")
             }
-        } catch (e: Exception) {
+
+            // Update preview layer mirroring
+            cameraPreviewLayer?.connection?.let { connection ->
+                if (connection.isVideoMirroringSupported()) {
+                    connection.automaticallyAdjustsVideoMirroring = false
+                    connection.setVideoMirrored(isUsingFrontCamera)
+                }
+            }
+
+            captureSession?.commitConfiguration()
+        } catch (e: CameraException) {
+            captureSession?.commitConfiguration()
             onError?.invoke(e)
+        } catch (e: Exception) {
+            captureSession?.commitConfiguration()
+            onError?.invoke(CameraException.ConfigurationError(e.message ?: "Unknown error"))
         }
-
-
-        val connection = cameraPreviewLayer?.connection
-        if (connection?.isVideoMirroringSupported() == true) {
-            connection.automaticallyAdjustsVideoMirroring = false
-            connection.setVideoMirrored(isUsingFrontCamera)
-        }
-
-        captureSession?.commitConfiguration()
     }
 
-    // AVCapturePhotoCaptureDelegate
     override fun captureOutput(
         output: AVCapturePhotoOutput,
         didFinishProcessingPhoto: AVCapturePhoto,
         error: NSError?
     ) {
         if (error != null) {
-            onError?.invoke(Exception(error.localizedDescription))
+            onError?.invoke(CameraException.CaptureError(error.localizedDescription))
             return
         }
 
         val imageData = didFinishProcessingPhoto.fileDataRepresentation()
-
-        println("image data $imageData")
-
         onPhotoCapture?.invoke(imageData)
+    }
+
+    private inline fun guard(condition: Boolean, crossinline block: () -> Unit) {
+        if (!condition) block()
     }
 }

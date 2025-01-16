@@ -16,7 +16,6 @@ import kotlinx.atomicfu.AtomicBoolean
 fun CameraController.enableQrCodeScanner(onQrScanner: (String) -> Unit) {
     Log.e("QRScanner", "Enabling QR code scanner")
     imageAnalyzer = ImageAnalysis.Builder()
-        .setTargetRotation(rotation.toSurfaceRotation())
         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
         .build().apply {
             setAnalyzer(

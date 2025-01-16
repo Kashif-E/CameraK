@@ -9,7 +9,6 @@ import android.provider.MediaStore
 import coil3.PlatformContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.FileInputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -69,8 +68,7 @@ class AndroidImageSaverPlugin(
                 }
 
                 println("Image saved successfully at URI: $imageUri")
-                imageUri.path
-
+                imageUri.toString()
             } catch (e: IOException) {
                 e.printStackTrace()
                 println("Failed to save image: ${e.message}")
@@ -80,10 +78,34 @@ class AndroidImageSaverPlugin(
     }
 
     override fun getByteArrayFrom(path: String): ByteArray {
-        return FileInputStream(path).use { it.readBytes() }
+        try {
+            val uri = Uri.parse(path)
+            return context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                inputStream.readBytes()
+            } ?: throw IOException("Failed to open input stream")
+        } catch (e: Exception) {
+            throw IOException("Failed to read image from URI: $path", e)
+        }
+    }
+
+    /**
+     * only for android may use this later on
+     */
+     fun getActualPathFromUri(uri: Uri): String? {
+        val projection = arrayOf(MediaStore.Images.Media.DATA)
+        return try {
+            context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                val columnIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+                if (cursor.moveToFirst()) {
+                    cursor.getString(columnIndex)
+                } else null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 }
-
 /**
  * Factory function to create an Android-specific [ImageSaverPlugin].
  *

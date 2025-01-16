@@ -21,7 +21,6 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
-import com.kashif.cameraK.enums.Rotation
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
@@ -51,7 +50,6 @@ actual class CameraController(
     internal var flashMode: FlashMode,
     internal var torchMode: TorchMode,
     internal var cameraLens: CameraLens,
-    var rotation: Rotation,
     internal var imageFormat: ImageFormat,
     internal var directory: Directory,
     internal var plugins: MutableList<CameraPlugin>
@@ -75,7 +73,6 @@ actual class CameraController(
                 cameraProvider?.unbindAll()
 
                 preview = Preview.Builder()
-                    .setTargetRotation(rotation.toSurfaceRotation())
                     .build()
                     .also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
@@ -88,7 +85,6 @@ actual class CameraController(
                 // Setup ImageCapture Use Case
                 imageCapture = ImageCapture.Builder()
                     .setFlashMode(flashMode.toCameraXFlashMode())
-                    .setTargetRotation(rotation.toSurfaceRotation())
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .build()
 
@@ -127,77 +123,102 @@ actual class CameraController(
     }
 
     actual suspend fun takePicture(): ImageCaptureResult =
-            suspendCancellableCoroutine { cont ->
-                val outputOptions = ImageCapture.OutputFileOptions.Builder(createTempFile()).build()
+        suspendCancellableCoroutine { cont ->
+            val outputOptions = ImageCapture.OutputFileOptions.Builder(createTempFile()).build()
 
-                imageCapture?.takePicture(
-                    outputOptions,
-                    ContextCompat.getMainExecutor(context),
-                    object : ImageCapture.OnImageSavedCallback {
-                        override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                            val byteArray = try {
-                                output.savedUri?.let { uri ->
-                                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                                        val bytes = inputStream.readBytes()
-                                        val originalBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-
-                                        // Rotate according to the specified rotation
-                                        val rotatedBitmap = if (originalBitmap != null) {
-                                            Matrix().apply {
-                                                postRotate(rotation.value.toFloat())
-                                            }.let { matrix ->
-                                                Bitmap.createBitmap(
-                                                    originalBitmap,
-                                                    0,
-                                                    0,
-                                                    originalBitmap.width,
-                                                    originalBitmap.height,
-                                                    matrix,
-                                                    true
-                                                )
-                                            }
-                                        } else {
-                                            originalBitmap
-                                        }
-
-                                        ByteArrayOutputStream().use { stream ->
-                                            rotatedBitmap?.compress(
-                                                when (imageFormat) {
-                                                    ImageFormat.JPEG -> Bitmap.CompressFormat.JPEG
-                                                    ImageFormat.PNG -> Bitmap.CompressFormat.PNG
-                                                },
-                                                100,
-                                                stream
-                                            )
-
-                                            if (originalBitmap != rotatedBitmap) {
-                                                rotatedBitmap?.recycle()
-                                            }
-                                            originalBitmap?.recycle()
-
-                                            stream.toByteArray()
-                                        }
+            imageCapture?.takePicture(
+                outputOptions,
+                ContextCompat.getMainExecutor(context),
+                object : ImageCapture.OnImageSavedCallback {
+                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                        val byteArray = try {
+                            output.savedUri?.let { uri ->
+                                // First, copy the input stream to a temporary file to handle EXIF
+                                val tempFile = createTempFile("temp_image", ".jpg")
+                                context.contentResolver.openInputStream(uri)?.use { input ->
+                                    tempFile.outputStream().use { output ->
+                                        input.copyTo(output)
                                     }
                                 }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                null
-                            }
 
-                            if (byteArray != null) {
-                                imageCaptureListeners.forEach { it(byteArray) }
-                                cont.resume(ImageCaptureResult.Success(byteArray))
-                            } else {
-                                cont.resume(ImageCaptureResult.Error(Exception("Failed to convert image to ByteArray.")))
+                                // Read EXIF orientation from the temp file
+                                val exif = ExifInterface(tempFile.absolutePath)
+                                val orientation = exif.getAttributeInt(
+                                    ExifInterface.TAG_ORIENTATION,
+                                    ExifInterface.ORIENTATION_NORMAL
+                                )
+
+                                // Read the bitmap from the temp file
+                                val originalBitmap = BitmapFactory.decodeFile(tempFile.absolutePath)
+
+                                // Clean up temp file
+                                tempFile.delete()
+
+                                // Calculate the rotation angle based on both EXIF orientation and camera rotation
+                                val rotationAngle = when (orientation) {
+                                    ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                                    ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                                    ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                                    else -> 0f
+                                } + (imageCapture?.targetRotation?.toFloat() ?: 0f)
+
+                                // Apply rotation if needed
+                                val rotatedBitmap = if (originalBitmap != null && rotationAngle != 0f) {
+                                    Matrix().apply {
+                                        postRotate(rotationAngle)
+                                    }.let { matrix ->
+                                        Bitmap.createBitmap(
+                                            originalBitmap,
+                                            0,
+                                            0,
+                                            originalBitmap.width,
+                                            originalBitmap.height,
+                                            matrix,
+                                            true
+                                        )
+                                    }
+                                } else {
+                                    originalBitmap
+                                }
+
+                                ByteArrayOutputStream().use { stream ->
+                                    rotatedBitmap?.compress(
+                                        when (imageFormat) {
+                                            ImageFormat.JPEG -> Bitmap.CompressFormat.JPEG
+                                            ImageFormat.PNG -> Bitmap.CompressFormat.PNG
+                                        },
+                                        100,
+                                        stream
+                                    )
+
+                                    // Clean up bitmaps
+                                    if (originalBitmap != rotatedBitmap) {
+                                        rotatedBitmap?.recycle()
+                                    }
+                                    originalBitmap?.recycle()
+
+                                    stream.toByteArray()
+                                }
                             }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            null
                         }
 
-                        override fun onError(exc: ImageCaptureException) {
-                            cont.resume(ImageCaptureResult.Error(exc))
+                        if (byteArray != null) {
+                            imageCaptureListeners.forEach { it(byteArray) }
+                            cont.resume(ImageCaptureResult.Success(byteArray))
+                        } else {
+                            cont.resume(ImageCaptureResult.Error(Exception("Failed to convert image to ByteArray.")))
                         }
                     }
-                ) ?: cont.resume(ImageCaptureResult.Error(Exception("ImageCapture use case is not initialized.")))
-            }
+
+                    override fun onError(exc: ImageCaptureException) {
+                        cont.resume(ImageCaptureResult.Error(exc))
+                    }
+                }
+            ) ?: cont.resume(ImageCaptureResult.Error(Exception("ImageCapture use case is not initialized.")))
+        }
     actual fun toggleFlashMode() {
         flashMode = when (flashMode) {
             FlashMode.OFF -> FlashMode.ON
@@ -239,11 +260,6 @@ actual class CameraController(
     }
 
 
-    actual fun setCameraRotation(rotation: Rotation) {
-        this.rotation = rotation
-        imageCapture?.targetRotation = rotation.toSurfaceRotation()
-        preview?.targetRotation = rotation.toSurfaceRotation()
-    }
 
     actual fun startSession() {
         // CameraX handles session start based on lifecycle
@@ -283,10 +299,4 @@ actual class CameraController(
         CameraLens.BACK -> CameraSelector.LENS_FACING_BACK
     }
 
-    fun Rotation.toSurfaceRotation(): Int = when (this) {
-        Rotation.ROTATION_0 -> android.view.Surface.ROTATION_0
-        Rotation.ROTATION_90 -> android.view.Surface.ROTATION_90
-        Rotation.ROTATION_180 -> android.view.Surface.ROTATION_180
-        Rotation.ROTATION_270 -> android.view.Surface.ROTATION_270
-    }
 }

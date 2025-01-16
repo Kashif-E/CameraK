@@ -1,13 +1,26 @@
 package com.kashif.cameraK.controller
 
-import com.kashif.cameraK.enums.*
+import com.kashif.cameraK.enums.CameraLens
+import com.kashif.cameraK.enums.Directory
+import com.kashif.cameraK.enums.FlashMode
+import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.utils.toByteArray
 import com.kashif.cameraK.utils.toUIImage
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.suspendCancellableCoroutine
-import platform.AVFoundation.*
+import platform.AVFoundation.AVCaptureFlashMode
+import platform.AVFoundation.AVCaptureFlashModeAuto
+import platform.AVFoundation.AVCaptureFlashModeOff
+import platform.AVFoundation.AVCaptureFlashModeOn
+import platform.AVFoundation.AVCaptureMetadataOutput
+import platform.AVFoundation.AVCaptureMetadataOutputObjectsDelegateProtocol
+import platform.AVFoundation.AVCaptureTorchMode
+import platform.AVFoundation.AVCaptureTorchModeAuto
+import platform.AVFoundation.AVCaptureTorchModeOff
+import platform.AVFoundation.AVCaptureTorchModeOn
 import platform.UIKit.UIImageJPEGRepresentation
 import platform.UIKit.UIImagePNGRepresentation
 import platform.UIKit.UIViewController
@@ -18,7 +31,6 @@ actual class CameraController(
     internal var flashMode: FlashMode,
     internal var torchMode: TorchMode,
     internal var cameraLens: CameraLens,
-    internal var rotation: Rotation,
     internal var imageFormat: ImageFormat,
     internal var directory: Directory,
     internal var plugins: MutableList<CameraPlugin>
@@ -29,7 +41,10 @@ actual class CameraController(
     private var metadataOutput = AVCaptureMetadataOutput()
     private var metadataObjectsDelegate: AVCaptureMetadataOutputObjectsDelegateProtocol? = null
 
+    init {
 
+
+    }
     override fun viewDidLoad() {
         super.viewDidLoad()
         setupCamera()
@@ -154,11 +169,6 @@ actual class CameraController(
         customCameraController.switchCamera()
     }
 
-    actual fun setCameraRotation(rotation: Rotation) {
-        this.rotation = rotation
-        customCameraController.cameraPreviewLayer?.connection()
-            ?.setVideoOrientation(rotation.toAVCaptureVideoOrientation())
-    }
 
     actual fun startSession() {
         customCameraController.startSession()
@@ -188,13 +198,6 @@ actual class CameraController(
         FlashMode.AUTO -> AVCaptureFlashModeAuto
     }
 
-    // Extension function to map Rotation enum to AVCaptureVideoOrientation
-    private fun Rotation.toAVCaptureVideoOrientation(): AVCaptureVideoOrientation = when (this) {
-        Rotation.ROTATION_0 -> AVCaptureVideoOrientationPortrait
-        Rotation.ROTATION_90 -> AVCaptureVideoOrientationLandscapeRight
-        Rotation.ROTATION_180 -> AVCaptureVideoOrientationPortraitUpsideDown
-        Rotation.ROTATION_270 -> AVCaptureVideoOrientationLandscapeLeft
-    }
 
     private fun TorchMode.toAVCaptureTorchMode(): AVCaptureTorchMode = when (this) {
         TorchMode.ON -> AVCaptureTorchModeOn

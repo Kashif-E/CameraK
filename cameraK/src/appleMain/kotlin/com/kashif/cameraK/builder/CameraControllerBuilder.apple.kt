@@ -14,7 +14,6 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
     private var flashMode: FlashMode = FlashMode.OFF
     private var torchMode: TorchMode = TorchMode.OFF
     private var cameraLens: CameraLens = CameraLens.BACK
-    private var rotation: Rotation = Rotation.ROTATION_0
     private var imageFormat: ImageFormat? = null
     private var directory: Directory? = null
     private val plugins = mutableListOf<CameraPlugin>()
@@ -29,10 +28,7 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
         return this
     }
 
-    override fun setRotation(rotation: Rotation): CameraControllerBuilder {
-        this.rotation = rotation
-        return this
-    }
+
 
     override fun setImageFormat(imageFormat: ImageFormat): CameraControllerBuilder {
         this.imageFormat = imageFormat
@@ -64,7 +60,6 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
             flashMode = flashMode,
             torchMode = torchMode,
             cameraLens = cameraLens,
-            rotation = rotation,
             imageFormat = format,
             directory = dir,
             plugins = plugins
