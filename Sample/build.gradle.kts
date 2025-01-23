@@ -1,4 +1,5 @@
 import org.jetbrains.compose.ExperimentalComposeLibrary
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
@@ -53,6 +54,11 @@ kotlin {
             implementation(libs.androidx.activityCompose)
         }
 
+        desktopMain.dependencies {
+            implementation(compose.desktop.currentOs)
+            implementation(libs.kotlinx.coroutines.swing)
+        }
+
 
     }
 }
@@ -85,3 +91,30 @@ tasks.named("embedAndSignAppleFrameworkForXcode") {
     }
 }
 
+
+
+compose.desktop {
+    application {
+        mainClass = "MainKt"
+
+        nativeDistributions {
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            packageName = "org.company.app"
+            packageVersion = "1.0.0"
+        }
+
+        afterEvaluate {
+            tasks.withType<JavaExec> {
+                jvmArgs("--add-opens", "java.desktop/sun.awt=ALL-UNNAMED")
+                jvmArgs("--add-opens", "java.desktop/java.awt.peer=ALL-UNNAMED") // recommended but not necessary
+
+                if (System.getProperty("os.name").contains("Mac")) {
+                    jvmArgs("--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED")
+                    jvmArgs("--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED")
+                }
+            }
+        }
+
+
+    }
+}

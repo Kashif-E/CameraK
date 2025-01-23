@@ -34,9 +34,6 @@ actual fun expectCameraPreview(
     }
 
 
-    LaunchedEffect(cameraController) {
-        onCameraControllerReady(cameraController)
-    }
 
     BoxWithConstraints(modifier = modifier) {
         val scope = rememberCoroutineScope()
@@ -46,6 +43,7 @@ actual fun expectCameraPreview(
 
         DisposableEffect(Unit) {
             cameraController.startSession()
+            cameraController.initializeControllerPlugins()
 
             val frameJob = scope.launch(Dispatchers.Main) {
                 frameChannel.consumeAsFlow().collect { image ->
@@ -64,6 +62,7 @@ actual fun expectCameraPreview(
         SwingPanel(
             modifier = modifier.fillMaxSize(),
             factory = {
+                onCameraControllerReady(cameraController)
                 ImagePanel().also { panel = it }
             },
             update = { }

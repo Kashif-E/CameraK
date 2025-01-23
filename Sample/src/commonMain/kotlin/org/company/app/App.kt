@@ -172,11 +172,14 @@ private fun CameraContent(
             },
             onCameraControllerReady = {
                 cameraController.value = it
-                qrScannerPlugin.startScanning()
+
             }
         )
 
         cameraController.value?.let { controller ->
+            LaunchedEffect(controller) {
+                qrScannerPlugin.startScanning()
+            }
             EnhancedCameraScreen(
                 cameraController = controller,
                 imageSaverPlugin = imageSaverPlugin
