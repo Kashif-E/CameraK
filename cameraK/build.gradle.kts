@@ -33,7 +33,7 @@ kotlin {
     sourceSets {
         val desktopMain by getting{
             dependencies{
-                implementation(libs.javacv.platform)
+                api(libs.javacv.platform)
             }
         }
 
