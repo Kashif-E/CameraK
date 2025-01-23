@@ -15,7 +15,7 @@ kotlin {
         instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
     }
 
-
+    jvm("desktop")
     listOf(
         iosX64(),
         iosArm64(),
@@ -28,6 +28,8 @@ kotlin {
     }
 
     sourceSets {
+        val desktopMain by getting
+
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
