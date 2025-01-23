@@ -17,7 +17,7 @@ kotlin {
     androidTarget {
         publishLibraryVariants("release", "debug")
     }
-
+    jvm("desktop")
 
     listOf(
         iosX64(),
@@ -31,6 +31,12 @@ kotlin {
     }
 
     sourceSets {
+        val desktopMain by getting{
+            dependencies{
+                api(libs.javacv.platform)
+            }
+        }
+
         commonMain.dependencies {
             api(libs.kotlinx.coroutines.core)
             api(libs.kotlinx.coroutines.test)

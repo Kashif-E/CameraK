@@ -1,5 +1,4 @@
 import com.vanniktech.maven.publish.SonatypeHost
-import org.jetbrains.compose.compose
 
 plugins {
     alias(libs.plugins.multiplatform)
@@ -17,7 +16,7 @@ kotlin {
     androidTarget {
         publishLibraryVariants("release", "debug")
     }
-
+    jvm("desktop")
 
     listOf(
         iosX64(),
@@ -31,6 +30,7 @@ kotlin {
     }
 
     sourceSets {
+        val desktopMain by getting
         commonMain.dependencies {
             api(projects.cameraK)
         }

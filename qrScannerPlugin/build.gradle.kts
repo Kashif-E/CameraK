@@ -18,7 +18,7 @@ kotlin {
         publishLibraryVariants("release", "debug")
     }
 
-
+    jvm("desktop")
     listOf(
         iosX64(),
         iosArm64(),
@@ -31,6 +31,13 @@ kotlin {
     }
 
     sourceSets {
+        val desktopMain by getting{
+            dependencies {
+                implementation(libs.javase)
+                implementation(libs.core.v351)
+            }
+        }
+
         commonMain.dependencies {
             api(projects.cameraK)
             implementation(libs.atomicfu)
