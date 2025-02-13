@@ -12,7 +12,7 @@
 ## Overview
 
 The **CameraK Library** is a camera solution designed for Compose Multiplatform, currently
-supporting both **Android** and **iOS**. While there are plans to expand support to additional
+supporting **Android** **JVM** and **iOS**. While there are plans to expand support to additional
 platforms, this will take time.
 
 CameraK offers features such as **Camera Preview**, **Image Capture**, **Saving Images Locally**,
@@ -49,7 +49,7 @@ implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.0.4")
 
 - Android
 - IOS
-- JVMM
+- JVM
 - More will be added later
 
 ## Usage
