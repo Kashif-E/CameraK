@@ -58,7 +58,7 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
         val format = imageFormat ?: throw InvalidConfigurationException("ImageFormat must be set.")
         val dir = directory ?: throw InvalidConfigurationException("Directory must be set.")
 
-        // Initialize the iOS-specific CameraController
+
         val cameraController = CameraController(
             imageFormat = format,
             directory = dir,

@@ -58,7 +58,7 @@ actual fun expectCameraPreview(
             }
         }
 
-        // Camera Preview
+
         SwingPanel(
             modifier = modifier.fillMaxSize(),
             factory = {

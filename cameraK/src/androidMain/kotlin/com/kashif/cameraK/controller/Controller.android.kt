@@ -82,7 +82,7 @@ actual class CameraController(
                     .requireLensFacing(cameraLens.toCameraXLensFacing())
                     .build()
 
-                // Setup ImageCapture Use Case
+
                 imageCapture = ImageCapture.Builder()
                     .setFlashMode(flashMode.toCameraXFlashMode())
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)

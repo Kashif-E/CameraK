@@ -41,6 +41,7 @@ kotlin {
             implementation(projects.cameraK)
             implementation(projects.imageSaverPlugin)
             implementation(projects.qrScannerPlugin)
+            implementation(projects.ocrPlugin)
         }
 
         commonTest.dependencies {

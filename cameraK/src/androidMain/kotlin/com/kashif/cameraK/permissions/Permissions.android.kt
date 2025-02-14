@@ -27,7 +27,7 @@ actual fun providePermissions(): Permissions {
 
             override fun hasStoragePermission(): Boolean {
                 return if (Build.VERSION.SDK_INT >= 32) {
-                    // Storage permission not required from API level 32 onwards
+
                     true
                 } else {
                     ContextCompat.checkSelfPermission(
@@ -59,7 +59,7 @@ actual fun providePermissions(): Permissions {
                 when (permissionStatus) {
                     PackageManager.PERMISSION_GRANTED -> onGranted()
                     PackageManager.PERMISSION_DENIED -> {
-                        // Ensure that launcher.launch is called within a LaunchedEffect or similar
+
                         LaunchedEffect(Unit) {
                             launcher.launch(Manifest.permission.CAMERA)
                         }

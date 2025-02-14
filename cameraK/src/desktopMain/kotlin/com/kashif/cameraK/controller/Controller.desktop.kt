@@ -61,7 +61,7 @@ actual class CameraController(
      * Toggles the flash mode between ON, OFF, and AUTO.
      */
     actual fun toggleFlashMode() {
-        //flash not available on desktop
+
     }
 
     /**
@@ -70,7 +70,7 @@ actual class CameraController(
      * @param mode The desired [FlashMode]
      */
     actual fun setFlashMode(mode: FlashMode) {
-        //flash not available on desktop
+
     }
 
     /**
