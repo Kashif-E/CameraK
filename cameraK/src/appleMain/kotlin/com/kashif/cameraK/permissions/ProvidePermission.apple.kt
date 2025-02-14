@@ -50,8 +50,8 @@ fun rememberIOSPermissions(): Permissions {
             }
             @Composable
             override fun RequestStoragePermission(onGranted: () -> Unit, onDenied: () -> Unit) {
-                // iOS doesn't have explicit storage permissions.
-                // Photos access is needed if saving to the photo library.
+
+
                 PHPhotoLibrary.requestAuthorization { status ->
                     when (status) {
                         PHAuthorizationStatusAuthorized-> onGranted()

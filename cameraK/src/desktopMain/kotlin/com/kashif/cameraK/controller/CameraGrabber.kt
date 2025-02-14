@@ -61,7 +61,7 @@ class CameraGrabber(
                         }
                     }
 
-                    // Minimal delay to prevent CPU overload
+
                     delay(1)
                 }
             } catch (e: Exception) {

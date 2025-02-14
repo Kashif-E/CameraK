@@ -21,7 +21,7 @@ class QRScanner {
     }
     private val lock = ReentrantLock()
     private var lastProcessTime = 0L
-    private val processInterval = 200L // Time between scans in milliseconds
+    private val processInterval = 200L
 
     fun scanImage(image: BufferedImage): String? {
         if (!lock.tryLock()) return null

@@ -10,7 +10,7 @@ class BarcodeScannerPlugin : CameraPlugin {
     override fun initialize(cameraController: CameraController) {
 
         cameraController.addImageCaptureListener { byteArray ->
-            // Perform barcode scanning on the captured image
+
             val barcode = scanBarcode(byteArray)
             if (barcode != null) {
                 println("Barcode detected: $barcode")

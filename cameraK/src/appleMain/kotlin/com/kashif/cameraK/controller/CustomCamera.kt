@@ -4,8 +4,13 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import platform.AVFoundation.*
 import platform.Foundation.NSData
 import platform.Foundation.NSError
+import platform.UIKit.UIDevice
+import platform.UIKit.UIDeviceOrientation
 import platform.UIKit.UIView
-import platform.darwin.*
+import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
+import platform.darwin.NSObject
+import platform.darwin.dispatch_async
+import platform.darwin.dispatch_get_global_queue
 
 class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol {
     var captureSession: AVCaptureSession? = null
@@ -121,13 +126,31 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         frontCamera = null
     }
 
+
     @OptIn(ExperimentalForeignApi::class)
     fun setupPreviewLayer(view: UIView) {
         captureSession?.let { session ->
-            cameraPreviewLayer = AVCaptureVideoPreviewLayer(session = session)
-            cameraPreviewLayer?.videoGravity = AVLayerVideoGravityResizeAspectFill
-            cameraPreviewLayer?.setFrame(view.bounds)
-            view.layer.addSublayer(cameraPreviewLayer ?: return)
+            val newPreviewLayer = AVCaptureVideoPreviewLayer(session = session).apply {
+                videoGravity = AVLayerVideoGravityResizeAspectFill
+                setFrame(view.bounds)
+
+                connection?.videoOrientation = currentVideoOrientation()
+            }
+
+            view.layer.addSublayer(newPreviewLayer)
+            cameraPreviewLayer = newPreviewLayer
+        }
+    }
+
+
+    fun currentVideoOrientation(): AVCaptureVideoOrientation {
+        val orientation = UIDevice.currentDevice.orientation
+        return when (orientation) {
+            UIDeviceOrientation.UIDeviceOrientationPortrait -> AVCaptureVideoOrientationPortrait
+            UIDeviceOrientation.UIDeviceOrientationPortraitUpsideDown -> AVCaptureVideoOrientationPortraitUpsideDown
+            UIDeviceOrientation.UIDeviceOrientationLandscapeLeft -> AVCaptureVideoOrientationLandscapeRight
+            UIDeviceOrientation.UIDeviceOrientationLandscapeRight -> AVCaptureVideoOrientationLandscapeLeft
+            else -> AVCaptureVideoOrientationPortrait
         }
     }
 
@@ -165,19 +188,19 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         captureSession?.beginConfiguration()
 
         try {
-            // Remove existing input
+
             captureSession?.inputs?.firstOrNull()?.let { input ->
                 captureSession?.removeInput(input as AVCaptureInput)
             }
 
-            // Switch camera
+
             isUsingFrontCamera = !isUsingFrontCamera
             currentCamera = if (isUsingFrontCamera) frontCamera else backCamera
 
-            // Validate camera availability
+
             val newCamera = currentCamera ?: throw CameraException.DeviceNotAvailable()
 
-            // Add new input
+
             val newInput = AVCaptureDeviceInput.deviceInputWithDevice(
                 newCamera,
                 null
@@ -189,7 +212,7 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
                 throw CameraException.ConfigurationError("Cannot add input")
             }
 
-            // Update preview layer mirroring
+
             cameraPreviewLayer?.connection?.let { connection ->
                 if (connection.isVideoMirroringSupported()) {
                     connection.automaticallyAdjustsVideoMirroring = false
