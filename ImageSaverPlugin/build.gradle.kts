@@ -78,7 +78,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "image_saver_plugin",
-        version = "0.0.1"
+        version = "0.0.2"
     )
 
 
