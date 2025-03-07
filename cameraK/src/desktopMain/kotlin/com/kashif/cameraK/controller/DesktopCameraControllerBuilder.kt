@@ -8,18 +8,31 @@ import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.utils.InvalidConfigurationException
+import org.bytedeco.javacv.FrameGrabber
 
 /**
  * Desktop-specific implementation of [CameraControllerBuilder].
  */
 class DesktopCameraControllerBuilder : CameraControllerBuilder {
 
+    private var grabber: FrameGrabber? = null
+    private var horizontalFlip: Boolean = false
     private var flashMode: FlashMode = FlashMode.OFF
     private var torchMode: TorchMode = TorchMode.OFF
     private var cameraLens: CameraLens = CameraLens.BACK
     private var imageFormat: ImageFormat? = null
     private var directory: Directory? = null
     private val plugins = mutableListOf<CameraPlugin>()
+
+    fun setGrabber(grabber: FrameGrabber): CameraControllerBuilder {
+        this.grabber = grabber
+        return this
+    }
+
+    fun setHorizontalFlip(horizontalFlip: Boolean): CameraControllerBuilder {
+        this.horizontalFlip = horizontalFlip
+        return this
+    }
 
     override fun setFlashMode(flashMode: FlashMode): CameraControllerBuilder {
         this.flashMode = flashMode
@@ -30,8 +43,6 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
         this.cameraLens = cameraLens
         return this
     }
-
-
 
     override fun setImageFormat(imageFormat: ImageFormat): CameraControllerBuilder {
         this.imageFormat = imageFormat
@@ -54,15 +65,15 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
     }
 
     override fun build(): CameraController {
-
         val format = imageFormat ?: throw InvalidConfigurationException("ImageFormat must be set.")
         val dir = directory ?: throw InvalidConfigurationException("Directory must be set.")
-
 
         val cameraController = CameraController(
             imageFormat = format,
             directory = dir,
-            plugins = plugins
+            plugins = plugins,
+            horizontalFlip = horizontalFlip,
+            customGrabber = grabber
         )
 
         return cameraController
