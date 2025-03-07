@@ -1,6 +1,5 @@
 package com.kashif.cameraK.controller
 
-
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -9,16 +8,24 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.bytedeco.javacv.FFmpegFrameGrabber
+import org.bytedeco.javacv.FrameGrabber
+import org.bytedeco.javacv.VideoInputFrameGrabber
 import java.awt.image.BufferedImage
-
 
 class CameraGrabber(
     private val frameChannel: Channel<BufferedImage>,
     private val errorHandler: (Throwable) -> Unit
 ) {
     private val converter = FrameConverter()
-    private var grabber: FFmpegFrameGrabber? = null
+    private var grabber: FrameGrabber? = null
     private var job: Job? = null
+
+    private var isHorizontallyFlipped = false
+
+    fun setHorizontalFlip(flip: Boolean) {
+        this.isHorizontallyFlipped = flip
+        converter.setHorizontalFlip(flip)
+    }
 
     fun grabCurrentFrame(): BufferedImage? {
         val frame = grabber?.grab()
@@ -28,10 +35,11 @@ class CameraGrabber(
             null
         }
     }
-    fun start(coroutineScope: CoroutineScope) {
+
+    fun start(coroutineScope: CoroutineScope, customGrabber: FrameGrabber? = null) {
         if (job?.isActive == true) return
 
-        grabber = createGrabber().apply {
+        grabber = customGrabber ?: createGrabber().apply {
             try {
                 start()
             } catch (e: Exception) {
@@ -39,6 +47,8 @@ class CameraGrabber(
                 return
             }
         }
+
+        converter.setHorizontalFlip(isHorizontallyFlipped)
 
         job = coroutineScope.launch(Dispatchers.IO) {
             var frameCount = 0
@@ -61,7 +71,6 @@ class CameraGrabber(
                         }
                     }
 
-
                     delay(1)
                 }
             } catch (e: Exception) {
@@ -81,25 +90,35 @@ class CameraGrabber(
         }
     }
 
-    private fun createGrabber() = when {
-        System.getProperty("os.name").lowercase().contains("mac") -> {
-            FFmpegFrameGrabber("default").apply {
-                format = "avfoundation"
+    private fun createGrabber() : FrameGrabber =
+        when (getOperatingSystem()) {
+            OperatingSystem.MAC -> {
+                FFmpegFrameGrabber("default")
             }
-        }
-        System.getProperty("os.name").lowercase().contains("windows") -> {
-            FFmpegFrameGrabber("video=0").apply {
-                format = "dshow"
+            OperatingSystem.WINDOWS -> {
+                VideoInputFrameGrabber(0)
             }
-        }
-        else -> {
-            FFmpegFrameGrabber("/dev/video0").apply {
-                format = "v4l2"
+            OperatingSystem.LINUX -> {
+                FFmpegFrameGrabber("/dev/video0")
             }
+        }.apply {
+            frameRate = 30.0
+            imageWidth = 640
+            imageHeight = 480
         }
-    }.apply {
-        frameRate = 30.0
-        imageWidth = 640
-        imageHeight = 480
+
+    private fun getOperatingSystem(): OperatingSystem {
+        val os = System.getProperty("os.name").lowercase()
+        return when {
+            os.contains("mac") -> OperatingSystem.MAC
+            os.contains("windows") -> OperatingSystem.WINDOWS
+            else -> OperatingSystem.LINUX
+        }
     }
+}
+
+enum class OperatingSystem {
+    WINDOWS,
+    MAC,
+    LINUX
 }

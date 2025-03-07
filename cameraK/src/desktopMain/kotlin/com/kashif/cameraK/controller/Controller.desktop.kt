@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.bytedeco.javacv.FrameGrabber
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import javax.imageio.ImageIO
@@ -20,13 +21,15 @@ import javax.imageio.ImageIO
 actual class CameraController(
     internal var plugins: MutableList<CameraPlugin>,
     imageFormat: ImageFormat,
-    directory: Directory
+    directory: Directory,
+    private val horizontalFlip: Boolean = false,
+    private val customGrabber: FrameGrabber? = null
 ) {
     private var cameraGrabber: CameraGrabber? = null
     private val frameChannel = Channel<BufferedImage>(Channel.CONFLATED)
 
     private var listener: (ByteArray) -> Unit = {
-
+        // default no-op listener
     }
 
     /**
@@ -61,7 +64,7 @@ actual class CameraController(
      * Toggles the flash mode between ON, OFF, and AUTO.
      */
     actual fun toggleFlashMode() {
-
+        // flash mode not available on desktop
     }
 
     /**
@@ -70,7 +73,7 @@ actual class CameraController(
      * @param mode The desired [FlashMode]
      */
     actual fun setFlashMode(mode: FlashMode) {
-
+        // flash mode not available on desktop
     }
 
     /**
@@ -86,14 +89,14 @@ actual class CameraController(
      * In IOS, torch mode include AUTO.
      */
     actual fun toggleTorchMode() {
-        //torch not available on desktop
+        // torch not available on desktop
     }
 
     /**
      * Toggles the camera lens between FRONT and BACK.
      */
     actual fun toggleCameraLens() {
-        //camera lens not available on desktop
+        // camera lens not available on desktop
     }
 
     /**
@@ -101,14 +104,16 @@ actual class CameraController(
      */
     actual fun startSession() {
         CoroutineScope(Dispatchers.Default).launch {
+            // If there is a custom grabber, use it, else use the default camera grabber
+            // Which attempts to use the default camera
             cameraGrabber = CameraGrabber(frameChannel, {
                 println("Camera error: ${it.message}")
                 it.printStackTrace()
             }).apply {
-                start(this@launch)
+                setHorizontalFlip(horizontalFlip)
+                start(this@launch, customGrabber)
             }
         }
-
     }
 
     /**
@@ -135,5 +140,4 @@ actual class CameraController(
     }
 
     fun getFrameChannel() = frameChannel
-
 }
