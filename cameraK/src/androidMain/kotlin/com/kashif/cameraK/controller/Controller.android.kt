@@ -254,6 +254,10 @@ actual class CameraController(
         camera?.cameraControl?.enableTorch(torchMode == TorchMode.ON)
     }
 
+    actual fun setTorchMode(mode: TorchMode) {
+        camera?.cameraControl?.enableTorch(mode == TorchMode.ON)
+    }
+
     actual fun toggleCameraLens() {
         cameraLens = if (cameraLens == CameraLens.BACK) CameraLens.FRONT else CameraLens.BACK
         previewView?.let { bindCamera(it) }

@@ -212,6 +212,10 @@ actual class CameraController(
         customCameraController.setTorchMode(torchMode.toAVCaptureTorchMode())
     }
 
+    actual fun setTorchMode(mode: TorchMode) {
+        customCameraController.setTorchMode(mode.toAVCaptureTorchMode())
+    }
+
     actual fun toggleCameraLens() {
         customCameraController.switchCamera()
     }

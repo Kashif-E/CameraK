@@ -3,6 +3,7 @@ package com.kashif.cameraK.controller
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import kotlinx.coroutines.CoroutineScope
@@ -90,6 +91,15 @@ actual class CameraController(
      */
     actual fun toggleTorchMode() {
         // torch not available on desktop
+    }
+
+    /**
+     * Sets the torch mode of the camera
+     *
+     * @param mode The desired [TorchMode]
+     */
+    actual fun setTorchMode(mode: TorchMode) {
+        //torch not available on desktop
     }
 
     /**

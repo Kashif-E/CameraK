@@ -1,6 +1,7 @@
 package com.kashif.cameraK.controller
 
 import com.kashif.cameraK.enums.FlashMode
+import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.result.ImageCaptureResult
 
 /**
@@ -38,6 +39,13 @@ expect class CameraController {
      * In IOS, torch mode include AUTO.
      */
     fun toggleTorchMode()
+
+    /**
+     * Sets the torch mode of the camera
+     *
+     * @param mode The desired [TorchMode]
+     */
+    fun setTorchMode(mode: TorchMode)
 
     /**
      * Toggles the camera lens between FRONT and BACK.
