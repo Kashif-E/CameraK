@@ -5,44 +5,31 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
-import android.os.Build
-import android.provider.MediaStore
-import androidx.camera.core.Camera
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
+import androidx.camera.core.*
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import com.kashif.cameraK.enums.CameraLens
-import com.kashif.cameraK.enums.Directory
-import com.kashif.cameraK.enums.FlashMode
-import com.kashif.cameraK.enums.ImageFormat
-import com.kashif.cameraK.enums.TorchMode
+import com.kashif.cameraK.capture.BurstCaptureManager
+import com.kashif.cameraK.enums.*
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.utils.InvalidConfigurationException
+import com.kashif.cameraK.utils.MemoryManager
+import com.kashif.cameraK.utils.compressToByteArray
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
+import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 
 /**
  * Android-specific implementation of [CameraController] using CameraX.
- *
- * @param context The Android [Context].
- * @param lifecycleOwner The [LifecycleOwner] to bind the camera lifecycle.
- * @param flashMode The desired [FlashMode].
- * @param cameraLens The desired [CameraLens].
- * @param rotation The desired [Rotation].
- * @param imageFormat The desired [ImageFormat].
- * @param directory The desired [Directory] to save images.
  */
 actual class CameraController(
     val context: Context,
@@ -64,15 +51,31 @@ actual class CameraController(
 
     private val imageCaptureListeners = mutableListOf<(ByteArray) -> Unit>()
 
+
+    private val memoryManager = MemoryManager
+    private val burstCaptureManager = BurstCaptureManager()
+
+
+    private val imageProcessingExecutor = Executors.newFixedThreadPool(2)
+
+
+    private var isCapturing = false
+
     fun bindCamera(previewView: PreviewView, onCameraReady: () -> Unit = {}) {
         this.previewView = previewView
+
+
+        memoryManager.initialize(context)
+
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
             try {
                 cameraProvider = cameraProviderFuture.get()
                 cameraProvider?.unbindAll()
 
+
                 preview = Preview.Builder()
+                    .setResolutionSelector(createResolutionSelector())
                     .build()
                     .also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
@@ -83,12 +86,9 @@ actual class CameraController(
                     .build()
 
 
-                imageCapture = ImageCapture.Builder()
-                    .setFlashMode(flashMode.toCameraXFlashMode())
-                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                    .build()
+                configureCaptureUseCase()
 
-                // Setup ImageAnalysis Use Case only if needed
+
                 val useCases = mutableListOf(preview!!, imageCapture!!)
                 imageAnalyzer?.let { useCases.add(it) }
 
@@ -103,9 +103,41 @@ actual class CameraController(
 
             } catch (exc: Exception) {
                 println("Use case binding failed: ${exc.message}")
+                exc.printStackTrace()
             }
 
         }, ContextCompat.getMainExecutor(context))
+    }
+
+    /**
+     * Create a resolution selector based on memory conditions
+     */
+    private fun createResolutionSelector(): ResolutionSelector {
+
+        memoryManager.updateMemoryStatus()
+
+        return ResolutionSelector.Builder()
+            .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+            .build()
+    }
+
+    /**
+     * Configure the image capture use case with settings adapted to current memory conditions
+     */
+    private fun configureCaptureUseCase() {
+
+        imageCapture = ImageCapture.Builder()
+            .setFlashMode(flashMode.toCameraXFlashMode())
+            .setCaptureMode(
+                if (memoryManager.isUnderMemoryPressure()) {
+                    ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+                } else {
+                    ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+                }
+            )
+            .setResolutionSelector(createResolutionSelector())
+            .build()
     }
 
     fun updateImageAnalyzer() {
@@ -116,7 +148,7 @@ actual class CameraController(
                     lifecycleOwner,
                     CameraSelector.Builder().requireLensFacing(cameraLens.toCameraXLensFacing())
                         .build(),
-                    analyzer // Only bind the analyzer without touching the rest of the setup
+                    analyzer
                 )
             }
         } ?: throw InvalidConfigurationException("Camera not initialized.")
@@ -124,101 +156,183 @@ actual class CameraController(
 
     actual suspend fun takePicture(): ImageCaptureResult =
         suspendCancellableCoroutine { cont ->
-            val outputOptions = ImageCapture.OutputFileOptions.Builder(createTempFile()).build()
 
-            imageCapture?.takePicture(
-                outputOptions,
-                ContextCompat.getMainExecutor(context),
-                object : ImageCapture.OnImageSavedCallback {
-                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                        val byteArray = try {
-                            output.savedUri?.let { uri ->
-                                // First, copy the input stream to a temporary file to handle EXIF
-                                val tempFile = createTempFile("temp_image", ".jpg")
-                                context.contentResolver.openInputStream(uri)?.use { input ->
-                                    tempFile.outputStream().use { output ->
-                                        input.copyTo(output)
-                                    }
-                                }
+            if (isCapturing) {
+                cont.resume(ImageCaptureResult.Error(Exception("Capture already in progress")))
+                return@suspendCancellableCoroutine
+            }
 
-                                // Read EXIF orientation from the temp file
-                                val exif = ExifInterface(tempFile.absolutePath)
-                                val orientation = exif.getAttributeInt(
-                                    ExifInterface.TAG_ORIENTATION,
-                                    ExifInterface.ORIENTATION_NORMAL
-                                )
+            isCapturing = true
 
-                                // Read the bitmap from the temp file
-                                val originalBitmap = BitmapFactory.decodeFile(tempFile.absolutePath)
 
-                                // Clean up temp file
-                                tempFile.delete()
+            memoryManager.updateMemoryStatus()
 
-                                // Calculate the rotation angle based on both EXIF orientation and camera rotation
-                                val rotationAngle = when (orientation) {
-                                    ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-                                    ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-                                    ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-                                    else -> 0f
-                                } + (imageCapture?.targetRotation?.toFloat() ?: 0f)
 
-                                // Apply rotation if needed
-                                val rotatedBitmap = if (originalBitmap != null && rotationAngle != 0f) {
-                                    Matrix().apply {
-                                        postRotate(rotationAngle)
-                                    }.let { matrix ->
-                                        Bitmap.createBitmap(
-                                            originalBitmap,
-                                            0,
-                                            0,
-                                            originalBitmap.width,
-                                            originalBitmap.height,
-                                            matrix,
-                                            true
-                                        )
-                                    }
-                                } else {
-                                    originalBitmap
-                                }
+            val captureRequested = burstCaptureManager.requestCapture(
+                captureFunction = {
 
-                                ByteArrayOutputStream().use { stream ->
-                                    rotatedBitmap?.compress(
-                                        when (imageFormat) {
-                                            ImageFormat.JPEG -> Bitmap.CompressFormat.JPEG
-                                            ImageFormat.PNG -> Bitmap.CompressFormat.PNG
-                                        },
-                                        100,
-                                        stream
-                                    )
+                    val quality = burstCaptureManager.getOptimalQuality()
+                    performCapture(cont, quality)
+                },
+                onComplete = {
 
-                                    // Clean up bitmaps
-                                    if (originalBitmap != rotatedBitmap) {
-                                        rotatedBitmap?.recycle()
-                                    }
-                                    originalBitmap?.recycle()
+                    isCapturing = false
+                }
+            )
 
-                                    stream.toByteArray()
-                                }
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            null
-                        }
+            if (!captureRequested) {
+                isCapturing = false
+                cont.resume(ImageCaptureResult.Error(Exception("Too many captures in progress")))
+            }
+        }
+
+    /**
+     * Perform the actual image capture with the specified quality
+     */
+    private fun performCapture(
+        continuation: CancellableContinuation<ImageCaptureResult>,
+        quality: Int
+    ) {
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(createTempFile()).build()
+
+        imageCapture?.takePicture(
+            outputOptions,
+            ContextCompat.getMainExecutor(context),
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+
+                    imageProcessingExecutor.execute {
+                        val byteArray = processImageOutput(output, quality)
 
                         if (byteArray != null) {
                             imageCaptureListeners.forEach { it(byteArray) }
-                            cont.resume(ImageCaptureResult.Success(byteArray))
+                            continuation.resume(ImageCaptureResult.Success(byteArray))
                         } else {
-                            cont.resume(ImageCaptureResult.Error(Exception("Failed to convert image to ByteArray.")))
+                            continuation.resume(ImageCaptureResult.Error(Exception("Failed to convert image to ByteArray.")))
                         }
                     }
+                }
 
-                    override fun onError(exc: ImageCaptureException) {
-                        cont.resume(ImageCaptureResult.Error(exc))
+                override fun onError(exc: ImageCaptureException) {
+                    continuation.resume(ImageCaptureResult.Error(exc))
+                }
+            }
+        ) ?: continuation.resume(ImageCaptureResult.Error(Exception("ImageCapture use case is not initialized.")))
+    }
+
+    /**
+     * Process the saved image output with memory-efficient approach
+     */
+    private fun processImageOutput(
+        output: ImageCapture.OutputFileResults,
+        quality: Int
+    ): ByteArray? {
+        return try {
+            output.savedUri?.let { uri ->
+
+                val tempFile = createTempFile("temp_image", ".jpg")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    tempFile.outputStream().use { output ->
+                        input.copyTo(output)
                     }
                 }
-            ) ?: cont.resume(ImageCaptureResult.Error(Exception("ImageCapture use case is not initialized.")))
+
+
+                val exif = ExifInterface(tempFile.absolutePath)
+                val orientation = exif.getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL
+                )
+
+
+                val options = BitmapFactory.Options().apply {
+
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeFile(tempFile.absolutePath, options)
+
+
+                options.inSampleSize = calculateSampleSize(options.outWidth, options.outHeight)
+                options.inJustDecodeBounds = false
+
+
+                val originalBitmap = BitmapFactory.decodeFile(tempFile.absolutePath, options)
+
+
+                tempFile.delete()
+
+
+                val rotationAngle = when (orientation) {
+                    ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                    ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                    ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                    else -> 0f
+                } + (imageCapture?.targetRotation?.toFloat() ?: 0f)
+
+
+                val rotatedBitmap = if (originalBitmap != null && rotationAngle != 0f) {
+                    Matrix().apply {
+                        postRotate(rotationAngle)
+                    }.let { matrix ->
+                        Bitmap.createBitmap(
+                            originalBitmap,
+                            0,
+                            0,
+                            originalBitmap.width,
+                            originalBitmap.height,
+                            matrix,
+                            true
+                        )
+                    }
+                } else {
+                    originalBitmap
+                }
+
+
+                rotatedBitmap?.compressToByteArray(
+                    format = when (imageFormat) {
+                        ImageFormat.JPEG -> Bitmap.CompressFormat.JPEG
+                        ImageFormat.PNG -> Bitmap.CompressFormat.PNG
+                    },
+                    quality = quality,
+                    recycleInput = true
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
+    }
+
+    /**
+     * Calculate appropriate sample size for bitmap decoding based on memory conditions
+     */
+    private fun calculateSampleSize(width: Int, height: Int): Int {
+        return when {
+            memoryManager.isUnderMemoryPressure() -> {
+
+                var sampleSize = 1
+                val totalPixels = width * height
+                val targetPixels = 2_000_000
+
+                while ((totalPixels / (sampleSize * sampleSize)) > targetPixels) {
+                    sampleSize *= 2
+                }
+                sampleSize
+            }
+
+            burstCaptureManager.isBurstModeActive() -> {
+
+                2
+            }
+
+            else -> {
+
+                1
+            }
+        }
+    }
+
     actual fun toggleFlashMode() {
         flashMode = when (flashMode) {
             FlashMode.OFF -> FlashMode.ON
@@ -229,6 +343,7 @@ actual class CameraController(
     }
 
     actual fun setFlashMode(mode: FlashMode) {
+        flashMode = mode
         imageCapture?.flashMode = mode.toCameraXFlashMode()
     }
 
@@ -255,22 +370,38 @@ actual class CameraController(
     }
 
     actual fun setTorchMode(mode: TorchMode) {
+        torchMode = mode
         camera?.cameraControl?.enableTorch(mode == TorchMode.ON)
     }
 
     actual fun toggleCameraLens() {
+
+        memoryManager.updateMemoryStatus()
+
+
+        if (memoryManager.isUnderMemoryPressure()) {
+            memoryManager.clearBufferPools()
+            System.gc()
+        }
+
         cameraLens = if (cameraLens == CameraLens.BACK) CameraLens.FRONT else CameraLens.BACK
         previewView?.let { bindCamera(it) }
     }
 
-
-
     actual fun startSession() {
-        // CameraX handles session start based on lifecycle
+
+
+        memoryManager.updateMemoryStatus()
+        memoryManager.clearBufferPools()
+        initializeControllerPlugins()
     }
 
     actual fun stopSession() {
         cameraProvider?.unbindAll()
+
+
+        burstCaptureManager.reset()
+        memoryManager.clearBufferPools()
     }
 
     actual fun addImageCaptureListener(listener: (ByteArray) -> Unit) {
@@ -281,7 +412,7 @@ actual class CameraController(
         plugins.forEach { it.initialize(this) }
     }
 
-    // Helper Methods
+
     private fun createTempFile(): File {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val storageDir = context.externalCacheDir?.absolutePath ?: context.cacheDir.absolutePath
@@ -303,4 +434,13 @@ actual class CameraController(
         CameraLens.BACK -> CameraSelector.LENS_FACING_BACK
     }
 
+    /**
+     * Clean up resources when no longer needed
+     * Should be called when the controller is being destroyed
+     */
+    fun cleanup() {
+        imageProcessingExecutor.shutdown()
+        burstCaptureManager.shutdown()
+        memoryManager.clearBufferPools()
+    }
 }

@@ -1,17 +1,17 @@
 package com.kashif.cameraK.ui
 
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitViewController
 import com.kashif.cameraK.builder.CameraControllerBuilder
 import com.kashif.cameraK.builder.createIOSCameraControllerBuilder
 import com.kashif.cameraK.controller.CameraController
-import kotlinx.cinterop.*
-import platform.AVFoundation.*
 import platform.Foundation.NSNotificationCenter
-import platform.UIKit.*
-import platform.darwin.*
+import platform.UIKit.UIDeviceOrientationDidChangeNotification
 
 /**
  * iOS-specific implementation of [CameraPreview].

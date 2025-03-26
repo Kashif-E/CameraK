@@ -92,30 +92,8 @@ fun App() = AppTheme {
     ) {
         val cameraPermissionState = remember { mutableStateOf(permissions.hasCameraPermission()) }
         val storagePermissionState = remember { mutableStateOf(permissions.hasStoragePermission()) }
-        val qrScannerPlugin = rememberQRScannerPlugin(coroutineScope = coroutineScope)
-        val ocrPlugin = rememberOcrPlugin()
 
-        LaunchedEffect(Unit) {
-            qrScannerPlugin.getQrCodeFlow().distinctUntilChanged()
-                .collectLatest { qrCode ->
-                    snackbarHostState.showSnackbar(
-                        message = "QR Code Detected: $qrCode",
-                        duration = SnackbarDuration.Short
-                    )
-                    qrScannerPlugin.pauseScanning()
-                }
-        }
-        LaunchedEffect(Unit) {
-            ocrPlugin.ocrFlow.consumeAsFlow().distinctUntilChanged()
-                .collectLatest { text ->
-                    println("Text Detected: $text")
-                    snackbarHostState.showSnackbar(
-                        message = "Text Detected: $text",
-                        duration = SnackbarDuration.Short
-                    )
-                    ocrPlugin.stopRecognition()
-                }
-        }
+
 
         val cameraController = remember { mutableStateOf<CameraController?>(null) }
         val imageSaverPlugin = rememberImageSaverPlugin(
@@ -139,8 +117,6 @@ fun App() = AppTheme {
             CameraContent(
                 cameraController = cameraController,
                 imageSaverPlugin = imageSaverPlugin,
-                qrScannerPlugin = qrScannerPlugin,
-                ocrPlugin = ocrPlugin
             )
         }
     }
@@ -171,8 +147,6 @@ private fun PermissionsHandler(
 private fun CameraContent(
     cameraController: MutableState<CameraController?>,
     imageSaverPlugin: ImageSaverPlugin,
-    qrScannerPlugin: QRScannerPlugin,
-    ocrPlugin: OcrPlugin
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         CameraPreview(
@@ -184,26 +158,18 @@ private fun CameraContent(
                 setDirectory(Directory.PICTURES)
                 setTorchMode(TorchMode.OFF)
                 addPlugin(imageSaverPlugin)
-                addPlugin(qrScannerPlugin)
-                addPlugin(ocrPlugin)
             },
             onCameraControllerReady = {
+                print("==> Camera Controller Ready")
                 cameraController.value = it
 
             }
         )
 
         cameraController.value?.let { controller ->
-            LaunchedEffect(controller) {
-                qrScannerPlugin.startScanning()
-            }
-            LaunchedEffect(controller) {
-                ocrPlugin.startRecognition()
-            }
             EnhancedCameraScreen(
                 cameraController = controller,
                 imageSaverPlugin = imageSaverPlugin,
-                ocrPlugin
             )
         }
     }
@@ -213,7 +179,6 @@ private fun CameraContent(
 fun EnhancedCameraScreen(
     cameraController: CameraController,
     imageSaverPlugin: ImageSaverPlugin,
-    ocrPlugin: OcrPlugin
 ) {
     val scope = rememberCoroutineScope()
     var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -246,7 +211,6 @@ fun EnhancedCameraScreen(
                         imageSaverPlugin = imageSaverPlugin,
                         onImageCaptured = {
                             imageBitmap = it
-                            ocrPlugin.extractTextFromBitmap(it)
                         }
                     )
                 }
@@ -431,7 +395,7 @@ private suspend fun handleImageCapture(
     when (val result = cameraController.takePicture()) {
         is ImageCaptureResult.Success -> {
             val bitmap = result.byteArray.decodeToImageBitmap()
-            onImageCaptured(bitmap)
+           // onImageCaptured(bitmap)
 
             if (!imageSaverPlugin.config.isAutoSave) {
                 val customName = "Manual_${Uuid.random().toHexString()}"

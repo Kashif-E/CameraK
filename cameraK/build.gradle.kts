@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.android.library)
     id("org.jetbrains.compose")
     alias(libs.plugins.compose.compiler)
-    id("com.vanniktech.maven.publish") version "0.28.0"
+    id("com.vanniktech.maven.publish") version "0.30.0"
 }
 
 group = "com.kashif.camera_compose"
@@ -45,6 +45,7 @@ kotlin {
             api(compose.foundation)
             api(libs.coil3.compose)
             api(libs.coil3.ktor)
+            api(libs.atomicfu)
         }
 
         commonTest.dependencies {
@@ -76,7 +77,7 @@ kotlin {
 
 android {
     namespace = "com.kashif.cameraK"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 21

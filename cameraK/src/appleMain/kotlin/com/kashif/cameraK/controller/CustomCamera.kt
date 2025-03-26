@@ -1,5 +1,6 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.utils.MemoryManager
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.AVFoundation.*
 import platform.Foundation.NSData
@@ -8,6 +9,7 @@ import platform.UIKit.UIDevice
 import platform.UIKit.UIDeviceOrientation
 import platform.UIKit.UIView
 import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
+import platform.darwin.DISPATCH_QUEUE_PRIORITY_HIGH
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_global_queue
@@ -21,12 +23,14 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
     var cameraPreviewLayer: AVCaptureVideoPreviewLayer? = null
     private var isUsingFrontCamera = false
 
-
     var onPhotoCapture: ((NSData?) -> Unit)? = null
     var onError: ((CameraException) -> Unit)? = null
 
     var flashMode: AVCaptureFlashMode = AVCaptureFlashModeAuto
     var torchMode: AVCaptureTorchMode = AVCaptureTorchModeAuto
+
+
+    private var highQualityEnabled = false
 
     sealed class CameraException : Exception() {
         class DeviceNotAvailable : CameraException()
@@ -38,6 +42,9 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         try {
             captureSession = AVCaptureSession()
             captureSession?.beginConfiguration()
+
+
+            captureSession?.sessionPreset = AVCaptureSessionPresetPhoto
 
             if (!setupInputs()) {
                 throw CameraException.DeviceNotAvailable()
@@ -53,7 +60,13 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
 
     private fun setupPhotoOutput() {
         photoOutput = AVCapturePhotoOutput()
-        photoOutput?.setHighResolutionCaptureEnabled(true)
+        photoOutput?.setHighResolutionCaptureEnabled(false)
+        photoOutput?.setPreparedPhotoSettingsArray(emptyList<String>(), completionHandler = { settings, error ->
+            if (error != null) {
+                onError?.invoke(CameraException.ConfigurationError(error.localizedDescription))
+            }
+        })
+
         if (captureSession?.canAddOutput(photoOutput!!) == true) {
             captureSession?.addOutput(photoOutput!!)
         } else {
@@ -100,7 +113,7 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         if (captureSession?.isRunning() == false) {
             dispatch_async(
                 dispatch_get_global_queue(
-                    DISPATCH_QUEUE_PRIORITY_DEFAULT.toLong(),
+                    DISPATCH_QUEUE_PRIORITY_HIGH.toLong(),
                     0u
                 )
             ) {
@@ -126,14 +139,12 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         frontCamera = null
     }
 
-
     @OptIn(ExperimentalForeignApi::class)
     fun setupPreviewLayer(view: UIView) {
         captureSession?.let { session ->
             val newPreviewLayer = AVCaptureVideoPreviewLayer(session = session).apply {
                 videoGravity = AVLayerVideoGravityResizeAspectFill
                 setFrame(view.bounds)
-
                 connection?.videoOrientation = currentVideoOrientation()
             }
 
@@ -141,7 +152,6 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
             cameraPreviewLayer = newPreviewLayer
         }
     }
-
 
     fun currentVideoOrientation(): AVCaptureVideoOrientation {
         val orientation = UIDevice.currentDevice.orientation
@@ -174,11 +184,77 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         }
     }
 
+    /**
+     * Sets the session preset quality based on memory conditions
+     * This allows for dynamic adjustment of capture quality
+     */
+    private fun adjustSessionQuality() {
+        captureSession?.beginConfiguration()
+
+        val memoryUsage = MemoryManager.getMemoryUsagePercentage()
+        val underPressure = MemoryManager.isUnderMemoryPressure()
+
+
+        val newPreset = when {
+            underPressure -> AVCaptureSessionPresetMedium
+            memoryUsage > 70 -> AVCaptureSessionPresetHigh
+            else -> AVCaptureSessionPresetPhoto
+        }
+
+        captureSession?.sessionPreset = newPreset
+        captureSession?.commitConfiguration()
+
+
+        highQualityEnabled = newPreset == AVCaptureSessionPresetPhoto
+    }
+
+    /**
+     * Capture an image with specified quality
+     * @param quality Image quality factor (0.0 to 1.0)
+     */
+    fun captureImage(quality: Double = 0.9) {
+        if (photoOutput == null || captureSession?.isRunning() != true) {
+            onError?.invoke(CameraException.ConfigurationError("Camera not ready for capture"))
+            return
+        }
+
+
+        if (MemoryManager.isUnderMemoryPressure()) {
+            adjustSessionQuality()
+        }
+
+        val settings = AVCapturePhotoSettings.photoSettingsWithFormat(
+            mapOf(
+                AVVideoCodecKey to AVVideoCodecJPEG
+            )
+        )
+
+
+        settings.setHighResolutionPhotoEnabled(false)
+
+
+        settings.flashMode = this.flashMode
+
+
+        if (highQualityEnabled && quality > 0.8) {
+
+            settings.setAutoStillImageStabilizationEnabled(true)
+        } else {
+
+            settings.setAutoStillImageStabilizationEnabled(false)
+        }
+
+
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH.toLong(), 0u)) {
+            photoOutput?.capturePhotoWithSettings(settings, delegate = this)
+        }
+    }
+
+
     fun captureImage() {
-        val settings = AVCapturePhotoSettings()
-        settings.flashMode = flashMode
-        settings.isHighResolutionPhotoEnabled()
-        photoOutput?.capturePhotoWithSettings(settings, delegate = this)
+
+        val quality = MemoryManager.getOptimalImageQuality()
+        captureImage(quality)
     }
 
     @OptIn(ExperimentalForeignApi::class)
@@ -188,18 +264,14 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         captureSession?.beginConfiguration()
 
         try {
-
             captureSession?.inputs?.firstOrNull()?.let { input ->
                 captureSession?.removeInput(input as AVCaptureInput)
             }
 
-
             isUsingFrontCamera = !isUsingFrontCamera
             currentCamera = if (isUsingFrontCamera) frontCamera else backCamera
 
-
             val newCamera = currentCamera ?: throw CameraException.DeviceNotAvailable()
-
 
             val newInput = AVCaptureDeviceInput.deviceInputWithDevice(
                 newCamera,
@@ -211,7 +283,6 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
             } else {
                 throw CameraException.ConfigurationError("Cannot add input")
             }
-
 
             cameraPreviewLayer?.connection?.let { connection ->
                 if (connection.isVideoMirroringSupported()) {
