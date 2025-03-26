@@ -12,7 +12,6 @@ import com.kashif.cameraK.utils.toUIImage
 import kotlinx.atomicfu.atomic
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.autoreleasepool
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.AVFoundation.AVCaptureFlashMode
 import platform.AVFoundation.AVCaptureFlashModeAuto
@@ -29,6 +28,7 @@ import platform.AVFoundation.AVCaptureVideoOrientationLandscapeLeft
 import platform.AVFoundation.AVCaptureVideoOrientationLandscapeRight
 import platform.AVFoundation.AVCaptureVideoOrientationPortrait
 import platform.AVFoundation.AVCaptureVideoOrientationPortraitUpsideDown
+import platform.Foundation.NSData
 import platform.Foundation.NSDate
 import platform.Foundation.NSTimeInterval
 import platform.Foundation.date
@@ -49,8 +49,6 @@ actual class CameraController(
     internal var directory: Directory,
     internal var plugins: MutableList<CameraPlugin>
 ) : UIViewController(null, null) {
-    private val photoDebounceInterval = 500L
-    private var lastCaptureTime: NSTimeInterval = 0.0
     private var isCapturing = atomic(false)
     private val customCameraController = CustomCameraController()
     private var imageCaptureListeners = mutableListOf<(ByteArray) -> Unit>()
@@ -65,7 +63,6 @@ actual class CameraController(
     fun getCameraPreviewLayer() = customCameraController.cameraPreviewLayer
 
     internal fun currentVideoOrientation(): AVCaptureVideoOrientation {
-
         val orientation = UIDevice.currentDevice.orientation
         return when (orientation) {
             UIDeviceOrientation.UIDeviceOrientationPortrait -> AVCaptureVideoOrientationPortrait
@@ -78,7 +75,6 @@ actual class CameraController(
     private fun setupCamera() {
         customCameraController.setupSession()
         customCameraController.setupPreviewLayer(view)
-
 
         if (customCameraController.captureSession?.canAddOutput(metadataOutput) == true) {
             customCameraController.captureSession?.addOutput(metadataOutput)
@@ -96,7 +92,6 @@ actual class CameraController(
         customCameraController.onError = { error ->
             println("Camera Error: $error")
         }
-
     }
 
     fun setMetadataObjectsDelegate(delegate: AVCaptureMetadataOutputObjectsDelegateProtocol) {
@@ -118,60 +113,59 @@ actual class CameraController(
         customCameraController.cameraPreviewLayer?.setFrame(view.bounds)
     }
 
-
     actual suspend fun takePicture(): ImageCaptureResult = suspendCancellableCoroutine { continuation ->
-        val currentTime = NSDate.date().timeIntervalSince1970()
-        if (currentTime - lastCaptureTime < photoDebounceInterval) {
-            continuation.resume(ImageCaptureResult.Error(Exception("Capture too frequent")))
-            return@suspendCancellableCoroutine
-        }
-
-        if (!isCapturing.compareAndSet(false, true)) {
-            continuation.resume(ImageCaptureResult.Error(Exception("Capture already in progress")))
-            return@suspendCancellableCoroutine
-        }
-
-        customCameraController.onPhotoCapture = { image ->
-            try {
-                if (image != null) {
+        val captureCallback = object {
+            var consumed = false
+            fun handleCapture(data: NSData?, error: String?) {
+                if (consumed) return
+                consumed = true
+                
+                if (data != null) {
                     autoreleasepool {
                         when (imageFormat) {
                             ImageFormat.JPEG -> {
-                                UIImageJPEGRepresentation(image.toUIImage(), 0.9)?.toByteArray()
+                                UIImageJPEGRepresentation(data.toUIImage(), 0.9)?.toByteArray()
                                     ?.let { imageData ->
                                         continuation.resume(ImageCaptureResult.Success(imageData))
                                     } ?: run {
                                     continuation.resume(ImageCaptureResult.Error(Exception("JPEG conversion failed")))
                                 }
                             }
-
                             ImageFormat.PNG -> {
-                                UIImagePNGRepresentation(image.toUIImage())?.toByteArray()
+                                UIImagePNGRepresentation(data.toUIImage())?.toByteArray()
                                     ?.let { imageData ->
                                         continuation.resume(ImageCaptureResult.Success(imageData))
                                     } ?: run {
                                     continuation.resume(ImageCaptureResult.Error(Exception("PNG conversion failed")))
                                 }
                             }
-
                             else -> {
                                 continuation.resume(ImageCaptureResult.Error(Exception("Unsupported format")))
                             }
                         }
                     }
                 } else {
-                    continuation.resume(ImageCaptureResult.Error(Exception("Capture failed - null image")))
+                    continuation.resume(ImageCaptureResult.Error(Exception(error ?: "Capture failed")))
                 }
-            } finally {
-                lastCaptureTime = NSDate.date().timeIntervalSince1970()
-                isCapturing.compareAndSet(expect = true, update = false)
-                customCameraController.onPhotoCapture = null
+                isCapturing.value = false
             }
         }
 
+        if (!isCapturing.compareAndSet(expect = false, update = true)) {
+            continuation.resume(ImageCaptureResult.Error(Exception("Capture already in progress")))
+            return@suspendCancellableCoroutine
+        }
+
+        customCameraController.onPhotoCapture = { image ->
+            captureCallback.handleCapture(image, null)
+        }
+
+        customCameraController.onError = { error ->
+            captureCallback.handleCapture(null, error.toString())
+        }
+
         continuation.invokeOnCancellation {
-            customCameraController.onPhotoCapture = null
-            isCapturing.compareAndSet(expect = true, update = false)
+            captureCallback.handleCapture(null, "Capture cancelled")
         }
 
         customCameraController.captureImage()
@@ -220,10 +214,8 @@ actual class CameraController(
         customCameraController.switchCamera()
     }
 
-
     actual fun startSession() {
         customCameraController.startSession()
-
         initializeControllerPlugins()
     }
 
@@ -235,13 +227,11 @@ actual class CameraController(
         imageCaptureListeners.add(listener)
     }
 
-
     actual fun initializeControllerPlugins() {
         plugins.forEach {
             it.initialize(this)
         }
     }
-
 
     private fun FlashMode.toAVCaptureFlashMode(): AVCaptureFlashMode = when (this) {
         FlashMode.ON -> AVCaptureFlashModeOn
@@ -249,12 +239,9 @@ actual class CameraController(
         FlashMode.AUTO -> AVCaptureFlashModeAuto
     }
 
-
     private fun TorchMode.toAVCaptureTorchMode(): AVCaptureTorchMode = when (this) {
         TorchMode.ON -> AVCaptureTorchModeOn
         TorchMode.OFF -> AVCaptureTorchModeOff
         TorchMode.AUTO -> AVCaptureTorchModeAuto
     }
 }
-
-

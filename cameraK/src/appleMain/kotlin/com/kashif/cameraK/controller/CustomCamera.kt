@@ -20,7 +20,7 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
     private var photoOutput: AVCapturePhotoOutput? = null
     var cameraPreviewLayer: AVCaptureVideoPreviewLayer? = null
     private var isUsingFrontCamera = false
-
+    private var isProcessingCapture = false
 
     var onPhotoCapture: ((NSData?) -> Unit)? = null
     var onError: ((CameraException) -> Unit)? = null
@@ -175,9 +175,15 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
     }
 
     fun captureImage() {
-        val settings = AVCapturePhotoSettings()
-        settings.flashMode = flashMode
-        settings.isHighResolutionPhotoEnabled()
+        if (photoOutput == null || captureSession?.isRunning() != true) {
+            onError?.invoke(CameraException.ConfigurationError("Camera not ready for capture"))
+            return
+        }
+
+        val settings = AVCapturePhotoSettings.photoSettings().apply {
+            flashMode = this@CustomCameraController.flashMode
+        }
+        
         photoOutput?.capturePhotoWithSettings(settings, delegate = this)
     }
 
