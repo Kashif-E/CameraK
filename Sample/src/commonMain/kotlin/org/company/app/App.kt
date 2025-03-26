@@ -160,6 +160,7 @@ private fun CameraContent(
                 addPlugin(imageSaverPlugin)
             },
             onCameraControllerReady = {
+                print("==> Camera Controller Ready")
                 cameraController.value = it
 
             }
