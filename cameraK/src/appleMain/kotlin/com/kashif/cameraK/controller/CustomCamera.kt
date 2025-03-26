@@ -57,7 +57,12 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
     private fun setupPhotoOutput() {
         photoOutput = AVCapturePhotoOutput()
         // Allow capture during video recording for better performance
-        photoOutput?.setPreparedPhotoSettingsArray(emptyList())
+        photoOutput?.setPreparedPhotoSettingsArray(emptyList<String>(), completionHandler = {
+            settings, error ->
+            if (error != null) {
+                onError?.invoke(CameraException.ConfigurationError(error.localizedDescription))
+            }
+        })
         
         if (captureSession?.canAddOutput(photoOutput!!) == true) {
             captureSession?.addOutput(photoOutput!!)
