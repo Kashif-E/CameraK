@@ -1,5 +1,6 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.capture.BurstCaptureManager
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
@@ -7,6 +8,7 @@ import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
+import com.kashif.cameraK.utils.MemoryManager
 import com.kashif.cameraK.utils.toByteArray
 import com.kashif.cameraK.utils.toUIImage
 import kotlinx.atomicfu.atomic
@@ -54,9 +56,35 @@ actual class CameraController(
     private var metadataOutput = AVCaptureMetadataOutput()
     private var metadataObjectsDelegate: AVCaptureMetadataOutputObjectsDelegateProtocol? = null
 
+
+    private val memoryManager = MemoryManager
+    private val burstCaptureManager = BurstCaptureManager()
+
     override fun viewDidLoad() {
         super.viewDidLoad()
+
+        memoryManager.initialize()
         setupCamera()
+
+
+        burstCaptureManager.setQueueReadyListener {
+            if (customCameraController.captureSession?.isRunning() == true) {
+                val quality = burstCaptureManager.getOptimalQuality()
+                customCameraController.captureImage(quality)
+            }
+        }
+    }
+
+    override fun viewWillAppear(animated: Boolean) {
+        super.viewWillAppear(animated)
+        memoryManager.updateMemoryStatus()
+    }
+
+    override fun viewDidDisappear(animated: Boolean) {
+        super.viewDidDisappear(animated)
+
+        memoryManager.clearBufferPools()
+        burstCaptureManager.reset()
     }
 
     fun getCameraPreviewLayer() = customCameraController.cameraPreviewLayer
@@ -71,6 +99,7 @@ actual class CameraController(
             else -> AVCaptureVideoOrientationPortrait
         }
     }
+
     private fun setupCamera() {
         customCameraController.setupSession()
         customCameraController.setupPreviewLayer(view)
@@ -83,13 +112,50 @@ actual class CameraController(
 
         customCameraController.onPhotoCapture = { image ->
             image?.let {
-                val data = it.toByteArray()
-                imageCaptureListeners.forEach { it(data) }
+                processImageCapture(it)
             }
         }
 
         customCameraController.onError = { error ->
             println("Camera Error: $error")
+        }
+    }
+
+
+    private fun processImageCapture(imageData: NSData) {
+
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH.toLong(), 0u)) {
+            autoreleasepool {
+
+                memoryManager.updateMemoryStatus()
+
+                try {
+
+                    val estimatedSize = imageData.length.toInt()
+                    val buffer = if (estimatedSize > 0) {
+                        memoryManager.getBuffer(estimatedSize)
+                    } else {
+
+                        ByteArray(imageData.length.toInt())
+                    }
+
+
+                    val data = imageData.toByteArray(reuseBuffer = buffer)
+
+
+                    dispatch_async(dispatch_get_main_queue()) {
+                        imageCaptureListeners.forEach { it(data) }
+                    }
+
+
+                    if (buffer.size >= estimatedSize) {
+                        memoryManager.recycleBuffer(buffer)
+                    }
+
+                } catch (e: Exception) {
+                    println("Error processing image data: ${e.message}")
+                }
+            }
         }
     }
 
@@ -113,39 +179,45 @@ actual class CameraController(
     }
 
     actual suspend fun takePicture(): ImageCaptureResult = suspendCancellableCoroutine { continuation ->
-        // Fast path: if already capturing, return immediately
+
         if (!isCapturing.compareAndSet(expect = false, update = true)) {
             continuation.resume(ImageCaptureResult.Error(Exception("Capture in progress")))
             return@suspendCancellableCoroutine
         }
 
+
+        memoryManager.updateMemoryStatus()
+
         val captureHandler = object {
             var completed = false
-            
+
             fun process(image: NSData?, error: String?) {
                 if (completed) return
                 completed = true
-                
+
                 if (image != null) {
-                    // Process on background thread for better performance
+
                     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH.toLong(), 0u)) {
                         try {
                             autoreleasepool {
+
+                                val quality = if (memoryManager.isUnderMemoryPressure()) 0.6 else 0.9
+
                                 val result = when (imageFormat) {
                                     ImageFormat.JPEG -> {
-                                        UIImageJPEGRepresentation(image.toUIImage(), 0.9)?.toByteArray()?.let { 
-                                            ImageCaptureResult.Success(it) 
+                                        UIImageJPEGRepresentation(image.toUIImage(), quality)?.toByteArray()?.let {
+                                            ImageCaptureResult.Success(it)
                                         }
                                     }
                                     ImageFormat.PNG -> {
-                                        UIImagePNGRepresentation(image.toUIImage())?.toByteArray()?.let { 
-                                            ImageCaptureResult.Success(it) 
+                                        UIImagePNGRepresentation(image.toUIImage())?.toByteArray()?.let {
+                                            ImageCaptureResult.Success(it)
                                         }
                                     }
                                     else -> null
                                 }
-                                
-                                // Must resume on main thread
+
+
                                 dispatch_async(dispatch_get_main_queue()) {
                                     isCapturing.value = false
                                     continuation.resume(result ?: ImageCaptureResult.Error(Exception("Image processing failed")))
@@ -177,7 +249,22 @@ actual class CameraController(
             captureHandler.process(null, "Capture cancelled")
         }
 
-        customCameraController.captureImage()
+
+        val requested = burstCaptureManager.requestCapture(
+            captureFunction = {
+
+                val quality = burstCaptureManager.getOptimalQuality()
+                customCameraController.captureImage(quality)
+            },
+            onComplete = {
+
+            }
+        )
+
+        if (!requested) {
+            isCapturing.value = false
+            continuation.resume(ImageCaptureResult.Error(Exception("Too many captures in progress")))
+        }
     }
 
     actual fun toggleFlashMode() {
@@ -190,6 +277,7 @@ actual class CameraController(
     }
 
     actual fun setFlashMode(mode: FlashMode) {
+        flashMode = mode
         customCameraController.setFlashMode(mode.toAVCaptureFlashMode())
     }
 
@@ -216,20 +304,33 @@ actual class CameraController(
     }
 
     actual fun setTorchMode(mode: TorchMode) {
+        torchMode = mode
         customCameraController.setTorchMode(mode.toAVCaptureTorchMode())
     }
 
     actual fun toggleCameraLens() {
+
+        memoryManager.updateMemoryStatus()
+
+
+        if (memoryManager.isUnderMemoryPressure()) {
+            memoryManager.clearBufferPools()
+        }
+
         customCameraController.switchCamera()
     }
 
     actual fun startSession() {
+
+        memoryManager.clearBufferPools()
         customCameraController.startSession()
         initializeControllerPlugins()
     }
 
     actual fun stopSession() {
         customCameraController.stopSession()
+
+        burstCaptureManager.reset()
     }
 
     actual fun addImageCaptureListener(listener: (ByteArray) -> Unit) {

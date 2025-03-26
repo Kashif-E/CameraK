@@ -394,7 +394,7 @@ private suspend fun handleImageCapture(
     when (val result = cameraController.takePicture()) {
         is ImageCaptureResult.Success -> {
             val bitmap = result.byteArray.decodeToImageBitmap()
-            onImageCaptured(bitmap)
+           // onImageCaptured(bitmap)
 
             if (!imageSaverPlugin.config.isAutoSave) {
                 val customName = "Manual_${Uuid.random().toHexString()}"

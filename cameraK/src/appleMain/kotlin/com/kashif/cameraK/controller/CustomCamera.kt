@@ -1,5 +1,6 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.utils.MemoryManager
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.AVFoundation.*
 import platform.Foundation.NSData
@@ -28,6 +29,9 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
     var flashMode: AVCaptureFlashMode = AVCaptureFlashModeAuto
     var torchMode: AVCaptureTorchMode = AVCaptureTorchModeAuto
 
+
+    private var highQualityEnabled = false
+
     sealed class CameraException : Exception() {
         class DeviceNotAvailable : CameraException()
         class ConfigurationError(message: String) : CameraException()
@@ -38,8 +42,8 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         try {
             captureSession = AVCaptureSession()
             captureSession?.beginConfiguration()
-            
-            // Set high preset for better performance
+
+
             captureSession?.sessionPreset = AVCaptureSessionPresetPhoto
 
             if (!setupInputs()) {
@@ -56,14 +60,13 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
 
     private fun setupPhotoOutput() {
         photoOutput = AVCapturePhotoOutput()
-        // Allow capture during video recording for better performance
-        photoOutput?.setPreparedPhotoSettingsArray(emptyList<String>(), completionHandler = {
-            settings, error ->
+        photoOutput?.setHighResolutionCaptureEnabled(false)
+        photoOutput?.setPreparedPhotoSettingsArray(emptyList<String>(), completionHandler = { settings, error ->
             if (error != null) {
                 onError?.invoke(CameraException.ConfigurationError(error.localizedDescription))
             }
         })
-        
+
         if (captureSession?.canAddOutput(photoOutput!!) == true) {
             captureSession?.addOutput(photoOutput!!)
         } else {
@@ -181,10 +184,43 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         }
     }
 
-    fun captureImage() {
+    /**
+     * Sets the session preset quality based on memory conditions
+     * This allows for dynamic adjustment of capture quality
+     */
+    private fun adjustSessionQuality() {
+        captureSession?.beginConfiguration()
+
+        val memoryUsage = MemoryManager.getMemoryUsagePercentage()
+        val underPressure = MemoryManager.isUnderMemoryPressure()
+
+
+        val newPreset = when {
+            underPressure -> AVCaptureSessionPresetMedium
+            memoryUsage > 70 -> AVCaptureSessionPresetHigh
+            else -> AVCaptureSessionPresetPhoto
+        }
+
+        captureSession?.sessionPreset = newPreset
+        captureSession?.commitConfiguration()
+
+
+        highQualityEnabled = newPreset == AVCaptureSessionPresetPhoto
+    }
+
+    /**
+     * Capture an image with specified quality
+     * @param quality Image quality factor (0.0 to 1.0)
+     */
+    fun captureImage(quality: Double = 0.9) {
         if (photoOutput == null || captureSession?.isRunning() != true) {
             onError?.invoke(CameraException.ConfigurationError("Camera not ready for capture"))
             return
+        }
+
+
+        if (MemoryManager.isUnderMemoryPressure()) {
+            adjustSessionQuality()
         }
 
         val settings = AVCapturePhotoSettings.photoSettingsWithFormat(
@@ -192,15 +228,33 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
                 AVVideoCodecKey to AVVideoCodecJPEG
             )
         )
-        
-        // Set lower quality for faster processing
+
+
         settings.setHighResolutionPhotoEnabled(false)
+
+
         settings.flashMode = this.flashMode
-        
-        // Use high priority for capture
+
+
+        if (highQualityEnabled && quality > 0.8) {
+
+            settings.setAutoStillImageStabilizationEnabled(true)
+        } else {
+
+            settings.setAutoStillImageStabilizationEnabled(false)
+        }
+
+
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH.toLong(), 0u)) {
             photoOutput?.capturePhotoWithSettings(settings, delegate = this)
         }
+    }
+
+
+    fun captureImage() {
+
+        val quality = MemoryManager.getOptimalImageQuality()
+        captureImage(quality)
     }
 
     @OptIn(ExperimentalForeignApi::class)
