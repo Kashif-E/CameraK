@@ -29,16 +29,15 @@ import platform.AVFoundation.AVCaptureVideoOrientationLandscapeRight
 import platform.AVFoundation.AVCaptureVideoOrientationPortrait
 import platform.AVFoundation.AVCaptureVideoOrientationPortraitUpsideDown
 import platform.Foundation.NSData
-import platform.Foundation.NSDate
-import platform.Foundation.NSTimeInterval
-import platform.Foundation.date
-import platform.Foundation.timeIntervalSince1970
 import platform.UIKit.UIDevice
 import platform.UIKit.UIDeviceOrientation
 import platform.UIKit.UIImageJPEGRepresentation
 import platform.UIKit.UIImagePNGRepresentation
 import platform.UIKit.UIViewController
 import platform.darwin.dispatch_get_main_queue
+import platform.darwin.dispatch_async
+import platform.darwin.dispatch_get_global_queue
+import platform.darwin.DISPATCH_QUEUE_PRIORITY_HIGH
 import kotlin.coroutines.resume
 
 actual class CameraController(
@@ -114,58 +113,68 @@ actual class CameraController(
     }
 
     actual suspend fun takePicture(): ImageCaptureResult = suspendCancellableCoroutine { continuation ->
-        val captureCallback = object {
-            var consumed = false
-            fun handleCapture(data: NSData?, error: String?) {
-                if (consumed) return
-                consumed = true
+        // Fast path: if already capturing, return immediately
+        if (!isCapturing.compareAndSet(expect = false, update = true)) {
+            continuation.resume(ImageCaptureResult.Error(Exception("Capture in progress")))
+            return@suspendCancellableCoroutine
+        }
+
+        val captureHandler = object {
+            var completed = false
+            
+            fun process(image: NSData?, error: String?) {
+                if (completed) return
+                completed = true
                 
-                if (data != null) {
-                    autoreleasepool {
-                        when (imageFormat) {
-                            ImageFormat.JPEG -> {
-                                UIImageJPEGRepresentation(data.toUIImage(), 0.9)?.toByteArray()
-                                    ?.let { imageData ->
-                                        continuation.resume(ImageCaptureResult.Success(imageData))
-                                    } ?: run {
-                                    continuation.resume(ImageCaptureResult.Error(Exception("JPEG conversion failed")))
+                if (image != null) {
+                    // Process on background thread for better performance
+                    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH.toLong(), 0u)) {
+                        try {
+                            autoreleasepool {
+                                val result = when (imageFormat) {
+                                    ImageFormat.JPEG -> {
+                                        UIImageJPEGRepresentation(image.toUIImage(), 0.9)?.toByteArray()?.let { 
+                                            ImageCaptureResult.Success(it) 
+                                        }
+                                    }
+                                    ImageFormat.PNG -> {
+                                        UIImagePNGRepresentation(image.toUIImage())?.toByteArray()?.let { 
+                                            ImageCaptureResult.Success(it) 
+                                        }
+                                    }
+                                    else -> null
+                                }
+                                
+                                // Must resume on main thread
+                                dispatch_async(dispatch_get_main_queue()) {
+                                    isCapturing.value = false
+                                    continuation.resume(result ?: ImageCaptureResult.Error(Exception("Image processing failed")))
                                 }
                             }
-                            ImageFormat.PNG -> {
-                                UIImagePNGRepresentation(data.toUIImage())?.toByteArray()
-                                    ?.let { imageData ->
-                                        continuation.resume(ImageCaptureResult.Success(imageData))
-                                    } ?: run {
-                                    continuation.resume(ImageCaptureResult.Error(Exception("PNG conversion failed")))
-                                }
-                            }
-                            else -> {
-                                continuation.resume(ImageCaptureResult.Error(Exception("Unsupported format")))
+                        } catch (e: Exception) {
+                            dispatch_async(dispatch_get_main_queue()) {
+                                isCapturing.value = false
+                                continuation.resume(ImageCaptureResult.Error(e))
                             }
                         }
                     }
                 } else {
+                    isCapturing.value = false
                     continuation.resume(ImageCaptureResult.Error(Exception(error ?: "Capture failed")))
                 }
-                isCapturing.value = false
             }
         }
 
-        if (!isCapturing.compareAndSet(expect = false, update = true)) {
-            continuation.resume(ImageCaptureResult.Error(Exception("Capture already in progress")))
-            return@suspendCancellableCoroutine
-        }
-
         customCameraController.onPhotoCapture = { image ->
-            captureCallback.handleCapture(image, null)
+            captureHandler.process(image, null)
         }
 
         customCameraController.onError = { error ->
-            captureCallback.handleCapture(null, error.toString())
+            captureHandler.process(null, error.toString())
         }
 
         continuation.invokeOnCancellation {
-            captureCallback.handleCapture(null, "Capture cancelled")
+            captureHandler.process(null, "Capture cancelled")
         }
 
         customCameraController.captureImage()

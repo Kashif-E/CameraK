@@ -8,6 +8,7 @@ import platform.UIKit.UIDevice
 import platform.UIKit.UIDeviceOrientation
 import platform.UIKit.UIView
 import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
+import platform.darwin.DISPATCH_QUEUE_PRIORITY_HIGH
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_global_queue
@@ -20,7 +21,6 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
     private var photoOutput: AVCapturePhotoOutput? = null
     var cameraPreviewLayer: AVCaptureVideoPreviewLayer? = null
     private var isUsingFrontCamera = false
-    private var isProcessingCapture = false
 
     var onPhotoCapture: ((NSData?) -> Unit)? = null
     var onError: ((CameraException) -> Unit)? = null
@@ -38,6 +38,9 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         try {
             captureSession = AVCaptureSession()
             captureSession?.beginConfiguration()
+            
+            // Set high preset for better performance
+            captureSession?.sessionPreset = AVCaptureSessionPresetPhoto
 
             if (!setupInputs()) {
                 throw CameraException.DeviceNotAvailable()
@@ -53,7 +56,9 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
 
     private fun setupPhotoOutput() {
         photoOutput = AVCapturePhotoOutput()
-        photoOutput?.setHighResolutionCaptureEnabled(true)
+        // Allow capture during video recording for better performance
+        photoOutput?.setPreparedPhotoSettingsArray(emptyList())
+        
         if (captureSession?.canAddOutput(photoOutput!!) == true) {
             captureSession?.addOutput(photoOutput!!)
         } else {
@@ -100,7 +105,7 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         if (captureSession?.isRunning() == false) {
             dispatch_async(
                 dispatch_get_global_queue(
-                    DISPATCH_QUEUE_PRIORITY_DEFAULT.toLong(),
+                    DISPATCH_QUEUE_PRIORITY_HIGH.toLong(),
                     0u
                 )
             ) {
@@ -126,14 +131,12 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         frontCamera = null
     }
 
-
     @OptIn(ExperimentalForeignApi::class)
     fun setupPreviewLayer(view: UIView) {
         captureSession?.let { session ->
             val newPreviewLayer = AVCaptureVideoPreviewLayer(session = session).apply {
                 videoGravity = AVLayerVideoGravityResizeAspectFill
                 setFrame(view.bounds)
-
                 connection?.videoOrientation = currentVideoOrientation()
             }
 
@@ -141,7 +144,6 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
             cameraPreviewLayer = newPreviewLayer
         }
     }
-
 
     fun currentVideoOrientation(): AVCaptureVideoOrientation {
         val orientation = UIDevice.currentDevice.orientation
@@ -180,11 +182,20 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
             return
         }
 
-        val settings = AVCapturePhotoSettings.photoSettings().apply {
-            flashMode = this@CustomCameraController.flashMode
-        }
+        val settings = AVCapturePhotoSettings.photoSettingsWithFormat(
+            mapOf(
+                AVVideoCodecKey to AVVideoCodecJPEG
+            )
+        )
         
-        photoOutput?.capturePhotoWithSettings(settings, delegate = this)
+        // Set lower quality for faster processing
+        settings.setHighResolutionPhotoEnabled(false)
+        settings.flashMode = this.flashMode
+        
+        // Use high priority for capture
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH.toLong(), 0u)) {
+            photoOutput?.capturePhotoWithSettings(settings, delegate = this)
+        }
     }
 
     @OptIn(ExperimentalForeignApi::class)
@@ -194,18 +205,14 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
         captureSession?.beginConfiguration()
 
         try {
-
             captureSession?.inputs?.firstOrNull()?.let { input ->
                 captureSession?.removeInput(input as AVCaptureInput)
             }
 
-
             isUsingFrontCamera = !isUsingFrontCamera
             currentCamera = if (isUsingFrontCamera) frontCamera else backCamera
 
-
             val newCamera = currentCamera ?: throw CameraException.DeviceNotAvailable()
-
 
             val newInput = AVCaptureDeviceInput.deviceInputWithDevice(
                 newCamera,
@@ -217,7 +224,6 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
             } else {
                 throw CameraException.ConfigurationError("Cannot add input")
             }
-
 
             cameraPreviewLayer?.connection?.let { connection ->
                 if (connection.isVideoMirroringSupported()) {
