@@ -6,11 +6,11 @@ plugins {
     alias(libs.plugins.android.library)
     id("org.jetbrains.compose")
     alias(libs.plugins.compose.compiler)
-    id("com.vanniktech.maven.publish") version "0.28.0"
+    id("com.vanniktech.maven.publish") version "0.31.0"
 }
 
 group = "com.kashif.ocr_plugin"
-version = "1.0"
+version = "0.0.2"
 
 kotlin {
     jvmToolchain(11)
@@ -88,7 +88,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "ocr_plugin",
-        version = "0.0.1"
+        version = "0.0.2"
     )
 
 

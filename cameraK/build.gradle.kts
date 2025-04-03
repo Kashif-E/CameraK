@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.android.library)
     id("org.jetbrains.compose")
     alias(libs.plugins.compose.compiler)
-    id("com.vanniktech.maven.publish") version "0.30.0"
+    id("com.vanniktech.maven.publish") version "0.31.0"
 }
 
 group = "com.kashif.camera_compose"
@@ -100,7 +100,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "camerak",
-        version = "0.0.10"
+        version = "0.0.11"
     )
 
 

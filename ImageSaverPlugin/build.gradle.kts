@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.android.library)
     id("org.jetbrains.compose")
     alias(libs.plugins.compose.compiler)
-    id("com.vanniktech.maven.publish") version "0.28.0"
+    id("com.vanniktech.maven.publish") version "0.31.0"
 }
 
 group = "com.kashif.image_saver_plugin"
@@ -78,7 +78,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "image_saver_plugin",
-        version = "0.0.5"
+        version = "0.0.6"
     )
 
 
