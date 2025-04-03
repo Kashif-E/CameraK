@@ -1,7 +1,7 @@
-# CameraK Library
+# CameraK
 
 <p align="center">
-  <a href="https://github.com/Kashif-E/CameraK/releases/tag/0.0.9">
+  <a href="https://github.com/Kashif-E/CameraK/releases/tag/0.0.11">
     <img src="https://img.shields.io/github/v/release/kashif-e/camerak" alt="Version">
   </a>
   <a href="https://mailchi.mp/kotlinweekly/kotlin-weekly-425">
@@ -9,262 +9,209 @@
   </a>
 </p>
 
-## Overview
+## A Modern Camera Solution for Compose Multiplatform
 
-The **CameraK Library** is a camera solution designed for Compose Multiplatform, currently
-supporting **Android** **JVM** and **iOS**. While there are plans to expand support to additional
-platforms, this will take time.
+CameraK is a comprehensive camera library designed specifically for Compose Multiplatform applications. It currently supports Android, iOS, and JVM platforms, with plans for expansion.
 
-CameraK offers features such as **Camera Preview**, **Image Capture**, **Saving Images Locally**,
-and **Exposing Images as ByteArrays**. It has a plugin-based API that allows developers to extend
-and enhance its functionality. Currently, two plugins are available: one for saving images and
-another for scanning QR codes.
+### Key Features
 
-***Like What you see?***
-
-**Buy me a coffee**
-
-<a href="https://www.buymeacoffee.com/kashifmehmood"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=kashifmehmood&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
-
+- 📱 **Cross-Platform Support**: Works on Android, iOS, and JVM
+- 📸 **Camera Preview & Image Capture**: High-quality preview and capture capabilities
+- 💾 **Image Processing**: Save images locally or process them as ByteArrays
+- 🧩 **Plugin Architecture**: Extend functionality through modular plugins
+- 🔍 **QR Scanning**: Quick and accurate QR code detection with dedicated plugin
+- 📝 **OCR Support**: Text recognition capabilities with OCR plugin
 
 ## Installation
 
-```Kotlin  
-implementation("io.github.kashif-mehmood-km:camerak:+")  
-```  
+Add the core library to your project:
 
-if you want to save images to device add the plugin:
-
-```Kotlin
-implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.0.3")
-````
-
-if you want to add QR scanning capability then you need the QR scanner plugin:
-
-```Kotlin
-implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.0.4")
+```kotlin
+implementation("io.github.kashif-mehmood-km:camerak:+")
 ```
 
-## Supported Platforms
+### Optional Plugins
 
-- Android
-- IOS
-- JVM
-- More will be added later
+Image saving plugin:
+```kotlin
+implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.0.6")
+```
 
-## Usage
+QR scanning plugin:
+```kotlin
+implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.0.7")
+```
 
-This is a simple example of how to use the CameraK library in your app.
+OCR plugin:
+```kotlin
+implementation("io.github.kashif-mehmood-km:ocr_plugin:0.0.2")
+```
 
-#### Permissions
+## Platform Setup
 
-Add the following permissions to your `AndroidManifest.xml` file:
+### Android
 
-```xml  
+Add these permissions to your `AndroidManifest.xml`:
 
+```xml
 <uses-permission android:name="android.permission.CAMERA" />
-<uses-permission
-android:name="android.permission.WRITE_EXTERNAL_STORAGE" />  
-```  
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+```
 
-Add the following to your info.plist file for iOS
+### iOS
 
-```xml  
+Add these keys to your `Info.plist`:
 
-<key>NSCameraUsageDescription</key><string>Camera permission is required for the app to work.
-</string><key>NSPhotoLibraryUsageDescription</key><string>Photo Library permission is required for
-the app to work.
-</string>  
-```  
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Camera permission is required for the app to work.</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Photo Library permission is required for the app to work.</string>
+```
 
-Checking for permission and asking if needed
+## Quick Start
 
-```Kotlin
-// Initialize Camera Permission State based on current permission status  
-val cameraPermissionState = remember {
-    mutableStateOf(
-        permissions.hasCameraPermission()
-    )
-}
+### 1. Handle Permissions
 
-// Initialize Storage Permission State  
-val storagePermissionState = remember {
-    mutableStateOf(
-        permissions.hasStoragePermission()
-    )
-}
+```kotlin
+// Initialize and check permissions
+val cameraPermissionState = remember { mutableStateOf(permissions.hasCameraPermission()) }
+val storagePermissionState = remember { mutableStateOf(permissions.hasStoragePermission()) }
 
+// Request permissions if needed
 if (!cameraPermissionState.value) {
-    permissions.RequestCameraPermission(onGranted = { cameraPermissionState.value = true },
-        onDenied = {
-            println("Camera Permission Denied")
-        })
+    permissions.RequestCameraPermission(
+        onGranted = { cameraPermissionState.value = true },
+        onDenied = { println("Camera Permission Denied") }
+    )
 }
-
 
 if (!storagePermissionState.value) {
-    permissions.RequestStoragePermission(onGranted = { storagePermissionState.value = true },
-        onDenied = {
-            println("Storage Permission Denied")
-        })
+    permissions.RequestStoragePermission(
+        onGranted = { storagePermissionState.value = true },
+        onDenied = { println("Storage Permission Denied") }
+    )
 }
-
-// Initialize CameraController only when permissions are granted  
-if (cameraPermissionState.value && storagePermissionState.value) {
-}
-
 ```
 
-If permissions are granted we first create a camera controller
+### 2. Set Up the Camera Controller
 
-```Kotlin
+```kotlin
 val cameraController = remember { mutableStateOf<CameraController?>(null) }
-```
 
-After this if needed, create plugins
-
-```Kotlin
+// Configure plugins if needed
 val imageSaverPlugin = rememberImageSaverPlugin(
     config = ImageSaverConfig(
-        isAutoSave = false, // Set to true to enable automatic saving  
-        prefix = "MyApp", // Prefix for image names when auto-saving  
-        directory = Directory.PICTURES, // Directory to save images  
-        customFolderName = "CustomFolder" // Custom folder name within the directory, only works on android for now  
+        isAutoSave = false,
+        prefix = "MyApp",
+        directory = Directory.PICTURES,
+        customFolderName = "MyAppPhotos"  // Android only
     )
 )
+
 val qrScannerPlugin = rememberQRScannerPlugin(coroutineScope = coroutineScope)
 
+// Set up QR code detection
 LaunchedEffect(Unit) {
     qrScannerPlugin.getQrCodeFlow().distinctUntilChanged()
         .collectLatest { qrCode ->
-            println("QR Code Detected flow: $qrCode")
-            snackbarHostState.showSnackbar("QR Code Detected flow: $qrCode")
+            println("QR Code Detected: $qrCode")
             qrScannerPlugin.pauseScanning()
         }
 }
 ```
 
-After this we can create a Camera Preview and pass camera configuration, the it will create a
-`CameraController` and we can get it from the `onCameraControllerReady` callback. Once we get the
-controller we can then show the camera screen.
+### 3. Implement the Camera Preview
 
-```Kotlin
-CameraPreview(modifier = Modifier.fillMaxSize(), cameraConfiguration = {
-    setCameraLens(CameraLens.BACK)
-    setFlashMode(FlashMode.OFF)
-    setImageFormat(ImageFormat.JPEG)
-    setDirectory(Directory.PICTURES)
-    addPlugin(imageSaverPlugin)
-    addPlugin(qrScannerPlugin)
-}, onCameraControllerReady = {
-    cameraController.value = it
-    println("Camera Controller Ready ${cameraController.value}")
-    qrScannerPlugin.startScanning()
-})
+```kotlin
+CameraPreview(
+    modifier = Modifier.fillMaxSize(),
+    cameraConfiguration = {
+        setCameraLens(CameraLens.BACK)
+        setFlashMode(FlashMode.OFF)
+        setImageFormat(ImageFormat.JPEG)
+        setDirectory(Directory.PICTURES)
+        addPlugin(imageSaverPlugin)
+        addPlugin(qrScannerPlugin)
+    },
+    onCameraControllerReady = {
+        cameraController.value = it
+        qrScannerPlugin.startScanning()
+    }
+)
+
+// Display your custom camera UI once controller is ready
 cameraController.value?.let { controller ->
     CameraScreen(cameraController = controller, imageSaverPlugin)
 }
 ```
 
-Here is a sample camera screen that is in the `Sample` module
+### 4. Capture and Save Images
 
-```Kotlin
-@OptIn(ExperimentalResourceApi::class, ExperimentalUuidApi::class)
-@Composable
-fun CameraScreen(cameraController: CameraController, imageSaverPlugin: ImageSaverPlugin) {
-    val scope = rememberCoroutineScope()
-    var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-    var isFlashOn by remember { mutableStateOf(false) }
-
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp).align(Alignment.TopStart),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Flash Mode Switch  
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "Flash")
-                Spacer(modifier = Modifier.width(8.dp))
-                Switch(checked = isFlashOn, onCheckedChange = {
-                    isFlashOn = it
-                    cameraController.toggleFlashMode()
-                })
-            }
-
-            // Camera Lens Toggle Button  
-            Button(onClick = { cameraController.toggleCameraLens() }) {
-                Text(text = "Toggle Lens")
-            }
-        }
-        // Capture Button at the Bottom Center  
-        Button(
-            onClick = {
-                scope.launch {
-                    when (val result = cameraController.takePicture()) {
-                        is ImageCaptureResult.Success -> {
-
-                            imageBitmap = result.byteArray.decodeToImageBitmap()
-                            // If auto-save is disabled, manually save the image  
-                            if (!imageSaverPlugin.config.isAutoSave) {
-                                // Generate a custom name or use default  
-                                val customName = "Manual_${Uuid.random().toHexString()}"
-
-                                imageSaverPlugin.saveImage(
-                                    byteArray = result.byteArray, imageName = customName
-                                )
-                            }
-                        }
-
-                        is ImageCaptureResult.Error -> {
-                            println("Image Capture Error: ${result.exception.message}")
-                        }
+```kotlin
+Button(
+    onClick = {
+        scope.launch {
+            when (val result = cameraController.takePicture()) {
+                is ImageCaptureResult.Success -> {
+                    // Handle the captured image
+                    val bitmap = result.byteArray.decodeToImageBitmap()
+                    
+                    // Manually save the image if auto-save is disabled
+                    if (!imageSaverPlugin.config.isAutoSave) {
+                        imageSaverPlugin.saveImage(
+                            byteArray = result.byteArray,
+                            imageName = "Photo_${System.currentTimeMillis()}"
+                        )
                     }
                 }
-            }, modifier = Modifier.size(70.dp).clip(CircleShape).align(Alignment.BottomCenter)
-
-        ) {
-            Text(text = "Capture")
-        }
-
-        // Display the captured image  
-        imageBitmap?.let { bitmap ->
-            Image(
-                bitmap = bitmap,
-                contentDescription = "Captured Image",
-                modifier = Modifier.fillMaxSize().padding(16.dp)
-            )
-
-            LaunchedEffect(bitmap) {
-                delay(3000)
-                imageBitmap = null
+                is ImageCaptureResult.Error -> {
+                    println("Image Capture Error: ${result.exception.message}")
+                }
             }
         }
     }
+) {
+    Text("Capture")
 }
 ```
 
-You can check the `Sample` for more details.
+## Advanced Usage
 
-The library is in an experimental stage, APIs can change/break.
+Check the sample app in the repository for a complete implementation showcasing all features, including:
 
-### Plugin API
+- Toggling between front and back cameras
+- Managing flash modes
+- Processing captured images
+- Handling QR code scanning results
+- OCR implementation
 
-CameraK has a plugin api which can be used by devs to enhance the capabilities of the library for their own needs, The design for it is not final but you can check `qrScannerPlugin` or `imageSaverPlugin` to check how you can build your own plugins.
+## Creating Custom Plugins
 
+CameraK features a powerful plugin API that allows developers to extend its functionality. Explore the `qrScannerPlugin` or `imageSaverPlugin` source code for examples of how to build your own plugins.
 
-**Contributions**
+## Status
 
-We welcome contributions! Before submitting a pull request, please open an issue so we can discuss
-the proposed changes and collaborate on improving the project.
+This library is currently in experimental stage. APIs may change in future releases.
 
-**Feature Requests**
-Feature requests are encouraged, and I’ll do my best to address them as quickly as possible.
+## Contributing
+
+Contributions are welcome! Before submitting a pull request:
+
+1. Open an issue to discuss your proposed changes
+2. Fork the repository and create your branch
+3. Implement your feature or fix
+4. Ensure tests pass
+5. Submit your pull request
+
+## Support
+
+If you find this library useful, consider supporting the developer:
+
+<a href="https://www.buymeacoffee.com/kashifmehmood"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=kashifmehmood&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
 
 ## License
 
-```  
-MIT License  
+```
+MIT License
 ```
