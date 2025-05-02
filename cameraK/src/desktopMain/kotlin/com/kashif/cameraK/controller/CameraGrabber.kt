@@ -39,7 +39,7 @@ class CameraGrabber(
     fun start(coroutineScope: CoroutineScope, customGrabber: FrameGrabber? = null) {
         if (job?.isActive == true) return
 
-        grabber = customGrabber ?: createGrabber().apply {
+        grabber = (customGrabber ?: createGrabber()).apply {
             try {
                 start()
             } catch (e: Exception) {
