@@ -16,6 +16,7 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
     private var cameraLens: CameraLens = CameraLens.BACK
     private var imageFormat: ImageFormat? = null
     private var directory: Directory? = null
+    private var qualityPriority: QualityPrioritization = QualityPrioritization.NONE
     private val plugins = mutableListOf<CameraPlugin>()
 
     override fun setFlashMode(flashMode: FlashMode): CameraControllerBuilder {
@@ -37,6 +38,11 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
 
     override fun setTorchMode(torchMode: TorchMode): CameraControllerBuilder {
         this.torchMode = torchMode
+        return this
+    }
+
+    override fun setQualityPrioritization(prioritization: QualityPrioritization): CameraControllerBuilder {
+        this.qualityPriority = prioritization
         return this
     }
 
@@ -62,7 +68,8 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
             cameraLens = cameraLens,
             imageFormat = format,
             directory = dir,
-            plugins = plugins
+            plugins = plugins,
+            qualityPriority = qualityPriority
         )
 
         return cameraController

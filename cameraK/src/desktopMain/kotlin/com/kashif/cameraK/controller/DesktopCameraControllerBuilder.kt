@@ -5,6 +5,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.utils.InvalidConfigurationException
@@ -22,6 +23,7 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
     private var cameraLens: CameraLens = CameraLens.BACK
     private var imageFormat: ImageFormat? = null
     private var directory: Directory? = null
+    private var qualityPriority: QualityPrioritization = QualityPrioritization.NONE
     private val plugins = mutableListOf<CameraPlugin>()
 
     fun setGrabber(grabber: FrameGrabber): CameraControllerBuilder {
@@ -51,6 +53,11 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
 
     override fun setTorchMode(torchMode: TorchMode): CameraControllerBuilder {
         this.torchMode = torchMode
+        return this
+    }
+
+    override fun setQualityPrioritization(prioritization: QualityPrioritization): CameraControllerBuilder {
+        this.qualityPriority = prioritization
         return this
     }
 

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
+import androidx.annotation.OptIn
 import androidx.camera.core.*
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
@@ -38,6 +39,7 @@ actual class CameraController(
     internal var torchMode: TorchMode,
     internal var cameraLens: CameraLens,
     internal var imageFormat: ImageFormat,
+    internal var qualityPriority: QualityPrioritization,
     internal var directory: Directory,
     internal var plugins: MutableList<CameraPlugin>
 ) {
@@ -125,15 +127,22 @@ actual class CameraController(
     /**
      * Configure the image capture use case with settings adapted to current memory conditions
      */
+    @OptIn(ExperimentalZeroShutterLag::class)
     private fun configureCaptureUseCase() {
 
         imageCapture = ImageCapture.Builder()
             .setFlashMode(flashMode.toCameraXFlashMode())
             .setCaptureMode(
-                if (memoryManager.isUnderMemoryPressure()) {
-                    ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
-                } else {
-                    ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+                when (qualityPriority) {
+                    QualityPrioritization.QUALITY -> ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
+                    QualityPrioritization.SPEED -> ImageCapture.CAPTURE_MODE_ZERO_SHUTTER_LAG
+                    else -> {
+                        if (memoryManager.isUnderMemoryPressure()) {
+                            ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+                        } else {
+                            ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+                        }
+                    }
                 }
             )
             .setResolutionSelector(createResolutionSelector())
