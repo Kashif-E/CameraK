@@ -5,6 +5,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 
@@ -34,4 +35,9 @@ interface CameraControllerBuilder {
      */
     fun build(): CameraController
     fun setTorchMode(torchMode: TorchMode): CameraControllerBuilder
+
+    /**
+     * Sets the quality prioritization for the captured image.
+     */
+    fun setQualityPrioritization(prioritization: QualityPrioritization): CameraControllerBuilder
 }

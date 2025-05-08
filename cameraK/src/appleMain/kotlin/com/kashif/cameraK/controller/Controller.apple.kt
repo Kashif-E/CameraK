@@ -5,6 +5,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
@@ -47,11 +48,12 @@ actual class CameraController(
     internal var torchMode: TorchMode,
     internal var cameraLens: CameraLens,
     internal var imageFormat: ImageFormat,
+    internal var qualityPriority: QualityPrioritization,
     internal var directory: Directory,
     internal var plugins: MutableList<CameraPlugin>
 ) : UIViewController(null, null) {
     private var isCapturing = atomic(false)
-    private val customCameraController = CustomCameraController()
+    private val customCameraController = CustomCameraController(qualityPriority)
     private var imageCaptureListeners = mutableListOf<(ByteArray) -> Unit>()
     private var metadataOutput = AVCaptureMetadataOutput()
     private var metadataObjectsDelegate: AVCaptureMetadataOutputObjectsDelegateProtocol? = null

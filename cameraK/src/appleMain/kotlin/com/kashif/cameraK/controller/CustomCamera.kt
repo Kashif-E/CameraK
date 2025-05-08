@@ -1,5 +1,6 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.utils.MemoryManager
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.AVFoundation.*
@@ -14,7 +15,7 @@ import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_global_queue
 
-class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol {
+class CustomCameraController(val qualityPriority: QualityPrioritization) : NSObject(), AVCapturePhotoCaptureDelegateProtocol {
     var captureSession: AVCaptureSession? = null
     private var backCamera: AVCaptureDevice? = null
     private var frontCamera: AVCaptureDevice? = null
@@ -61,6 +62,26 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
     private fun setupPhotoOutput() {
         photoOutput = AVCapturePhotoOutput()
         photoOutput?.setHighResolutionCaptureEnabled(false)
+
+        when (qualityPriority) {
+            QualityPrioritization.QUALITY -> {
+                photoOutput?.setHighResolutionCaptureEnabled(true)
+                photoOutput?.setMaxPhotoQualityPrioritization(
+                    AVCapturePhotoQualityPrioritizationQuality
+                )
+            }
+
+            QualityPrioritization.BALANCED -> photoOutput?.setMaxPhotoQualityPrioritization(
+                AVCapturePhotoQualityPrioritizationBalanced
+            )
+
+            QualityPrioritization.SPEED -> photoOutput?.setMaxPhotoQualityPrioritization(
+                AVCapturePhotoQualityPrioritizationSpeed
+            )
+
+            QualityPrioritization.NONE -> null
+        }
+
         photoOutput?.setPreparedPhotoSettingsArray(emptyList<String>(), completionHandler = { settings, error ->
             if (error != null) {
                 onError?.invoke(CameraException.ConfigurationError(error.localizedDescription))
@@ -232,6 +253,22 @@ class CustomCameraController : NSObject(), AVCapturePhotoCaptureDelegateProtocol
 
         settings.setHighResolutionPhotoEnabled(false)
 
+        when (qualityPriority) {
+            QualityPrioritization.QUALITY -> {
+                settings.setHighResolutionPhotoEnabled(true)
+                settings.photoQualityPrioritization = AVCapturePhotoQualityPrioritizationQuality
+            }
+
+            QualityPrioritization.BALANCED -> {
+                settings.photoQualityPrioritization = AVCapturePhotoQualityPrioritizationBalanced
+            }
+
+            QualityPrioritization.SPEED -> {
+                settings.photoQualityPrioritization = AVCapturePhotoQualityPrioritizationSpeed
+            }
+
+            QualityPrioritization.NONE -> null
+        }
 
         settings.flashMode = this.flashMode
 

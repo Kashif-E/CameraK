@@ -57,6 +57,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.permissions.Permissions
 import com.kashif.cameraK.permissions.providePermissions
@@ -157,6 +158,7 @@ private fun CameraContent(
                 setImageFormat(ImageFormat.JPEG)
                 setDirectory(Directory.PICTURES)
                 setTorchMode(TorchMode.OFF)
+                setQualityPrioritization(QualityPrioritization.QUALITY)
                 addPlugin(imageSaverPlugin)
             },
             onCameraControllerReady = {
