@@ -1,21 +1,15 @@
 package com.kashif.cameraK.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.awt.SwingPanel
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.kashif.cameraK.builder.CameraControllerBuilder
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.controller.DesktopCameraControllerBuilder
-import com.kashif.cameraK.controller.ImagePanel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.launch
@@ -26,29 +20,25 @@ actual fun expectCameraPreview(
     cameraConfiguration: CameraControllerBuilder.() -> Unit,
     onCameraControllerReady: (CameraController) -> Unit
 ) {
-
-
     val cameraController = remember {
         DesktopCameraControllerBuilder()
             .apply(cameraConfiguration).build()
     }
 
-
-
     BoxWithConstraints(modifier = modifier) {
         val scope = rememberCoroutineScope()
 
         val frameChannel = cameraController.getFrameChannel()
-        var panel by remember { mutableStateOf<ImagePanel?>(null) }
+        var img by remember { mutableStateOf<ImageBitmap?>(null) }
 
         DisposableEffect(Unit) {
             cameraController.startSession()
             cameraController.initializeControllerPlugins()
+            onCameraControllerReady(cameraController)
 
             val frameJob = scope.launch(Dispatchers.Main) {
                 frameChannel.consumeAsFlow().collect { image ->
-                    panel?.updateImage(image)
-
+                    img = image.toComposeImageBitmap()
                 }
             }
 
@@ -58,14 +48,8 @@ actual fun expectCameraPreview(
             }
         }
 
-
-        SwingPanel(
-            modifier = modifier.fillMaxSize(),
-            factory = {
-                onCameraControllerReady(cameraController)
-                ImagePanel().also { panel = it }
-            },
-            update = { }
-        )
+        if (img != null) {
+            Image(img!!, contentDescription = null, modifier.fillMaxSize())
+        }
     }
 }
