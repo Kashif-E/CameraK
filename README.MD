@@ -1,7 +1,7 @@
 # CameraK
 
 <p align="center">
-  <a href="https://github.com/Kashif-E/CameraK/releases/tag/0.0.11">
+  <a href="https://github.com/Kashif-E/CameraK/releases/tag/0.0.12">
     <img src="https://img.shields.io/github/v/release/kashif-e/camerak" alt="Version">
   </a>
   <a href="https://mailchi.mp/kotlinweekly/kotlin-weekly-425">
@@ -34,17 +34,17 @@ implementation("io.github.kashif-mehmood-km:camerak:+")
 
 Image saving plugin:
 ```kotlin
-implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.0.6")
+implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.0.7")
 ```
 
 QR scanning plugin:
 ```kotlin
-implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.0.7")
+implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.0.8")
 ```
 
 OCR plugin:
 ```kotlin
-implementation("io.github.kashif-mehmood-km:ocr_plugin:0.0.2")
+implementation("io.github.kashif-mehmood-km:ocr_plugin:0.0.3")
 ```
 
 ## Platform Setup
