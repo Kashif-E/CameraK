@@ -39,7 +39,7 @@ class CustomCameraController(val qualityPriority: QualityPrioritization) : NSObj
         class CaptureError(message: String) : CameraException()
     }
 
-    fun setupSession() {
+    fun setupSession(cameraDeviceType: String = AVCaptureDeviceTypeBuiltInWideAngleCamera) {
         try {
             captureSession = AVCaptureSession()
             captureSession?.beginConfiguration()
@@ -47,7 +47,7 @@ class CustomCameraController(val qualityPriority: QualityPrioritization) : NSObj
 
             captureSession?.sessionPreset = AVCaptureSessionPresetPhoto
 
-            if (!setupInputs()) {
+            if (!setupInputs(cameraDeviceType)) {
                 throw CameraException.DeviceNotAvailable()
             }
 
@@ -96,9 +96,9 @@ class CustomCameraController(val qualityPriority: QualityPrioritization) : NSObj
     }
 
     @OptIn(ExperimentalForeignApi::class)
-    private fun setupInputs(): Boolean {
+    private fun setupInputs(cameraDeviceType: String): Boolean {
         val availableDevices = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
-            listOf(AVCaptureDeviceTypeBuiltInWideAngleCamera),
+            listOf(cameraDeviceType),
             AVMediaTypeVideo,
             AVCaptureDevicePositionUnspecified
         ).devices
