@@ -39,6 +39,20 @@ class CustomCameraController(val qualityPriority: QualityPrioritization) : NSObj
         class CaptureError(message: String) : CameraException()
     }
 
+    /**
+     * Sets up the camera session with a specific device type.
+     *
+     * This allows selecting a particular camera (e.g. wide-angle, telephoto, or macro) at runtime,
+     * which is especially useful on iPhones with multiple rear cameras (iPhone 13 and newer).
+     *
+     * Default is AVCaptureDeviceTypeBuiltInWideAngleCamera for backward compatibility.
+     *
+     * Example device types:
+     * - AVCaptureDeviceTypeBuiltInWideAngleCamera
+     * - AVCaptureDeviceTypeBuiltInTelephotoCamera
+     * - AVCaptureDeviceTypeBuiltInUltraWideCamera
+     * - AVCaptureDeviceTypeBuiltInMacroCamera
+     */
     fun setupSession(cameraDeviceType: String = AVCaptureDeviceTypeBuiltInWideAngleCamera) {
         try {
             captureSession = AVCaptureSession()

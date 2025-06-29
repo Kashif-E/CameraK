@@ -52,7 +52,7 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
         return this
     }
 
-    override fun setCameraType(cameraDeviceType: String): CameraControllerBuilder {
+    override fun setCameraDeviceType(cameraDeviceType: String): CameraControllerBuilder {
         this.cameraDeviceType = cameraDeviceType
         return this
     }
