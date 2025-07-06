@@ -194,15 +194,26 @@ CameraK features a powerful plugin API that allows developers to extend its func
 
 This library is currently in experimental stage. APIs may change in future releases.
 
+## 📚 Documentation
+
+For comprehensive information about CameraK:
+
+- **[Codebase Overview](CODEBASE_OVERVIEW.md)** - Understand the project structure and architecture
+- **[Architecture Guide](ARCHITECTURE.md)** - Detailed architectural documentation with diagrams
+- **[API Reference](API_REFERENCE.md)** - Complete API documentation with examples
+- **[Development Setup](DEVELOPMENT_SETUP.md)** - Setup guide for contributors and developers
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues and solutions
+
 ## Contributing
 
 Contributions are welcome! Before submitting a pull request:
 
-1. Open an issue to discuss your proposed changes
-2. Fork the repository and create your branch
-3. Implement your feature or fix
-4. Ensure tests pass
-5. Submit your pull request
+1. Read the [Development Setup Guide](DEVELOPMENT_SETUP.md)
+2. Open an issue to discuss your proposed changes
+3. Fork the repository and create your branch
+4. Implement your feature or fix following the [Architecture Guide](ARCHITECTURE.md)
+5. Ensure tests pass and check the [Troubleshooting Guide](TROUBLESHOOTING.md) if needed
+6. Submit your pull request
 
 ## Support
 
