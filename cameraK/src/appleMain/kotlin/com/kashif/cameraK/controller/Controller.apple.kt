@@ -12,6 +12,7 @@ import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.utils.MemoryManager
 import com.kashif.cameraK.utils.toByteArray
 import com.kashif.cameraK.utils.toUIImage
+import com.kashif.cameraK.utils.fixOrientation
 import kotlinx.atomicfu.atomic
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.autoreleasepool
@@ -50,7 +51,7 @@ actual class CameraController(
     internal var imageFormat: ImageFormat,
     internal var qualityPriority: QualityPrioritization,
     internal var directory: Directory,
-    internal var cameraDeviceType: String,
+    internal var cameraDeviceType: String?,
     internal var plugins: MutableList<CameraPlugin>
 ) : UIViewController(null, null) {
     private var isCapturing = atomic(false)
@@ -208,12 +209,28 @@ actual class CameraController(
 
                                 val result = when (imageFormat) {
                                     ImageFormat.JPEG -> {
-                                        UIImageJPEGRepresentation(image.toUIImage(), quality)?.toByteArray()?.let {
-                                            ImageCaptureResult.Success(it)
+                                        // If quality is high (>0.85), use the original capture data directly
+                                        // as it already has correct EXIF orientation from AVCapturePhoto
+                                        if (quality > 0.85) {
+                                            image.toByteArray().let {
+                                                ImageCaptureResult.Success(it)
+                                            }
+                                        } else {
+                                            // If we need to reduce quality, convert through UIImage
+                                            // and fix orientation to ensure pixel data matches metadata
+                                            val uiImage = image.toUIImage()
+                                            val orientedImage = uiImage.fixOrientation()
+                                            UIImageJPEGRepresentation(orientedImage, quality)?.toByteArray()?.let {
+                                                ImageCaptureResult.Success(it)
+                                            }
                                         }
                                     }
                                     ImageFormat.PNG -> {
-                                        UIImagePNGRepresentation(image.toUIImage())?.toByteArray()?.let {
+                                        // Convert to PNG requires re-encoding
+                                        // Fix orientation to ensure pixel data is correct
+                                        val uiImage = image.toUIImage()
+                                        val orientedImage = uiImage.fixOrientation()
+                                        UIImagePNGRepresentation(orientedImage)?.toByteArray()?.let {
                                             ImageCaptureResult.Success(it)
                                         }
                                     }

@@ -1,5 +1,6 @@
 package com.kashif.cameraK.controller
 
+import androidx.compose.ui.util.fastForEach
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.utils.MemoryManager
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -14,6 +15,7 @@ import platform.darwin.DISPATCH_QUEUE_PRIORITY_HIGH
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_global_queue
+import kotlin.collections.emptyList
 
 class CustomCameraController(val qualityPriority: QualityPrioritization) : NSObject(), AVCapturePhotoCaptureDelegateProtocol {
     var captureSession: AVCaptureSession? = null
@@ -45,7 +47,7 @@ class CustomCameraController(val qualityPriority: QualityPrioritization) : NSObj
      * This allows selecting a particular camera (e.g. wide-angle, telephoto, or macro) at runtime,
      * which is especially useful on iPhones with multiple rear cameras (iPhone 13 and newer).
      *
-     * Default is AVCaptureDeviceTypeBuiltInWideAngleCamera for backward compatibility.
+     * If cameraDeviceType is null or unavailable, falls back to any available camera device.
      *
      * Example device types:
      * - AVCaptureDeviceTypeBuiltInWideAngleCamera
@@ -53,7 +55,7 @@ class CustomCameraController(val qualityPriority: QualityPrioritization) : NSObj
      * - AVCaptureDeviceTypeBuiltInUltraWideCamera
      * - AVCaptureDeviceTypeBuiltInMacroCamera
      */
-    fun setupSession(cameraDeviceType: String = AVCaptureDeviceTypeBuiltInWideAngleCamera) {
+    fun setupSession(cameraDeviceType: String? = AVCaptureDeviceTypeBuiltInWideAngleCamera) {
         try {
             captureSession = AVCaptureSession()
             captureSession?.beginConfiguration()
@@ -110,38 +112,49 @@ class CustomCameraController(val qualityPriority: QualityPrioritization) : NSObj
     }
 
     @OptIn(ExperimentalForeignApi::class)
-    private fun setupInputs(cameraDeviceType: String): Boolean {
-        val availableDevices = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
-            listOf(cameraDeviceType),
+    private fun setupInputs(cameraDeviceType: String?): Boolean {
+        // Discover available camera devices
+        val deviceTypes = cameraDeviceType?.let { listOf(it) } ?: listOfNotNull(
+            AVCaptureDeviceTypeBuiltInWideAngleCamera,
+            AVCaptureDeviceTypeBuiltInTelephotoCamera,
+            AVCaptureDeviceTypeBuiltInUltraWideCamera
+        )
+        
+        val discoverySession = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
+            deviceTypes,
             AVMediaTypeVideo,
             AVCaptureDevicePositionUnspecified
-        ).devices
+        )
+        
+        val devices = discoverySession.devices.ifEmpty {
+            // Fallback to default device if discovery fails
+            AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo)?.let { listOf<Any?>(it) } ?: emptyList()
+        }
 
-        if (availableDevices.isEmpty()) return false
-
-        for (device in availableDevices) {
+        // Categorize devices by position
+        devices.forEach { device ->
             when ((device as AVCaptureDevice).position) {
                 AVCaptureDevicePositionBack -> backCamera = device
                 AVCaptureDevicePositionFront -> frontCamera = device
             }
         }
 
+        // Select and configure camera input
         currentCamera = backCamera ?: frontCamera ?: return false
 
-        try {
-            val input = AVCaptureDeviceInput.deviceInputWithDevice(
-                currentCamera!!,
-                null
-            ) ?: return false
-
+        return try {
+            val input = AVCaptureDeviceInput.deviceInputWithDevice(currentCamera!!, null) 
+                ?: return false
+            
             if (captureSession?.canAddInput(input) == true) {
                 captureSession?.addInput(input)
-                return true
+                true
+            } else {
+                false
             }
         } catch (e: Exception) {
             throw CameraException.ConfigurationError(e.message ?: "Unknown error")
         }
-        return false
     }
 
     fun startSession() {
@@ -295,6 +308,13 @@ class CustomCameraController(val qualityPriority: QualityPrioritization) : NSObj
             settings.setAutoStillImageStabilizationEnabled(false)
         }
 
+        // Set the photo output connection orientation to match current device orientation
+        // This ensures the captured photo has the correct orientation metadata
+        photoOutput?.connectionWithMediaType(AVMediaTypeVideo)?.let { connection ->
+            if (connection.isVideoOrientationSupported()) {
+                connection.videoOrientation = currentVideoOrientation()
+            }
+        }
 
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH.toLong(), 0u)) {
             photoOutput?.capturePhotoWithSettings(settings, delegate = this)

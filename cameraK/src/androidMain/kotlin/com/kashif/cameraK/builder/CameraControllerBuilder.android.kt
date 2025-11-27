@@ -86,7 +86,8 @@ class AndroidCameraControllerBuilder(
             directory = dir,
             plugins = plugins,
             torchMode = torchMode,
-            qualityPriority = qualityPriority
+            qualityPriority = qualityPriority,
+            cameraDeviceType = ""
         )
         plugins.forEach {
             it.initialize(cameraController)

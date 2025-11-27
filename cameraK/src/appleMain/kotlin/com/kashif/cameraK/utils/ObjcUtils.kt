@@ -8,6 +8,7 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.allocArrayOf
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
+import kotlinx.cinterop.useContents
 import org.jetbrains.skia.Data
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
@@ -61,3 +62,31 @@ fun NSData.toByteArray(reuseBuffer: ByteArray? = null): ByteArray {
 fun NSData.toByteArray(): ByteArray = toByteArray(null)
 
 fun NSData.toUIImage() = UIImage(this)
+
+/**
+ * Redraws the UIImage with orientation transformations applied to the pixel data.
+ * Fixes issues where EXIF orientation metadata doesn't match the actual pixels,
+ * which can cause rotated images when re-encoded to JPEG/PNG.
+ * 
+ * @return UIImage with orientation baked into pixels 
+ */
+@OptIn(ExperimentalForeignApi::class)
+fun UIImage.fixOrientation(): UIImage {
+    // If image is already in correct orientation, return it as-is
+    if (this.imageOrientation == platform.UIKit.UIImageOrientation.UIImageOrientationUp) {
+        return this
+    }
+    
+    // Get the actual display size (after orientation transform is applied)
+    val width = this.size.useContents { this.width }
+    val height = this.size.useContents { this.height }
+    
+    // Create a graphics context with the display size and draw the image
+    // UIImage.drawInRect automatically applies the orientation transformation
+    platform.UIKit.UIGraphicsBeginImageContextWithOptions(this.size, false, this.scale)
+    this.drawInRect(platform.CoreGraphics.CGRectMake(0.0, 0.0, width, height))
+    val normalizedImage = platform.UIKit.UIGraphicsGetImageFromCurrentImageContext()
+    platform.UIKit.UIGraphicsEndImageContext()
+    
+    return normalizedImage ?: this
+}
