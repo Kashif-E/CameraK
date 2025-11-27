@@ -5,6 +5,7 @@ import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.enums.*
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.utils.InvalidConfigurationException
+import platform.AVFoundation.AVCaptureDeviceTypeBuiltInWideAngleCamera
 
 /**
  * iOS-specific implementation of [CameraControllerBuilder].
@@ -17,7 +18,7 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
     private var imageFormat: ImageFormat? = null
     private var directory: Directory? = null
     private var qualityPriority: QualityPrioritization = QualityPrioritization.NONE
-    private var cameraDeviceType: String = AVCaptureDeviceTypeBuiltInWideAngleCamera
+    private var cameraDeviceType: String? = AVCaptureDeviceTypeBuiltInWideAngleCamera
     private val plugins = mutableListOf<CameraPlugin>()
 
     override fun setFlashMode(flashMode: FlashMode): CameraControllerBuilder {
@@ -52,7 +53,7 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
         return this
     }
 
-    override fun setCameraDeviceType(cameraDeviceType: String): CameraControllerBuilder {
+    fun setCameraDeviceType(cameraDeviceType: String?): CameraControllerBuilder {
         this.cameraDeviceType = cameraDeviceType
         return this
     }

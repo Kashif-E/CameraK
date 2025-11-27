@@ -3,6 +3,7 @@ package com.kashif.imagesaverplugin
 import coil3.PlatformContext
 import com.kashif.cameraK.utils.toByteArray
 import com.kashif.cameraK.utils.toNSData
+import com.kashif.cameraK.utils.fixOrientation
 import io.ktor.utils.io.errors.IOException
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
@@ -50,17 +51,22 @@ class IOSImageSaverPlugin(
                     return@withContext null
                 }
 
+                // Fix orientation before saving to ensure the image is displayed correctly
+                val orientedImage = image.fixOrientation()
+
                 var assetId: String? = null
                 val semaphore = NSCondition()
 
                 PHPhotoLibrary.sharedPhotoLibrary().performChanges({
-                    val request = PHAssetChangeRequest.creationRequestForAssetFromImage(image)
+                    val request = PHAssetChangeRequest.creationRequestForAssetFromImage(orientedImage)
                     assetId = request.placeholderForCreatedAsset?.localIdentifier
                 }) { success, error ->
                     if (success && assetId != null) {
                         println("Image successfully saved to Photos album with ID: $assetId")
+                        onImageSaved()
                     } else {
                         println("Failed to save image: ${error?.localizedDescription}")
+                        onImageSavedFailed(error?.localizedDescription ?: "Unknown error")
                         assetId = null
                     }
                     semaphore.signal()
@@ -70,6 +76,7 @@ class IOSImageSaverPlugin(
                 assetId
             } catch (e: Exception) {
                 println("Exception while saving image: ${e.message}")
+                onImageSavedFailed(e.message ?: "Unknown exception")
                 null
             }
         }
