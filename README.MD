@@ -17,9 +17,13 @@ CameraK is a comprehensive camera library designed specifically for Compose Mult
 
 - 📱 **Cross-Platform Support**: Works on Android, iOS, and JVM
 - 📸 **Camera Preview & Image Capture**: High-quality preview and capture capabilities
+- 🎯 **Aspect Ratio Control**: Configure preview and capture aspect ratios (4:3, 16:9, 9:16, 1:1)
+- 🔍 **Zoom Support**: Pinch-to-zoom with programmatic zoom control on Android & iOS
+- 📷 **Advanced Camera Selection**: Choose specific camera types (ultra-wide, telephoto) on iOS
+- ⚡ **Fast File Capture**: Direct-to-file capture with `takePictureToFile()` for better performance
 - 💾 **Image Processing**: Save images locally or process them as ByteArrays
 - 🧩 **Plugin Architecture**: Extend functionality through modular plugins
-- 🔍 **QR Scanning**: Quick and accurate QR code detection with dedicated plugin
+- 🔍 **QR/Barcode Scanning**: Multi-format barcode detection with dedicated plugin
 - 📝 **OCR Support**: Text recognition capabilities with OCR plugin
 
 ## Installation
@@ -134,6 +138,9 @@ CameraPreview(
         setFlashMode(FlashMode.OFF)
         setImageFormat(ImageFormat.JPEG)
         setDirectory(Directory.PICTURES)
+        setAspectRatio(AspectRatio.RATIO_16_9)  // Configure preview/capture aspect ratio
+        setResolution(1920 to 1080)  // Optional: set specific resolution
+        setCameraDeviceType(CameraDeviceType.ULTRA_WIDE)  // iOS: select camera type
         addPlugin(imageSaverPlugin)
         addPlugin(qrScannerPlugin)
     },
@@ -155,12 +162,27 @@ cameraController.value?.let { controller ->
 Button(
     onClick = {
         scope.launch {
+            // Fast file capture (recommended for better performance)
+            when (val result = cameraController.takePictureToFile()) {
+                is ImageCaptureResult.SuccessWithFile -> {
+                    println("Image saved at: ${result.filePath}")
+                    // File is already saved, use filePath for further processing
+                }
+                is ImageCaptureResult.Success -> {
+                    // Fallback for platforms that don't support direct file capture
+                    val bitmap = result.byteArray.decodeToImageBitmap()
+                }
+                is ImageCaptureResult.Error -> {
+                    println("Image Capture Error: ${result.exception.message}")
+                }
+            }
+            
+            // OR: Traditional ByteArray capture
             when (val result = cameraController.takePicture()) {
                 is ImageCaptureResult.Success -> {
-                    // Handle the captured image
                     val bitmap = result.byteArray.decodeToImageBitmap()
                     
-                    // Manually save the image if auto-save is disabled
+                    // Manually save if auto-save is disabled
                     if (!imageSaverPlugin.config.isAutoSave) {
                         imageSaverPlugin.saveImage(
                             byteArray = result.byteArray,
@@ -179,12 +201,45 @@ Button(
 }
 ```
 
+### 5. Zoom Control (Android & iOS)
+
+```kotlin
+// Get max zoom level
+val maxZoom = cameraController.getMaxZoom()
+
+// Set zoom level (1.0 = no zoom, maxZoom = maximum zoom)
+cameraController.setZoom(2.5f)
+
+// Get current zoom level
+val currentZoom = cameraController.getZoom()
+```
+
 ## Advanced Usage
+
+### Available Aspect Ratios
+
+- `AspectRatio.RATIO_4_3` - Standard 4:3 (default on most devices)
+- `AspectRatio.RATIO_16_9` - Widescreen 16:9
+- `AspectRatio.RATIO_9_16` - Portrait 9:16 (ideal for stories/vertical content)
+- `AspectRatio.RATIO_1_1` - Square 1:1
+
+### Camera Device Types (iOS)
+
+- `CameraDeviceType.DEFAULT` - Default wide camera
+- `CameraDeviceType.ULTRA_WIDE` - Ultra-wide angle camera
+- `CameraDeviceType.TELEPHOTO` - Telephoto camera (if available)
+- `CameraDeviceType.DUAL_CAMERA` - Dual camera system
+- `CameraDeviceType.TRIPLE_CAMERA` - Triple camera system
+
+### Complete Sample
 
 Check the sample app in the repository for a complete implementation showcasing all features, including:
 
 - Toggling between front and back cameras
-- Managing flash modes
+- Managing flash and torch modes
+- Zoom controls with slider
+- Aspect ratio selection
+- Camera device type selection (iOS)
 - Processing captured images
 - Handling QR code scanning results
 - OCR implementation
@@ -196,6 +251,38 @@ CameraK features a powerful plugin API that allows developers to extend its func
 ## Status
 
 This library is currently in experimental stage. APIs may change in future releases.
+
+## ⚠️ Deprecation Notices
+
+### Deprecated APIs (→ v1.0)
+
+The following APIs are deprecated and will be removed in v1.0:
+
+#### `takePicture()` → `takePictureToFile()`
+**Reason:** Performance - `takePicture()` has 2-3 second overhead due to decode/encode cycles.
+
+```kotlin
+// ❌ Deprecated (slower)
+val result = cameraController.takePicture()
+
+// ✅ Recommended (2-3x faster)
+val result = cameraController.takePictureToFile()
+```
+
+#### iOS: `rememberIOSPermissions()` → `providePermissions()`
+**Reason:** Consistency - Use the cross-platform API for all platforms.
+
+```kotlin
+// ❌ Deprecated (iOS-specific)
+val permissions = rememberIOSPermissions()
+
+// ✅ Recommended (cross-platform)
+val permissions = providePermissions()
+```
+
+### Removed Components
+
+- **`BurstCaptureManager` (Android)**: Moved to iOS-only implementation. Android now uses CameraX's built-in burst capture optimization.
 
 ## 📚 Documentation
 
