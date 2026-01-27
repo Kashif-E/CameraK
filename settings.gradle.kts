@@ -34,5 +34,6 @@ include(":cameraK")
 include(":Sample")
 include(":ImageSaverPlugin")
 include(":qrScannerPlugin")
+include(":analyzerPlugin")
 
 include("ocrPlugin")
