@@ -1,112 +1,226 @@
 # CameraK
 
-<p align="center">
-  <a href="https://github.com/Kashif-E/CameraK/releases/tag/0.0.12">
-    <img src="https://img.shields.io/github/v/release/kashif-e/camerak" alt="Version">
-  </a>
-  <a href="https://mailchi.mp/kotlinweekly/kotlin-weekly-425">
-    <img src="https://img.shields.io/badge/Kotlin_Weekly-425-blue" alt="Kotlin Weekly #425">
-  </a>
-</p>
+A modern camera library for Compose Multiplatform supporting Android, iOS, and Desktop with a unified API.
 
-## A Modern Camera Solution for Compose Multiplatform
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.kashif-mehmood-km/camerak?label=Maven%20Central&color=blue)](https://search.maven.org/search?q=g:io.github.kashif-mehmood-km)
+[![GitHub Release](https://img.shields.io/github/v/release/kashif-e/camerak)](https://github.com/Kashif-E/CameraK/releases)
+[![Kotlin Weekly](https://img.shields.io/badge/Kotlin_Weekly-425-7F52FF)](https://mailchi.mp/kotlinweekly/kotlin-weekly-425)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-CameraK is a comprehensive camera library designed specifically for Compose Multiplatform applications. It currently supports Android, iOS, and JVM platforms, with plans for expansion.
+## Features
 
-### Key Features
-
-- 📱 **Cross-Platform Support**: Works on Android, iOS, and JVM
-- 📸 **Camera Preview & Image Capture**: High-quality preview and capture capabilities
-- 🎯 **Aspect Ratio Control**: Configure preview and capture aspect ratios (4:3, 16:9, 9:16, 1:1)
-- 🔍 **Zoom Support**: Pinch-to-zoom with programmatic zoom control on Android & iOS
-- 📷 **Advanced Camera Selection**: Choose specific camera types (ultra-wide, telephoto) on iOS
-- ⚡ **Fast File Capture**: Direct-to-file capture with `takePictureToFile()` for better performance
-- 💾 **Image Processing**: Save images locally or process them as ByteArrays
-- 🧩 **Plugin Architecture**: Extend functionality through modular plugins
-- 🔍 **QR/Barcode Scanning**: Multi-format barcode detection with dedicated plugin
-- 📝 **OCR Support**: Text recognition capabilities with OCR plugin
+- 📱 **Cross-Platform**: Android, iOS, and JVM Desktop
+- 📸 **Compose-First**: Native Compose Multiplatform API  
+- 🎯 **Flexible Configuration**: Aspect ratios, zoom, flash control
+- 🔌 **Plugin System**: Modular QR/barcode scanning, OCR, image saving
+- ⚡ **Optimized Capture**: Direct file saving with `takePictureToFile()`
+- 📷 **Advanced Control**: Camera selection (ultra-wide, telephoto on iOS)
 
 ## Installation
 
-Add the core library to your project:
+Add dependencies to your `build.gradle.kts`:
 
 ```kotlin
-implementation("io.github.kashif-mehmood-km:camerak:+")
+dependencies {
+    // Core library
+    implementation("io.github.kashif-mehmood-km:camerak:0.1.0")
+    
+    // Optional plugins
+    implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.1.0")
+    implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.1.0")
+    implementation("io.github.kashif-mehmood-km:ocr_plugin:0.1.0")
+}
 ```
 
-### Optional Plugins
+### Using Version Catalog
 
-Image saving plugin:
+Add to your `libs.versions.toml`:
+
+```toml
+[versions]
+camerak = "0.1.0"
+
+[libraries]
+camerak = { module = "io.github.kashif-mehmood-km:camerak", version.ref = "camerak" }
+camerak-image-saver = { module = "io.github.kashif-mehmood-km:image_saver_plugin", version.ref = "camerak" }
+camerak-qr-scanner = { module = "io.github.kashif-mehmood-km:qr_scanner_plugin", version.ref = "camerak" }
+camerak-ocr = { module = "io.github.kashif-mehmood-km:ocr_plugin", version.ref = "camerak" }
+```
+
+Then in your `build.gradle.kts`:
+
 ```kotlin
-implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.0.7")
+dependencies {
+    implementation(libs.camerak)
+    implementation(libs.camerak.image.saver)
+    implementation(libs.camerak.qr.scanner)
+    implementation(libs.camerak.ocr)
+}
 ```
 
-QR scanning plugin:
-```kotlin
-implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.0.8")
-```
+### Platform Setup
 
-OCR plugin:
-```kotlin
-implementation("io.github.kashif-mehmood-km:ocr_plugin:0.0.3")
-```
-
-## Platform Setup
-
-### Android
-
-Add these permissions to your `AndroidManifest.xml`:
-
+**Android** - Add to `AndroidManifest.xml`:
 ```xml
 <uses-permission android:name="android.permission.CAMERA" />
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 ```
 
-### iOS
-
-Add these keys to your `Info.plist`:
-
+**iOS** - Add to `Info.plist`:
 ```xml
 <key>NSCameraUsageDescription</key>
-<string>Camera permission is required for the app to work.</string>
-<key>NSPhotoLibraryUsageDescription</key>
-<string>Photo Library permission is required for the app to work.</string>
+<string>Camera access required for taking photos</string>
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>Photo library access required for saving images</string>
 ```
 
 ## Quick Start
 
-### 1. Handle Permissions
-
 ```kotlin
-// Obtain platform permissions helper
-val permissions = providePermissions()
-
-// Initialize and check permissions
-val cameraPermissionState = remember { mutableStateOf(permissions.hasCameraPermission()) }
-val storagePermissionState = remember { mutableStateOf(permissions.hasStoragePermission()) }
-
-// Request permissions if needed
-if (!cameraPermissionState.value) {
-    permissions.RequestCameraPermission(
-        onGranted = { cameraPermissionState.value = true },
-        onDenied = { println("Camera Permission Denied") }
+@Composable
+fun CameraScreen() {
+    val permissions = providePermissions()
+    val cameraController = remember { mutableStateOf<CameraController?>(null) }
+    val scope = rememberCoroutineScope()
+    
+    // Request permissions
+    LaunchedEffect(Unit) {
+        if (!permissions.hasCameraPermission()) {
+            permissions.RequestCameraPermission(
+                onGranted = { /* Granted */ },
+                onDenied = { /* Denied */ }
+            )
+        }
+    }
+    
+    // Camera preview
+    CameraPreview(
+        modifier = Modifier.fillMaxSize(),
+        cameraConfiguration = {
+            setCameraLens(CameraLens.BACK)
+            setFlashMode(FlashMode.OFF)
+            setAspectRatio(AspectRatio.RATIO_16_9)
+        },
+        onCameraControllerReady = { controller ->
+            cameraController.value = controller
+        }
     )
-}
-
-if (!storagePermissionState.value) {
-    permissions.RequestStoragePermission(
-        onGranted = { storagePermissionState.value = true },
-        onDenied = { println("Storage Permission Denied") }
-    )
+    
+    // Capture button
+    cameraController.value?.let { controller ->
+        Button(
+            onClick = {
+                scope.launch {
+                    when (val result = controller.takePictureToFile()) {
+                        is ImageCaptureResult.SuccessWithFile -> {
+                            println("Saved: ${result.filePath}")
+                        }
+                        is ImageCaptureResult.Error -> {
+                            println("Error: ${result.exception.message}")
+                        }
+                    }
+                }
+            }
+        ) {
+            Text("Capture Photo")
+        }
+    }
 }
 ```
 
-### 2. Set Up the Camera Controller
+## Platform Support
+
+| Platform | Min Version | Backend |
+|----------|-------------|---------|
+| Android | API 21+ | CameraX |
+| iOS | iOS 13.0+ | AVFoundation |
+| Desktop | JDK 11+ | JavaCV |
+
+## Configuration
+
+### Camera Configuration DSL
 
 ```kotlin
-val cameraController = remember { mutableStateOf<CameraController?>(null) }
+CameraPreview(
+    cameraConfiguration = {
+        // Camera selection
+        setCameraLens(CameraLens.BACK)  // FRONT or BACK
+        
+        // Visual settings
+        setAspectRatio(AspectRatio.RATIO_16_9)  // 4:3, 16:9, 9:16, 1:1
+        setResolution(1920 to 1080)  // Optional specific resolution
+        
+        // Flash control
+        setFlashMode(FlashMode.AUTO)  // ON, OFF, AUTO
+        
+        // Image output
+        setImageFormat(ImageFormat.JPEG)  // JPEG or PNG
+        setDirectory(Directory.PICTURES)  // DCIM, DOCUMENTS, etc.
+        
+        // iOS only: Camera device type
+        setCameraDeviceType(CameraDeviceType.ULTRA_WIDE)
+        // Options: DEFAULT, ULTRA_WIDE, TELEPHOTO, DUAL_CAMERA, TRIPLE_CAMERA
+        
+        // Add plugins
+        addPlugin(imageSaverPlugin)
+        addPlugin(qrScannerPlugin)
+    }
+)
+```
 
-// Configure plugins if needed
+### Zoom Control
+
+```kotlin
+// Get maximum zoom capability
+val maxZoom = controller.getMaxZoom()
+
+// Set zoom level (1.0 = no zoom)
+controller.setZoom(2.5f)
+
+// Get current zoom
+val currentZoom = controller.getZoom()
+```
+
+### Flash and Torch
+
+```kotlin
+// Toggle flash modes (cycles: OFF → ON → AUTO)
+controller.toggleFlashMode()
+
+// Set specific flash mode
+controller.setFlashMode(FlashMode.ON)
+
+// Get current flash mode
+val mode = controller.getFlashMode()
+
+// Torch mode (continuous light)
+controller.toggleTorchMode()
+```
+
+### Camera Lens
+
+```kotlin
+// Switch between front/back cameras
+controller.toggleCameraLens()
+
+// Set specific lens
+controller.setCameraLens(CameraLens.FRONT)
+```
+
+### Aspect Ratios
+
+```kotlin
+AspectRatio.RATIO_4_3   // Standard 4:3
+AspectRatio.RATIO_16_9  // Widescreen 16:9
+AspectRatio.RATIO_9_16  // Vertical 9:16 (stories)
+AspectRatio.RATIO_1_1   // Square 1:1
+```
+
+## Plugins
+
+### Image Saver Plugin
+
+```kotlin
 val imageSaverPlugin = rememberImageSaverPlugin(
     config = ImageSaverConfig(
         isAutoSave = false,
@@ -116,203 +230,203 @@ val imageSaverPlugin = rememberImageSaverPlugin(
     )
 )
 
-val qrScannerPlugin = rememberQRScannerPlugin(coroutineScope = coroutineScope)
+// Add to camera configuration
+addPlugin(imageSaverPlugin)
 
-// Set up QR code detection
-LaunchedEffect(Unit) {
-    qrScannerPlugin.getQrCodeFlow().distinctUntilChanged()
-        .collectLatest { qrCode ->
-            println("QR Code Detected: $qrCode")
-            qrScannerPlugin.pauseScanning()
+// Manual save
+scope.launch {
+    when (val result = controller.takePicture()) {
+        is ImageCaptureResult.Success -> {
+            imageSaverPlugin.saveImage(
+                byteArray = result.byteArray,
+                imageName = "Photo_${System.currentTimeMillis()}"
+            )
         }
+        is ImageCaptureResult.Error -> {
+            // Handle error
+        }
+    }
 }
 ```
 
-### 3. Implement the Camera Preview
+### QR Scanner Plugin
 
 ```kotlin
-CameraPreview(
-    modifier = Modifier.fillMaxSize(),
-    cameraConfiguration = {
-        setCameraLens(CameraLens.BACK)
-        setFlashMode(FlashMode.OFF)
-        setImageFormat(ImageFormat.JPEG)
-        setDirectory(Directory.PICTURES)
-        setAspectRatio(AspectRatio.RATIO_16_9)  // Configure preview/capture aspect ratio
-        setResolution(1920 to 1080)  // Optional: set specific resolution
-        setCameraDeviceType(CameraDeviceType.ULTRA_WIDE)  // iOS: select camera type
-        addPlugin(imageSaverPlugin)
-        addPlugin(qrScannerPlugin)
-    },
-    onCameraControllerReady = {
-        cameraController.value = it
-        qrScannerPlugin.startScanning()
-    }
+val qrScannerPlugin = rememberQRScannerPlugin(
+    coroutineScope = rememberCoroutineScope()
 )
 
-// Display your custom camera UI once controller is ready
-cameraController.value?.let { controller ->
-    CameraScreen(cameraController = controller, imageSaverPlugin)
+// Start scanning
+LaunchedEffect(Unit) {
+    qrScannerPlugin.startScanning()
+    
+    qrScannerPlugin.getQrCodeFlow()
+        .distinctUntilChanged()
+        .collectLatest { qrCode ->
+            println("QR Code: $qrCode")
+            qrScannerPlugin.pauseScanning()
+            
+            // Show result, then resume
+            delay(2000)
+            qrScannerPlugin.resumeScanning()
+        }
 }
+
+// Add to camera configuration
+addPlugin(qrScannerPlugin)
 ```
 
-### 4. Capture and Save Images
+### OCR Plugin
 
 ```kotlin
-Button(
-    onClick = {
-        scope.launch {
-            // Fast file capture (recommended for better performance)
-            when (val result = cameraController.takePictureToFile()) {
-                is ImageCaptureResult.SuccessWithFile -> {
-                    println("Image saved at: ${result.filePath}")
-                    // File is already saved, use filePath for further processing
-                }
-                is ImageCaptureResult.Success -> {
-                    // Fallback for platforms that don't support direct file capture
-                    val bitmap = result.byteArray.decodeToImageBitmap()
-                }
-                is ImageCaptureResult.Error -> {
-                    println("Image Capture Error: ${result.exception.message}")
-                }
-            }
-            
-            // OR: Traditional ByteArray capture
-            when (val result = cameraController.takePicture()) {
-                is ImageCaptureResult.Success -> {
-                    val bitmap = result.byteArray.decodeToImageBitmap()
-                    
-                    // Manually save if auto-save is disabled
-                    if (!imageSaverPlugin.config.isAutoSave) {
-                        imageSaverPlugin.saveImage(
-                            byteArray = result.byteArray,
-                            imageName = "Photo_${System.currentTimeMillis()}"
-                        )
-                    }
-                }
-                is ImageCaptureResult.Error -> {
-                    println("Image Capture Error: ${result.exception.message}")
-                }
-            }
+val ocrPlugin = rememberOcrPlugin()
+
+// Add to camera configuration
+addPlugin(ocrPlugin)
+
+// Use OCR
+scope.launch {
+    when (val result = controller.takePicture()) {
+        is ImageCaptureResult.Success -> {
+            val text = ocrPlugin.recognizeText(result.byteArray)
+            println("Detected text: $text")
+        }
+        is ImageCaptureResult.Error -> {
+            // Handle error
         }
     }
-) {
-    Text("Capture")
 }
 ```
 
-### 5. Zoom Control (Android & iOS)
+
+### Debug Tips
 
 ```kotlin
-// Get max zoom level
-val maxZoom = cameraController.getMaxZoom()
-
-// Set zoom level (1.0 = no zoom, maxZoom = maximum zoom)
-cameraController.setZoom(2.5f)
-
-// Get current zoom level
-val currentZoom = cameraController.getZoom()
+@Composable
+fun CameraScreen() {
+    val controller = remember { mutableStateOf<CameraController?>(null) }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            // Always release camera resources
+            controller.value?.stopSession()
+            controller.value = null
+        }
+    }
+}
 ```
 
-## Advanced Usage
+## API Reference
 
-### Available Aspect Ratios
-
-- `AspectRatio.RATIO_4_3` - Standard 4:3 (default on most devices)
-- `AspectRatio.RATIO_16_9` - Widescreen 16:9
-- `AspectRatio.RATIO_9_16` - Portrait 9:16 (ideal for stories/vertical content)
-- `AspectRatio.RATIO_1_1` - Square 1:1
-
-### Camera Device Types (iOS)
-
-- `CameraDeviceType.DEFAULT` - Default wide camera
-- `CameraDeviceType.ULTRA_WIDE` - Ultra-wide angle camera
-- `CameraDeviceType.TELEPHOTO` - Telephoto camera (if available)
-- `CameraDeviceType.DUAL_CAMERA` - Dual camera system
-- `CameraDeviceType.TRIPLE_CAMERA` - Triple camera system
-
-### Complete Sample
-
-Check the sample app in the repository for a complete implementation showcasing all features, including:
-
-- Toggling between front and back cameras
-- Managing flash and torch modes
-- Zoom controls with slider
-- Aspect ratio selection
-- Camera device type selection (iOS)
-- Processing captured images
-- Handling QR code scanning results
-- OCR implementation
-
-## Creating Custom Plugins
-
-CameraK features a powerful plugin API that allows developers to extend its functionality. Explore the `qrScannerPlugin` or `imageSaverPlugin` source code for examples of how to build your own plugins.
-
-## Status
-
-This library is currently in experimental stage. APIs may change in future releases.
-
-## ⚠️ Deprecation Notices
-
-### Deprecated APIs (→ v1.0)
-
-The following APIs are deprecated and will be removed in v1.0:
-
-#### `takePicture()` → `takePictureToFile()`
-**Reason:** Performance - `takePicture()` has 2-3 second overhead due to decode/encode cycles.
+### CameraController
 
 ```kotlin
-// ❌ Deprecated (slower)
-val result = cameraController.takePicture()
+// Capture to file (recommended - faster)
+suspend fun takePictureToFile(): ImageCaptureResult
+
+// Capture to ByteArray (slower - deprecated)
+@Deprecated("Use takePictureToFile() instead")
+suspend fun takePicture(): ImageCaptureResult
+
+// Zoom control
+fun setZoom(zoom: Float)
+fun getZoom(): Float
+fun getMaxZoom(): Float
+
+// Flash control
+fun setFlashMode(mode: FlashMode)
+fun getFlashMode(): FlashMode?
+fun toggleFlashMode()
+
+// Torch control
+fun toggleTorchMode()
+
+// Camera selection
+fun setCameraLens(lens: CameraLens)
+fun toggleCameraLens()
+
+// Session management
+fun startSession()
+fun stopSession()
+```
+
+### CameraPreview
+
+```kotlin
+@Composable
+fun CameraPreview(
+    modifier: Modifier = Modifier,
+    cameraConfiguration: CameraConfiguration.() -> Unit,
+    onCameraControllerReady: (CameraController) -> Unit
+)
+```
+
+## Deprecation Notices
+
+### v1.0 Migration
+
+#### `takePicture()` → `takePictureToFile()`
+
+```kotlin
+// ❌ Deprecated (slower, will be removed in v2.0)
+when (val result = controller.takePicture()) {
+    is ImageCaptureResult.Success -> {
+        val byteArray = result.byteArray
+        // Manual file save required
+    }
+}
 
 // ✅ Recommended (2-3x faster)
-val result = cameraController.takePictureToFile()
+when (val result = controller.takePictureToFile()) {
+    is ImageCaptureResult.SuccessWithFile -> {
+        val filePath = result.filePath
+        // File already saved
+    }
+}
 ```
 
 #### iOS: `rememberIOSPermissions()` → `providePermissions()`
-**Reason:** Consistency - Use the cross-platform API for all platforms.
 
 ```kotlin
-// ❌ Deprecated (iOS-specific)
+// ❌ Deprecated (iOS-only)
 val permissions = rememberIOSPermissions()
 
 // ✅ Recommended (cross-platform)
 val permissions = providePermissions()
 ```
 
-### Removed Components
-
-- **`BurstCaptureManager` (Android)**: Moved to iOS-only implementation. Android now uses CameraX's built-in burst capture optimization.
-
-## 📚 Documentation
-
-For comprehensive information about CameraK:
-
-- **[Codebase Overview](CODEBASE_OVERVIEW.md)** - Understand the project structure and architecture
-- **[Architecture Guide](ARCHITECTURE.md)** - Detailed architectural documentation with diagrams
-- **[API Reference](API_REFERENCE.md)** - Complete API documentation with examples
-- **[Development Setup](DEVELOPMENT_SETUP.md)** - Setup guide for contributors and developers
-- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues and solutions
 
 ## Contributing
 
-Contributions are welcome! Before submitting a pull request:
+Contributions welcome! Please:
 
-1. Read the [Development Setup Guide](DEVELOPMENT_SETUP.md)
-2. Open an issue to discuss your proposed changes
-3. Fork the repository and create your branch
-4. Implement your feature or fix following the [Architecture Guide](ARCHITECTURE.md)
-5. Ensure tests pass and check the [Troubleshooting Guide](TROUBLESHOOTING.md) if needed
-6. Submit your pull request
+1. Open an issue to discuss changes
+2. Fork the repository
+3. Create a feature branch
+4. Submit a pull request
 
 ## Support
 
-If you find this library useful, consider supporting the developer:
+If you find this library useful:
 
 <a href="https://www.buymeacoffee.com/kashifmehmood"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=kashifmehmood&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
 
 ## License
 
 ```
-MIT License
+Apache License 2.0
+
+Copyright 2025 Kashif Mehmood
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 ```
