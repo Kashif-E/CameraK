@@ -245,4 +245,12 @@ class BurstCaptureManager {
             lock.unlock()
         }
     }
+    
+    /**
+     * Clean up resources when no longer needed
+     */
+    fun shutdown() {
+        reset()
+        // NSOperationQueue cleanup is handled automatically by ARC
+    }
 }

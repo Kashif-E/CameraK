@@ -4,8 +4,13 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraMetadata
+import android.util.Size
 import android.media.ExifInterface
 import androidx.annotation.OptIn
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.*
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
@@ -14,8 +19,10 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import com.kashif.cameraK.capture.BurstCaptureManager
 import com.kashif.cameraK.enums.*
+import kotlinx.atomicfu.atomic
+import android.util.Log
+import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.utils.InvalidConfigurationException
@@ -41,8 +48,11 @@ actual class CameraController(
     internal var imageFormat: ImageFormat,
     internal var qualityPriority: QualityPrioritization,
     internal var directory: Directory,
-    internal var cameraDeviceType: String,
-    internal var plugins: MutableList<CameraPlugin>
+    internal var cameraDeviceType: CameraDeviceType,
+    internal var returnFilePath: Boolean,
+    internal var aspectRatio: AspectRatio,
+    internal var plugins: MutableList<CameraPlugin>,
+    internal var targetResolution: Pair<Int, Int>? = null
 ) {
 
     private var cameraProvider: ProcessCameraProvider? = null
@@ -56,17 +66,14 @@ actual class CameraController(
 
 
     private val memoryManager = MemoryManager
-    private val burstCaptureManager = BurstCaptureManager()
-
+    private val pendingCaptures = atomic(0)
+    private val maxConcurrentCaptures = 3
 
     private val imageProcessingExecutor = Executors.newFixedThreadPool(2)
 
-
-    private var isCapturing = false
-
     fun bindCamera(previewView: PreviewView, onCameraReady: () -> Unit = {}) {
+        Log.d("CameraK", "==> bindCamera() called for deviceType: $cameraDeviceType")
         this.previewView = previewView
-
 
         memoryManager.initialize(context)
 
@@ -75,37 +82,43 @@ actual class CameraController(
             try {
                 cameraProvider = cameraProviderFuture.get()
                 cameraProvider?.unbindAll()
+                Log.d("CameraK", "==> Unbind all existing cameras")
 
+                val resolutionSelector = createResolutionSelector()
 
                 preview = Preview.Builder()
-                    .setResolutionSelector(createResolutionSelector())
+                    .setResolutionSelector(resolutionSelector)
                     .build()
                     .also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
 
-                val cameraSelector = CameraSelector.Builder()
-                    .requireLensFacing(cameraLens.toCameraXLensFacing())
-                    .build()
+                val cameraSelector = createCameraSelector()
+                Log.d("CameraK", "==> Camera selector created for: $cameraDeviceType")
 
+                configureCaptureUseCase(resolutionSelector)
 
-                configureCaptureUseCase()
+                val useCaseGroupBuilder = UseCaseGroup.Builder()
+                    .addUseCase(preview!!)
+                    .addUseCase(imageCapture!!)
 
+                imageAnalyzer?.let { useCaseGroupBuilder.addUseCase(it) }
 
-                val useCases = mutableListOf(preview!!, imageCapture!!)
-                imageAnalyzer?.let { useCases.add(it) }
+                previewView.viewPort?.let { useCaseGroupBuilder.setViewPort(it) }
 
+                val useCaseGroup = useCaseGroupBuilder.build()
 
                 camera = cameraProvider?.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
-                    *useCases.toTypedArray()
+                    useCaseGroup
                 )
+                Log.d("CameraK", "==> Camera successfully bound with deviceType: $cameraDeviceType")
 
                 onCameraReady()
 
             } catch (exc: Exception) {
-                println("Use case binding failed: ${exc.message}")
+                Log.e("CameraK", "==> Use case binding failed for $cameraDeviceType: ${exc.message}")
                 exc.printStackTrace()
             }
 
@@ -119,17 +132,111 @@ actual class CameraController(
 
         memoryManager.updateMemoryStatus()
 
-        return ResolutionSelector.Builder()
-            .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
-            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
-            .build()
+        return if (targetResolution != null) {
+            // When target resolution is set, prioritize it over aspect ratio
+            ResolutionSelector.Builder()
+                .setResolutionStrategy(
+                    ResolutionStrategy(
+                        Size(targetResolution!!.first, targetResolution!!.second),
+                        ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                    )
+                )
+                .build()
+        } else {
+            ResolutionSelector.Builder()
+                .setAspectRatioStrategy(aspectRatio.toCameraXAspectRatioStrategy())
+                .build()
+        }
+    }
+
+    private fun AspectRatio.toCameraXAspectRatioStrategy(): AspectRatioStrategy = when (this) {
+        AspectRatio.RATIO_16_9, AspectRatio.RATIO_9_16 -> AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY
+        AspectRatio.RATIO_4_3 -> AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY
+        AspectRatio.RATIO_1_1 -> AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY // closest available
+    }
+    
+    /**
+     * Creates a camera selector based on lens facing and device type.
+     * 
+     * Uses Camera2 Interop to access physical camera characteristics for proper
+     * device type selection (telephoto, ultra-wide, macro). Falls back gracefully
+     * to the default camera if the requested type is not available.
+     * 
+     * @return CameraSelector configured for the current lens and device type
+     */
+    @OptIn(ExperimentalCamera2Interop::class)
+    private fun createCameraSelector(): CameraSelector {
+        val builder = CameraSelector.Builder()
+            .requireLensFacing(cameraLens.toCameraXLensFacing())
+
+        when (cameraDeviceType) {
+            CameraDeviceType.WIDE_ANGLE, CameraDeviceType.DEFAULT -> {
+                // Default camera, no filter needed
+            }
+            CameraDeviceType.TELEPHOTO -> {
+                builder.addCameraFilter { cameraInfos ->
+                    cameraInfos.filter { cameraInfo ->
+                        try {
+                            val camera2Info = Camera2CameraInfo.from(cameraInfo)
+                            val focalLengths = camera2Info.getCameraCharacteristic(
+                                CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS
+                            )?.toList() ?: emptyList()
+                            focalLengths.any { it > 4.0f }
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }.ifEmpty { 
+                        Log.w("CameraK", "Telephoto camera not available, using default")
+                        cameraInfos.take(1)
+                    }
+                }
+            }
+            CameraDeviceType.ULTRA_WIDE -> {
+                builder.addCameraFilter { cameraInfos ->
+                    cameraInfos.filter { cameraInfo ->
+                        try {
+                            val camera2Info = Camera2CameraInfo.from(cameraInfo)
+                            val focalLengths = camera2Info.getCameraCharacteristic(
+                                CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS
+                            )?.toList() ?: emptyList()
+                            focalLengths.any { it < 2.5f }
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }.ifEmpty {
+                        Log.w("CameraK", "Ultra-wide camera not available, using default")
+                        cameraInfos.take(1)
+                    }
+                }
+            }
+            CameraDeviceType.MACRO -> {
+                builder.addCameraFilter { cameraInfos ->
+                    cameraInfos.filter { cameraInfo ->
+                        try {
+                            val camera2Info = Camera2CameraInfo.from(cameraInfo)
+                            val minFocusDistance = camera2Info.getCameraCharacteristic(
+                                CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE
+                            ) ?: 0f
+                            minFocusDistance > 0f && minFocusDistance < 0.2f
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }.ifEmpty {
+                        Log.w("CameraK", "Macro camera not available, using default")
+                        cameraInfos.take(1)
+                    }
+                }
+            }
+        }
+        
+        return builder.build()
     }
 
     /**
      * Configure the image capture use case with settings adapted to current memory conditions
      */
     @OptIn(ExperimentalZeroShutterLag::class)
-    private fun configureCaptureUseCase() {
+    private fun configureCaptureUseCase(resolutionSelector: ResolutionSelector) {
 
         imageCapture = ImageCapture.Builder()
             .setFlashMode(flashMode.toCameraXFlashMode())
@@ -137,16 +244,17 @@ actual class CameraController(
                 when (qualityPriority) {
                     QualityPrioritization.QUALITY -> ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
                     QualityPrioritization.SPEED -> ImageCapture.CAPTURE_MODE_ZERO_SHUTTER_LAG
-                    else -> {
+                    QualityPrioritization.BALANCED -> ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+                    QualityPrioritization.NONE -> {
                         if (memoryManager.isUnderMemoryPressure()) {
                             ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
                         } else {
-                            ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+                            ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
                         }
                     }
                 }
             )
-            .setResolutionSelector(createResolutionSelector())
+                .setResolutionSelector(resolutionSelector)
             .build()
     }
 
@@ -164,40 +272,89 @@ actual class CameraController(
         } ?: throw InvalidConfigurationException("Camera not initialized.")
     }
 
+    @Deprecated(
+        message = "Use takePictureToFile() instead for better performance",
+        replaceWith = ReplaceWith("takePictureToFile()"),
+        level = DeprecationLevel.WARNING
+    )
     actual suspend fun takePicture(): ImageCaptureResult =
         suspendCancellableCoroutine { cont ->
-
-            if (isCapturing) {
-                cont.resume(ImageCaptureResult.Error(Exception("Capture already in progress")))
+            // Atomic counter rejection pattern - matches native camera apps
+            if (pendingCaptures.incrementAndGet() > maxConcurrentCaptures) {
+                pendingCaptures.decrementAndGet()
+                Log.w("CameraK", "Burst queue full, dropping frame (${pendingCaptures.value} in progress)")
+                cont.resume(ImageCaptureResult.Error(Exception("Burst queue full, capture rejected")))
                 return@suspendCancellableCoroutine
             }
 
-            isCapturing = true
-
-
+            // Update memory status before capture
             memoryManager.updateMemoryStatus()
 
+            // Perform capture with constant quality (95 for JPEG)
+            performCapture(cont, quality = 95)
 
-            val captureRequested = burstCaptureManager.requestCapture(
-                captureFunction = {
-
-                    val quality = burstCaptureManager.getOptimalQuality()
-                    performCapture(cont, quality)
-                },
-                onComplete = {
-
-                    isCapturing = false
-                }
-            )
-
-            if (!captureRequested) {
-                isCapturing = false
-                cont.resume(ImageCaptureResult.Error(Exception("Too many captures in progress")))
+            cont.invokeOnCancellation {
+                pendingCaptures.decrementAndGet()
             }
         }
 
     /**
-     * Perform the actual image capture with the specified quality
+     * Fast capture method that returns file path directly without ByteArray processing.
+     * Significantly faster than takePicture() - skips decode/encode cycles.
+     */
+    actual suspend fun takePictureToFile(): ImageCaptureResult =
+        suspendCancellableCoroutine { cont ->
+            if (pendingCaptures.incrementAndGet() > maxConcurrentCaptures) {
+                pendingCaptures.decrementAndGet()
+                Log.w("CameraK", "Burst queue full, dropping frame")
+                cont.resume(ImageCaptureResult.Error(Exception("Burst queue full, capture rejected")))
+                return@suspendCancellableCoroutine
+            }
+
+            performCaptureToFile(cont)
+
+            cont.invokeOnCancellation {
+                pendingCaptures.decrementAndGet()
+            }
+        }
+
+    /**
+     * Perform fast file-based capture without ByteArray processing.
+     * Directly saves to final destination and returns file path.
+     */
+    private fun performCaptureToFile(continuation: CancellableContinuation<ImageCaptureResult>) {
+        // Create final output file directly in desired directory
+        val outputFile = createFinalOutputFile()
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
+
+        imageCapture?.takePicture(
+            outputOptions,
+            ContextCompat.getMainExecutor(context),
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    pendingCaptures.decrementAndGet()
+                    
+                    // Notify MediaStore so image appears in Gallery
+                    notifyMediaStore(outputFile)
+                    
+                    continuation.resume(ImageCaptureResult.SuccessWithFile(outputFile.absolutePath))
+                }
+
+                override fun onError(exc: ImageCaptureException) {
+                    Log.e("CameraK", "Image capture failed: ${exc.message}", exc)
+                    pendingCaptures.decrementAndGet()
+                    outputFile.delete() // Clean up failed capture file
+                    continuation.resume(ImageCaptureResult.Error(exc))
+                }
+            }
+        ) ?: run {
+            pendingCaptures.decrementAndGet()
+            continuation.resume(ImageCaptureResult.Error(Exception("ImageCapture use case is not initialized.")))
+        }
+    }
+
+    /**
+     * Perform the actual image capture with constant quality
      */
     private fun performCapture(
         continuation: CancellableContinuation<ImageCaptureResult>,
@@ -210,28 +367,73 @@ actual class CameraController(
             ContextCompat.getMainExecutor(context),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-
-                    imageProcessingExecutor.execute {
-                        val byteArray = processImageOutput(output, quality)
-
-                        if (byteArray != null) {
-                            imageCaptureListeners.forEach { it(byteArray) }
-                            continuation.resume(ImageCaptureResult.Success(byteArray))
+                    if (returnFilePath) {
+                        // File path mode: Return actual file path from savedUri
+                        val fileUri = output.savedUri
+                        if (fileUri != null) {
+                            // Convert content:// URI to actual file path
+                            val filePath = if (fileUri.scheme == "file") {
+                                fileUri.path
+                            } else {
+                                // For content:// URIs, get the real path
+                                val projection = arrayOf(android.provider.MediaStore.Images.Media.DATA)
+                                context.contentResolver.query(fileUri, projection, null, null, null)?.use { cursor ->
+                                    val columnIndex = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.DATA)
+                                    if (cursor.moveToFirst()) cursor.getString(columnIndex) else null
+                                } ?: fileUri.path
+                            }
+                            
+                            if (filePath != null) {
+                                continuation.resume(ImageCaptureResult.SuccessWithFile(filePath))
+                            } else {
+                                Log.e("CameraK", "Failed to get file path from capture result")
+                                continuation.resume(ImageCaptureResult.Error(Exception("Failed to get file path")))
+                            }
                         } else {
-                            continuation.resume(ImageCaptureResult.Error(Exception("Failed to convert image to ByteArray.")))
+                            Log.e("CameraK", "Capture result has no savedUri")
+                            continuation.resume(ImageCaptureResult.Error(Exception("No file URI returned")))
+                        }
+                        pendingCaptures.decrementAndGet()
+                    } else {
+                        // ByteArray mode: Process and return ByteArray
+                        imageProcessingExecutor.execute {
+                            try {
+                                val byteArray = processImageOutput(output, quality)
+
+                                if (byteArray != null) {
+                                    imageCaptureListeners.forEach { it(byteArray) }
+                                    continuation.resume(ImageCaptureResult.Success(byteArray))
+                                } else {
+                                    Log.e("CameraK", "Failed to convert image to ByteArray")
+                                    continuation.resume(ImageCaptureResult.Error(Exception("Failed to convert image to ByteArray.")))
+                                }
+                            } finally {
+                                pendingCaptures.decrementAndGet()
+                            }
                         }
                     }
                 }
 
                 override fun onError(exc: ImageCaptureException) {
+                    Log.e("CameraK", "Image capture failed: ${exc.message}", exc)
+                    pendingCaptures.decrementAndGet()
                     continuation.resume(ImageCaptureResult.Error(exc))
                 }
             }
-        ) ?: continuation.resume(ImageCaptureResult.Error(Exception("ImageCapture use case is not initialized.")))
+        ) ?: run {
+            pendingCaptures.decrementAndGet()
+            continuation.resume(ImageCaptureResult.Error(Exception("ImageCapture use case is not initialized.")))
+        }
     }
 
     /**
-     * Process the saved image output with memory-efficient approach
+     * Process the saved image output with optimized approach.
+     * 
+     * CameraX should apply targetRotation to the output file, but some devices (Samsung)
+     * strip EXIF data or apply rotation inconsistently. We verify EXIF orientation first.
+     * 
+     * Fast path: Direct file read when EXIF orientation is correct (NORMAL)
+     * Slow path: Process when format conversion, memory pressure, or rotation needed
      */
     private fun processImageOutput(
         output: ImageCapture.OutputFileResults,
@@ -239,7 +441,6 @@ actual class CameraController(
     ): ByteArray? {
         return try {
             output.savedUri?.let { uri ->
-
                 val tempFile = createTempFile("temp_image", ".jpg")
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     tempFile.outputStream().use { output ->
@@ -247,69 +448,79 @@ actual class CameraController(
                     }
                 }
 
+                try {
+                    // Check EXIF orientation - Samsung devices may have incorrect orientation
+                    val exif = ExifInterface(tempFile.absolutePath)
+                    val orientation = exif.getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION,
+                        ExifInterface.ORIENTATION_NORMAL
+                    )
+                    
+                    val needsRotation = orientation != ExifInterface.ORIENTATION_NORMAL && 
+                                       orientation != ExifInterface.ORIENTATION_UNDEFINED
+                    val needsProcessing = imageFormat == ImageFormat.PNG || 
+                                         memoryManager.isUnderMemoryPressure() ||
+                                         needsRotation
+                    
+                    if (!needsProcessing) {
+                        // Fast path: EXIF orientation is correct, read file bytes directly
+                        // This avoids decode→rotate→re-encode cycle (saves 2-3 seconds and quality loss)
+                        tempFile.readBytes().also { tempFile.delete() }
+                    } else {
+                        // Slow path: Need format conversion, downsampling, or rotation fix
+                        val options = BitmapFactory.Options().apply {
+                            if (memoryManager.isUnderMemoryPressure()) {
+                                inJustDecodeBounds = true
+                                BitmapFactory.decodeFile(tempFile.absolutePath, this)
+                                inSampleSize = calculateSampleSize(outWidth, outHeight)
+                                inJustDecodeBounds = false
+                            }
+                        }
 
-                val exif = ExifInterface(tempFile.absolutePath)
-                val orientation = exif.getAttributeInt(
-                    ExifInterface.TAG_ORIENTATION,
-                    ExifInterface.ORIENTATION_NORMAL
-                )
+                        val originalBitmap = BitmapFactory.decodeFile(tempFile.absolutePath, options)
+                        tempFile.delete()
 
+                        // Apply rotation if needed (Samsung device fix)
+                        val rotatedBitmap = if (originalBitmap != null && needsRotation) {
+                            val rotationAngle = when (orientation) {
+                                ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                                else -> 0f
+                            }
+                            
+                            if (rotationAngle != 0f) {
+                                Matrix().apply { postRotate(rotationAngle) }.let { matrix ->
+                                    Bitmap.createBitmap(
+                                        originalBitmap, 0, 0,
+                                        originalBitmap.width, originalBitmap.height,
+                                        matrix, true
+                                    ).also { originalBitmap.recycle() }
+                                }
+                            } else {
+                                originalBitmap
+                            }
+                        } else {
+                            originalBitmap
+                        }
 
-                val options = BitmapFactory.Options().apply {
-
-                    inJustDecodeBounds = true
-                }
-                BitmapFactory.decodeFile(tempFile.absolutePath, options)
-
-
-                options.inSampleSize = calculateSampleSize(options.outWidth, options.outHeight)
-                options.inJustDecodeBounds = false
-
-
-                val originalBitmap = BitmapFactory.decodeFile(tempFile.absolutePath, options)
-
-
-                tempFile.delete()
-
-
-                val rotationAngle = when (orientation) {
-                    ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-                    ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-                    ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-                    else -> 0f
-                } + (imageCapture?.targetRotation?.toFloat() ?: 0f)
-
-
-                val rotatedBitmap = if (originalBitmap != null && rotationAngle != 0f) {
-                    Matrix().apply {
-                        postRotate(rotationAngle)
-                    }.let { matrix ->
-                        Bitmap.createBitmap(
-                            originalBitmap,
-                            0,
-                            0,
-                            originalBitmap.width,
-                            originalBitmap.height,
-                            matrix,
-                            true
+                        // Convert format and compress
+                        rotatedBitmap?.compressToByteArray(
+                            format = when (imageFormat) {
+                                ImageFormat.JPEG -> Bitmap.CompressFormat.JPEG
+                                ImageFormat.PNG -> Bitmap.CompressFormat.PNG
+                            },
+                            quality = quality,
+                            recycleInput = true
                         )
                     }
-                } else {
-                    originalBitmap
+                } catch (e: Exception) {
+                    tempFile.delete()
+                    throw e
                 }
-
-
-                rotatedBitmap?.compressToByteArray(
-                    format = when (imageFormat) {
-                        ImageFormat.JPEG -> Bitmap.CompressFormat.JPEG
-                        ImageFormat.PNG -> Bitmap.CompressFormat.PNG
-                    },
-                    quality = quality,
-                    recycleInput = true
-                )
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("CameraK", "Error processing image output: ${e.message}", e)
             null
         }
     }
@@ -320,7 +531,7 @@ actual class CameraController(
     private fun calculateSampleSize(width: Int, height: Int): Int {
         return when {
             memoryManager.isUnderMemoryPressure() -> {
-
+                // Under memory pressure: downsample to ~2MP
                 var sampleSize = 1
                 val totalPixels = width * height
                 val targetPixels = 2_000_000
@@ -331,13 +542,13 @@ actual class CameraController(
                 sampleSize
             }
 
-            burstCaptureManager.isBurstModeActive() -> {
-
+            pendingCaptures.value > 1 -> {
+                // Multiple captures pending: downsample 2x for faster processing
                 2
             }
 
             else -> {
-
+                // Normal capture: full resolution
                 1
             }
         }
@@ -373,15 +584,41 @@ actual class CameraController(
     actual fun toggleTorchMode() {
         torchMode = when (torchMode) {
             TorchMode.OFF -> TorchMode.ON
-            TorchMode.ON -> TorchMode.OFF
-            else -> TorchMode.OFF
+            TorchMode.ON -> TorchMode.AUTO
+            TorchMode.AUTO -> TorchMode.OFF
         }
-        camera?.cameraControl?.enableTorch(torchMode == TorchMode.ON)
+        // CameraX doesn't support AUTO torch mode, treat it as ON
+        val enableTorch = torchMode == TorchMode.ON || torchMode == TorchMode.AUTO
+        if (torchMode == TorchMode.AUTO) {
+            Log.w("CameraK", "TorchMode.AUTO not natively supported, using ON")
+        }
+        camera?.cameraControl?.enableTorch(enableTorch)
     }
 
     actual fun setTorchMode(mode: TorchMode) {
         torchMode = mode
-        camera?.cameraControl?.enableTorch(mode == TorchMode.ON)
+        // CameraX doesn't support AUTO torch mode, treat it as ON
+        val enableTorch = mode == TorchMode.ON || mode == TorchMode.AUTO
+        if (mode == TorchMode.AUTO) {
+            Log.w("CameraK", "TorchMode.AUTO not natively supported, using ON")
+        }
+        camera?.cameraControl?.enableTorch(enableTorch)
+    }
+    
+    actual fun setZoom(zoomRatio: Float) {
+        camera?.cameraControl?.setZoomRatio(zoomRatio.coerceIn(1f, getMaxZoom()))
+    }
+    
+    actual fun getZoom(): Float {
+        return camera?.cameraInfo?.zoomState?.value?.zoomRatio ?: 1f
+    }
+    
+    actual fun getMaxZoom(): Float {
+        return camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
+    }
+    
+    actual fun getTorchMode(): TorchMode? {
+        return torchMode
     }
 
     actual fun toggleCameraLens() {
@@ -397,6 +634,22 @@ actual class CameraController(
         cameraLens = if (cameraLens == CameraLens.BACK) CameraLens.FRONT else CameraLens.BACK
         previewView?.let { bindCamera(it) }
     }
+    
+    actual fun getCameraLens(): CameraLens? {
+        return cameraLens
+    }
+    
+    actual fun getImageFormat(): ImageFormat {
+        return imageFormat
+    }
+    
+    actual fun getQualityPrioritization(): QualityPrioritization {
+        return qualityPriority
+    }
+    
+    actual fun getPreferredCameraDeviceType(): CameraDeviceType {
+        return cameraDeviceType
+    }
 
     actual fun startSession() {
 
@@ -408,9 +661,6 @@ actual class CameraController(
 
     actual fun stopSession() {
         cameraProvider?.unbindAll()
-
-
-        burstCaptureManager.reset()
         memoryManager.clearBufferPools()
     }
 
@@ -425,12 +675,55 @@ actual class CameraController(
 
     private fun createTempFile(): File {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val storageDir = context.externalCacheDir?.absolutePath ?: context.cacheDir.absolutePath
-        return File.createTempFile(
-            "IMG_$timeStamp",
-            ".${imageFormat.extension}",
-            File(storageDir)
+        
+        // Use configured directory
+        val storageDir = when (directory) {
+            Directory.PICTURES -> android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_PICTURES
+            )
+            Directory.DCIM -> android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DCIM
+            )
+            Directory.DOCUMENTS -> context.getExternalFilesDir(null) ?: context.filesDir
+        }
+        
+        // Create CameraK subdirectory
+        val cameraKDir = File(storageDir, "CameraK")
+        if (!cameraKDir.exists()) {
+            cameraKDir.mkdirs()
+        }
+        
+        return File(
+            cameraKDir,
+            "IMG_${timeStamp}.${imageFormat.extension}"
         )
+    }
+
+    /**
+     * Creates final output file for direct capture (used by takePictureToFile).
+     * Same as createTempFile but semantically represents the final destination.
+     */
+    private fun createFinalOutputFile(): File = createTempFile()
+
+    /**
+     * Notifies Android's MediaStore about a new image file so it appears in Gallery.
+     * Uses MediaScannerConnection for compatibility across Android versions.
+     */
+    private fun notifyMediaStore(file: File) {
+        try {
+            android.media.MediaScannerConnection.scanFile(
+                context,
+                arrayOf(file.absolutePath),
+                arrayOf(when (imageFormat) {
+                    ImageFormat.JPEG -> "image/jpeg"
+                    ImageFormat.PNG -> "image/png"
+                }),
+                null
+            )
+            Log.d("CameraK", "MediaStore notified: ${file.absolutePath}")
+        } catch (e: Exception) {
+            Log.e("CameraK", "Failed to notify MediaStore: ${e.message}")
+        }
     }
 
     private fun FlashMode.toCameraXFlashMode(): Int = when (this) {
@@ -448,9 +741,8 @@ actual class CameraController(
      * Clean up resources when no longer needed
      * Should be called when the controller is being destroyed
      */
-    fun cleanup() {
+    actual fun cleanup() {
         imageProcessingExecutor.shutdown()
-        burstCaptureManager.shutdown()
         memoryManager.clearBufferPools()
     }
 }

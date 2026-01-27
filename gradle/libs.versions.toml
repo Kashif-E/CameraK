@@ -9,17 +9,20 @@ core = "3.5.3"
 coreVersion = "3.5.3"
 javase = "3.5.3"
 kotlin = "2.2.21"
-agp = "8.5.2"
+agp = "8.9.1"
 kotlinx-coroutines = "1.10.2"
 kermit = "2.0.8"
 
 compose-multiplatform = "1.9.3"
 activity = "1.9.2" # https://developer.android.com/jetpack/androidx/releases/activity
 coil-mp-version = "3.3.0"
+lucide-icons = "2.2.1"
 jetbrains-kotlin-jvm = "2.2.21"
 androidx-activityCompose = "1.11.0"
 startupRuntime = "1.2.0"
 javacvPlatform = "1.5.12"
+javacpp = "1.5.12"
+videoinput = "1.5.12"
 tesseractPlatform = "5.5.1-1.5.12"
 textRecognition = "16.0.1"
 
@@ -47,8 +50,11 @@ coil3-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil-
 coil3-compose-core = { module = "io.coil-kt.coil3:coil-compose-core", version.ref = "coil-mp-version" }
 coil3-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil-mp-version" }
 androidx-activityCompose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
+lucide-icons-cmp = { module = "com.composables:icons-lucide-cmp", version.ref = "lucide-icons" }
 
 javacv-platform = { module = "org.bytedeco:javacv-platform", version.ref = "javacvPlatform" }
+javacpp = { module = "org.bytedeco:javacpp", version.ref = "javacpp" }
+videoinput = { module = "org.bytedeco:videoinput", version.ref = "videoinput" }
 tesseract-platform = { module = "org.bytedeco:tesseract-platform", version.ref = "tesseractPlatform" }
 text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "textRecognition" }
 

@@ -37,9 +37,14 @@ class AndroidImageSaverPlugin(
                 )
                 put(MediaStore.MediaColumns.MIME_TYPE, config.imageFormat.mimeType)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val basePath = when (config.directory) {
+                        com.kashif.cameraK.enums.Directory.PICTURES -> "Pictures"
+                        com.kashif.cameraK.enums.Directory.DCIM -> "DCIM"
+                        com.kashif.cameraK.enums.Directory.DOCUMENTS -> "Documents"
+                    }
                     put(
                         MediaStore.MediaColumns.RELATIVE_PATH,
-                        "${config.directory.name}/${config.customFolderName ?: "CameraK"}"
+                        "$basePath/${config.customFolderName ?: "CameraK"}"
                     )
                     put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }

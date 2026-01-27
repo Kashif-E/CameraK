@@ -74,6 +74,9 @@ Add these keys to your `Info.plist`:
 ### 1. Handle Permissions
 
 ```kotlin
+// Obtain platform permissions helper
+val permissions = providePermissions()
+
 // Initialize and check permissions
 val cameraPermissionState = remember { mutableStateOf(permissions.hasCameraPermission()) }
 val storagePermissionState = remember { mutableStateOf(permissions.hasStoragePermission()) }

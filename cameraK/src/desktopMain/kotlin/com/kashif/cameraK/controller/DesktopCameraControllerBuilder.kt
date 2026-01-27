@@ -1,6 +1,8 @@
 package com.kashif.cameraK.controller
 
 import com.kashif.cameraK.builder.CameraControllerBuilder
+import com.kashif.cameraK.enums.AspectRatio
+import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
@@ -25,6 +27,7 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
     private var directory: Directory? = null
     private var qualityPriority: QualityPrioritization = QualityPrioritization.NONE
     private val plugins = mutableListOf<CameraPlugin>()
+    private var targetResolution: Pair<Int, Int>? = null
 
     fun setGrabber(grabber: FrameGrabber): CameraControllerBuilder {
         this.grabber = grabber
@@ -45,6 +48,11 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
         this.cameraLens = cameraLens
         return this
     }
+    
+    override fun setPreferredCameraDeviceType(deviceType: CameraDeviceType): CameraControllerBuilder {
+        // Camera device type selection not supported on desktop (single camera)
+        return this
+    }
 
     override fun setImageFormat(imageFormat: ImageFormat): CameraControllerBuilder {
         this.imageFormat = imageFormat
@@ -56,8 +64,23 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
         return this
     }
 
+    override fun setResolution(width: Int, height: Int): CameraControllerBuilder {
+        targetResolution = width to height
+        return this
+    }
+
     override fun setQualityPrioritization(prioritization: QualityPrioritization): CameraControllerBuilder {
         this.qualityPriority = prioritization
+        return this
+    }
+
+    override fun setReturnFilePath(returnFilePath: Boolean): CameraControllerBuilder {
+        // Note: File path return not yet supported on Desktop, always returns ByteArray
+        return this
+    }
+
+    override fun setAspectRatio(aspectRatio: AspectRatio): CameraControllerBuilder {
+        // Note: Aspect ratio configuration not yet fully implemented on Desktop
         return this
     }
 
@@ -80,7 +103,8 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
             directory = dir,
             plugins = plugins,
             horizontalFlip = horizontalFlip,
-            customGrabber = grabber
+            customGrabber = grabber,
+            targetResolution = targetResolution
         )
 
         return cameraController
