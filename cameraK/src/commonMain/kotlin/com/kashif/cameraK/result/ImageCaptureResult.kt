@@ -6,7 +6,7 @@ package com.kashif.cameraK.result
  */
 sealed class ImageCaptureResult {
     /**
-     * Represents a successful image capture.
+     * Represents a successful image capture with ByteArray data.
      *
      * @param byteArray The captured image data as a [ByteArray].
      */
@@ -24,6 +24,15 @@ sealed class ImageCaptureResult {
             return byteArray.contentHashCode()
         }
     }
+
+    /**
+     * Represents a successful image capture with file path.
+     * Use this for maximum performance when you need the file instead of ByteArray.
+     * Skips all processing and file reading - fastest option.
+     *
+     * @param filePath The absolute path to the captured image file.
+     */
+    data class SuccessWithFile(val filePath: String) : ImageCaptureResult()
 
     /**
      * Represents a failed image capture.

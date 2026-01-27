@@ -93,14 +93,11 @@ actual fun startScanning(
 }
 
 private class CodeAnalyzer(
-    private val onCodeScanned: (ScannedCode) -> Unit,
-    private val debounceMs: Long = 1000L
+    private val onCodeScanned: (ScannedCode) -> Unit
 ) : NSObject(), AVCaptureMetadataOutputObjectsDelegateProtocol {
 
     private val isProcessing = atomic(false)
     private val scope = CoroutineScope(Dispatchers.Main)
-    private var lastScannedCode: ScannedCode? = null
-    private var debounceJob: Job? = null
 
     override fun captureOutput(
         captureOutput: AVCaptureOutput,
@@ -112,21 +109,15 @@ private class CodeAnalyzer(
         for (metadata in didOutputMetadataObjects) {
             if (metadata !is AVMetadataMachineReadableCodeObject) continue
             val scannedCode = ScannedCode.fromAVMetadata(metadata) ?: continue
-            if (scannedCode == lastScannedCode) continue
-
             processCode(scannedCode)
-            break
         }
     }
 
     private fun processCode(code: ScannedCode) {
-        debounceJob?.cancel()
-        debounceJob = scope.launch {
+        scope.launch {
             if (isProcessing.compareAndSet(expect = false, update = true)) {
                 try {
-                    lastScannedCode = code
-                    onCodeScanned(code)
-                    delay(debounceMs)
+                    onCodeScanned(code) // emit continuously without distinct (#47)
                 } finally {
                     isProcessing.value = false
                 }

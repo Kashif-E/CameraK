@@ -11,86 +11,49 @@ import androidx.core.content.ContextCompat
 
 /**
  * Android-specific implementation of [Permissions] using Activity Result Contracts.
+ * Simplified internal implementation that removes redundant permission checks.
  */
 @Composable
 actual fun providePermissions(): Permissions {
     val context = LocalContext.current
 
-    return remember {
+    return remember(context) {
         object : Permissions {
-            override fun hasCameraPermission(): Boolean {
-                return ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.CAMERA
-                ) == PackageManager.PERMISSION_GRANTED
-            }
+            override fun hasCameraPermission(): Boolean =
+                ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == 
+                PackageManager.PERMISSION_GRANTED
 
-            override fun hasStoragePermission(): Boolean {
-                return if (Build.VERSION.SDK_INT >= 32) {
-
-                    true
-                } else {
-                    ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE
-                    ) == PackageManager.PERMISSION_GRANTED
-                }
-            }
-
+            override fun hasStoragePermission(): Boolean =
+                Build.VERSION.SDK_INT >= 32 || 
+                ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == 
+                PackageManager.PERMISSION_GRANTED
 
             @Composable
             override fun RequestCameraPermission(onGranted: () -> Unit, onDenied: () -> Unit) {
-                val launcher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestPermission(),
-                    onResult = { isGranted ->
-                        if (isGranted) {
-                            onGranted()
-                        } else {
-                            onDenied()
-                        }
-                    }
-                )
-
-                val permissionStatus = ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.CAMERA
-                )
-
-                when (permissionStatus) {
-                    PackageManager.PERMISSION_GRANTED -> onGranted()
-                    PackageManager.PERMISSION_DENIED -> {
-
-                        LaunchedEffect(Unit) {
-                            launcher.launch(Manifest.permission.CAMERA)
-                        }
+                if (hasCameraPermission()) {
+                    LaunchedEffect(Unit) { onGranted() }
+                } else {
+                    val launcher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.RequestPermission()
+                    ) { isGranted -> if (isGranted) onGranted() else onDenied() }
+                    
+                    LaunchedEffect(Unit) {
+                        launcher.launch(Manifest.permission.CAMERA)
                     }
                 }
             }
 
             @Composable
             override fun RequestStoragePermission(onGranted: () -> Unit, onDenied: () -> Unit) {
-                val launcher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestPermission(),
-                    onResult = { isGranted ->
-                        if (isGranted) {
-                            onGranted()
-                        } else {
-                            onDenied()
-                        }
-                    }
-                )
-
-                val permissionStatus = ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE
-                )
-
-                when (permissionStatus) {
-                    PackageManager.PERMISSION_GRANTED -> onGranted()
-                    PackageManager.PERMISSION_DENIED -> {
-                        LaunchedEffect(Unit) {
-                            launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                        }
+                if (hasStoragePermission()) {
+                    LaunchedEffect(Unit) { onGranted() }
+                } else {
+                    val launcher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.RequestPermission()
+                    ) { isGranted -> if (isGranted) onGranted() else onDenied() }
+                    
+                    LaunchedEffect(Unit) {
+                        launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     }
                 }
             }

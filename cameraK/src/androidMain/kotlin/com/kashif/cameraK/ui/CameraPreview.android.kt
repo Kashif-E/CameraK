@@ -41,10 +41,12 @@ actual fun expectCameraPreview(
 
     DisposableEffect(previewView) {
         cameraController.bindCamera(previewView) {
+            cameraController.startSession()
             onCameraControllerReady(cameraController)
         }
         onDispose {
             cameraController.stopSession()
+            cameraController.cleanup()
         }
     }
 

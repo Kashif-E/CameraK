@@ -77,10 +77,17 @@ kotlin {
 
 android {
     namespace = "com.kashif.cameraK"
-    compileSdk = 35
+    compileSdk = 36
+    ndkVersion = "26.3.11579264" // NDK r26b+ uses 16KB page size defaults for native binaries
 
     defaultConfig {
         minSdk = 21
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false // required for 16KB page-size compliant native libs in AAB/APK
+        }
     }
 
     publishing {

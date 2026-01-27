@@ -3,6 +3,8 @@ package com.kashif.cameraK.builder
 import android.content.Context
 import androidx.lifecycle.LifecycleOwner
 import com.kashif.cameraK.controller.CameraController
+import com.kashif.cameraK.enums.AspectRatio
+import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
@@ -30,6 +32,10 @@ class AndroidCameraControllerBuilder(
     private var directory: Directory? = null
     private var torchMode: TorchMode = TorchMode.AUTO
     private var qualityPriority: QualityPrioritization = QualityPrioritization.NONE
+    private var cameraDeviceType: CameraDeviceType = CameraDeviceType.DEFAULT
+    private var returnFilePath: Boolean = false
+    private var aspectRatio: AspectRatio = AspectRatio.RATIO_4_3
+    private var targetResolution: Pair<Int, Int>? = null
     private val plugins = mutableListOf<CameraPlugin>()
 
     override fun setFlashMode(flashMode: FlashMode): CameraControllerBuilder {
@@ -41,6 +47,21 @@ class AndroidCameraControllerBuilder(
         this.cameraLens = cameraLens
         return this
     }
+    
+    /**
+     * Sets the preferred camera device type (telephoto, ultra-wide, macro, etc.).
+     * 
+     * The controller will attempt to select the specified camera type using Camera2 Interop.
+     * If the requested type is not available on the device, it will gracefully fall back
+     * to the default camera.
+     * 
+     * @param deviceType The desired camera device type
+     * @return This builder instance for chaining
+     */
+    override fun setPreferredCameraDeviceType(deviceType: CameraDeviceType): CameraControllerBuilder {
+        this.cameraDeviceType = deviceType
+        return this
+    }
 
 
     override fun setTorchMode(torchMode: TorchMode): CameraControllerBuilder {
@@ -50,6 +71,21 @@ class AndroidCameraControllerBuilder(
 
     override fun setQualityPrioritization(prioritization: QualityPrioritization): CameraControllerBuilder {
         this.qualityPriority = prioritization
+        return this
+    }
+
+    override fun setReturnFilePath(returnFilePath: Boolean): CameraControllerBuilder {
+        this.returnFilePath = returnFilePath
+        return this
+    }
+
+    override fun setAspectRatio(aspectRatio: AspectRatio): CameraControllerBuilder {
+        this.aspectRatio = aspectRatio
+        return this
+    }
+
+    override fun setResolution(width: Int, height: Int): CameraControllerBuilder {
+        this.targetResolution = width to height
         return this
     }
 
@@ -87,7 +123,10 @@ class AndroidCameraControllerBuilder(
             plugins = plugins,
             torchMode = torchMode,
             qualityPriority = qualityPriority,
-            cameraDeviceType = ""
+            cameraDeviceType = cameraDeviceType,
+            returnFilePath = returnFilePath,
+            aspectRatio = aspectRatio,
+            targetResolution = targetResolution
         )
         plugins.forEach {
             it.initialize(cameraController)

@@ -56,5 +56,9 @@ actual fun expectCameraPreview(
     UIKitViewController(
         factory = { cameraController },
         modifier = modifier,
+        update = { viewController ->
+            // Modifier is applied by the UIKitViewController wrapper
+            // Background color and other styling can be set via the modifier parameter
+        }
     )
 }

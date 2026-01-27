@@ -1,8 +1,12 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.enums.AspectRatio
+import com.kashif.cameraK.enums.CameraDeviceType
+import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
@@ -21,13 +25,15 @@ import javax.imageio.ImageIO
  */
 actual class CameraController(
     internal var plugins: MutableList<CameraPlugin>,
-    imageFormat: ImageFormat,
-    directory: Directory,
+    private val imageFormat: ImageFormat,
+    private val directory: Directory,
     private val horizontalFlip: Boolean = false,
-    private val customGrabber: FrameGrabber? = null
+    private val customGrabber: FrameGrabber? = null,
+    private val targetResolution: Pair<Int, Int>? = null
 ) {
     private var cameraGrabber: CameraGrabber? = null
     private val frameChannel = Channel<BufferedImage>(Channel.CONFLATED)
+    private val qualityPriority: QualityPrioritization = QualityPrioritization.NONE
 
     private var listener: (ByteArray) -> Unit = {
         // default no-op listener
@@ -38,12 +44,20 @@ actual class CameraController(
      *
      * @return The result of the image capture operation.
      */
+    @Deprecated(
+        message = "Use takePictureToFile() instead for better performance",
+        replaceWith = ReplaceWith("takePictureToFile()"),
+        level = DeprecationLevel.WARNING
+    )
     actual suspend fun takePicture(): ImageCaptureResult {
+        TODO("Not yet implemented")
+    }
+
+    actual suspend fun takePictureToFile(): ImageCaptureResult {
         return withContext(Dispatchers.IO) {
             val currentImage = cameraGrabber?.grabCurrentFrame()
 
             if (currentImage == null) {
-                println("No image available")
                 return@withContext ImageCaptureResult.Error(IllegalStateException("No image available"))
             }
 
@@ -85,9 +99,9 @@ actual class CameraController(
     }
 
     /**
-     * Toggles the torch mode between ON, OFF
+     * Toggles the torch mode between ON, OFF, and AUTO.
      *
-     * In IOS, torch mode include AUTO.
+     * Note: Torch is not available on desktop hardware.
      */
     actual fun toggleTorchMode() {
         // torch not available on desktop
@@ -97,9 +111,20 @@ actual class CameraController(
      * Sets the torch mode of the camera
      *
      * @param mode The desired [TorchMode]
+     * 
+     * Note: Torch is not available on desktop hardware.
      */
     actual fun setTorchMode(mode: TorchMode) {
-        //torch not available on desktop
+        // torch not available on desktop
+    }
+    
+    /**
+     * Gets the current torch mode.
+     * 
+     * @return null as Desktop doesn't support torch mode
+     */
+    actual fun getTorchMode(): TorchMode? {
+        return null
     }
 
     /**
@@ -107,6 +132,69 @@ actual class CameraController(
      */
     actual fun toggleCameraLens() {
         // camera lens not available on desktop
+    }
+    
+    /**
+     * Gets the current camera lens.
+     * 
+     * @return null as Desktop doesn't support camera lens switching
+     */
+    actual fun getCameraLens(): CameraLens? {
+        return null
+    }
+    
+    /**
+     * Gets the current image format.
+     * 
+     * @return The configured [ImageFormat]
+     */
+    actual fun getImageFormat(): ImageFormat {
+        return imageFormat
+    }
+    
+    /**
+     * Gets the current quality prioritization setting.
+     * 
+     * @return The configured [QualityPrioritization] (always NONE on Desktop)
+     */
+    actual fun getQualityPrioritization(): QualityPrioritization {
+        return qualityPriority
+    }
+    
+    /**
+     * Gets the current camera device type.
+     * 
+     * @return The configured [CameraDeviceType] (always DEFAULT on Desktop)
+     */
+    actual fun getPreferredCameraDeviceType(): CameraDeviceType {
+        return CameraDeviceType.DEFAULT
+    }
+
+    /**
+     * Sets the zoom level.
+     * 
+     * Note: Zoom is not supported on Desktop.
+     */
+    actual fun setZoom(zoomRatio: Float) {
+        // zoom not available on desktop
+    }
+    
+    /**
+     * Gets the current zoom ratio.
+     * 
+     * @return 1.0 as Desktop doesn't support zoom
+     */
+    actual fun getZoom(): Float {
+        return 1.0f
+    }
+    
+    /**
+     * Gets the maximum zoom ratio.
+     * 
+     * @return 1.0 as Desktop doesn't support zoom
+     */
+    actual fun getMaxZoom(): Float {
+        return 1.0f
     }
 
     /**
@@ -117,9 +205,9 @@ actual class CameraController(
             // If there is a custom grabber, use it, else use the default camera grabber
             // Which attempts to use the default camera
             cameraGrabber = CameraGrabber(frameChannel, {
-                println("Camera error: ${it.message}")
+                System.err.println("CameraK: Camera error: ${it.message}")
                 it.printStackTrace()
-            }).apply {
+            }, targetResolution).apply {
                 setHorizontalFlip(horizontalFlip)
                 start(this@launch, customGrabber)
             }
@@ -147,6 +235,11 @@ actual class CameraController(
         plugins.forEach {
             it.initialize(this)
         }
+    }
+    
+    actual fun cleanup() {
+        cameraGrabber?.stop()
+        frameChannel.close()
     }
 
     fun getFrameChannel() = frameChannel

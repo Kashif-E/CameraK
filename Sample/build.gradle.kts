@@ -42,6 +42,7 @@ kotlin {
             implementation(projects.imageSaverPlugin)
             implementation(projects.qrScannerPlugin)
             implementation(projects.ocrPlugin)
+            implementation(libs.lucide.icons.cmp)
         }
 
         commonTest.dependencies {
@@ -66,10 +67,10 @@ kotlin {
 
 android {
     namespace = "org.company.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
-        minSdk = 21
+        minSdk = 23
         targetSdk = 34
 
         applicationId = "org.company.app.androidApp"

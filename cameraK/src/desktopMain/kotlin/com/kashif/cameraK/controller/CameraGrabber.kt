@@ -14,7 +14,8 @@ import java.awt.image.BufferedImage
 
 class CameraGrabber(
     private val frameChannel: Channel<BufferedImage>,
-    private val errorHandler: (Throwable) -> Unit
+    private val errorHandler: (Throwable) -> Unit,
+    private val targetResolution: Pair<Int, Int>? = null
 ) {
     private val converter = FrameConverter()
     private var grabber: FrameGrabber? = null
@@ -41,6 +42,10 @@ class CameraGrabber(
 
         grabber = (customGrabber ?: createGrabber()).apply {
             try {
+                // Set format for macOS AVFoundation before starting
+                if (this is FFmpegFrameGrabber && getOperatingSystem() == OperatingSystem.MAC) {
+                    this.format = "avfoundation"
+                }
                 start()
             } catch (e: Exception) {
                 errorHandler(e)
@@ -60,6 +65,7 @@ class CameraGrabber(
                     if (frame?.image != null) {
                         converter.convert(frame)?.let { image ->
                             frameChannel.trySend(image)
+                            println("DEBUG: Sent frame to channel, image size: ${image.width}x${image.height}")
 
                             frameCount++
                             val currentTime = System.currentTimeMillis()
@@ -93,19 +99,39 @@ class CameraGrabber(
     private fun createGrabber() : FrameGrabber =
         when (getOperatingSystem()) {
             OperatingSystem.MAC -> {
-                FFmpegFrameGrabber("default")
+                // On macOS, use AVFoundation with device index as string
+                FFmpegFrameGrabber("0")
             }
             OperatingSystem.WINDOWS -> {
                 VideoInputFrameGrabber(0)
             }
             OperatingSystem.LINUX -> {
-                FFmpegFrameGrabber("/dev/video0")
+                // Prefer /dev/video0 but fall back to the first available readable device (#52, #53)
+                val videoDevice = findBestVideoDevice()
+                println("CameraK: Using video device: $videoDevice")
+                FFmpegFrameGrabber(videoDevice)
             }
         }.apply {
             frameRate = 30.0
-            imageWidth = 640
-            imageHeight = 480
+            // Default to 720p (was 480p) to use higher resolution by default (#52)
+            val (width, height) = targetResolution ?: (1280 to 720)
+            imageWidth = width
+            imageHeight = height
         }
+
+    private fun findBestVideoDevice(): String {
+        val defaultDevice = "/dev/video0"
+        val defaultFile = java.io.File(defaultDevice)
+
+        if (defaultFile.exists() && defaultFile.canRead()) return defaultDevice
+
+        val devDir = java.io.File("/dev")
+        val candidates = devDir.listFiles { file ->
+            file.name.startsWith("video") && file.canRead()
+        }?.sortedBy { it.name } ?: emptyList()
+
+        return candidates.firstOrNull()?.absolutePath ?: defaultDevice
+    }
 
     private fun getOperatingSystem(): OperatingSystem {
         val os = System.getProperty("os.name").lowercase()

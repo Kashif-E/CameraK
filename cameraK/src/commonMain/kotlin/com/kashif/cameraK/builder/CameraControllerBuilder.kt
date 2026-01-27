@@ -1,6 +1,8 @@
 package com.kashif.cameraK.builder
 
 import com.kashif.cameraK.controller.CameraController
+import com.kashif.cameraK.enums.AspectRatio
+import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
@@ -15,6 +17,17 @@ import com.kashif.cameraK.plugins.CameraPlugin
 interface CameraControllerBuilder {
     fun setFlashMode(flashMode: FlashMode): CameraControllerBuilder
     fun setCameraLens(cameraLens: CameraLens): CameraControllerBuilder
+    
+    /**
+     * Sets the camera device type (e.g., wide-angle, telephoto, ultra-wide).
+     * 
+     * Note: Availability depends on device hardware. If the requested type is not available,
+     * the platform will fall back to the default camera.
+     * 
+     * @param deviceType The desired camera device type
+     * @return The current instance of [CameraControllerBuilder]
+     */
+    fun setPreferredCameraDeviceType(deviceType: CameraDeviceType): CameraControllerBuilder
 
     fun setImageFormat(imageFormat: ImageFormat): CameraControllerBuilder
     fun setDirectory(directory: Directory): CameraControllerBuilder
@@ -40,4 +53,27 @@ interface CameraControllerBuilder {
      * Sets the quality prioritization for the captured image.
      */
     fun setQualityPrioritization(prioritization: QualityPrioritization): CameraControllerBuilder
+
+    /**
+     * Configure whether takePicture() should return file path or ByteArray.
+     * 
+     * When true: Returns ImageCaptureResult.SuccessWithFile (fastest - no processing)
+     * When false: Returns ImageCaptureResult.Success with ByteArray (default)
+     * 
+     * Note: File path option skips all processing for maximum performance.
+     * The file will be in the configured directory.
+     */
+    fun setReturnFilePath(returnFilePath: Boolean): CameraControllerBuilder
+
+    /**
+     * Sets the aspect ratio for preview and capture.
+     * Supported values map to platform defaults (16:9, 4:3). 9:16 uses 16:9 with rotation; 1:1 falls back to closest available.
+     */
+    fun setAspectRatio(aspectRatio: AspectRatio): CameraControllerBuilder
+
+    /**
+     * Sets a target capture resolution (width x height) for preview/capture when the platform supports it.
+     * Platforms may fall back to the closest supported resolution if an exact match is unavailable.
+     */
+    fun setResolution(width: Int, height: Int): CameraControllerBuilder
 }

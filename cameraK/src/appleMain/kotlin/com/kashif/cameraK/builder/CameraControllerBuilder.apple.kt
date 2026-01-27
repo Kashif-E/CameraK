@@ -5,7 +5,6 @@ import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.enums.*
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.utils.InvalidConfigurationException
-import platform.AVFoundation.AVCaptureDeviceTypeBuiltInWideAngleCamera
 
 /**
  * iOS-specific implementation of [CameraControllerBuilder].
@@ -18,7 +17,10 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
     private var imageFormat: ImageFormat? = null
     private var directory: Directory? = null
     private var qualityPriority: QualityPrioritization = QualityPrioritization.NONE
-    private var cameraDeviceType: String? = AVCaptureDeviceTypeBuiltInWideAngleCamera
+    private var cameraDeviceType: CameraDeviceType = CameraDeviceType.DEFAULT
+    private var returnFilePath: Boolean = false
+    private var aspectRatio: AspectRatio = AspectRatio.RATIO_4_3
+    private var targetResolution: Pair<Int, Int>? = null
     private val plugins = mutableListOf<CameraPlugin>()
 
     override fun setFlashMode(flashMode: FlashMode): CameraControllerBuilder {
@@ -48,13 +50,28 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
         return this
     }
 
+    override fun setReturnFilePath(returnFilePath: Boolean): CameraControllerBuilder {
+        this.returnFilePath = returnFilePath
+        return this
+    }
+
+    override fun setAspectRatio(aspectRatio: AspectRatio): CameraControllerBuilder {
+        this.aspectRatio = aspectRatio
+        return this
+    }
+
+    override fun setResolution(width: Int, height: Int): CameraControllerBuilder {
+        this.targetResolution = width to height
+        return this
+    }
+
     override fun setDirectory(directory: Directory): CameraControllerBuilder {
         this.directory = directory
         return this
     }
-
-    fun setCameraDeviceType(cameraDeviceType: String?): CameraControllerBuilder {
-        this.cameraDeviceType = cameraDeviceType
+    
+    override fun setPreferredCameraDeviceType(deviceType: CameraDeviceType): CameraControllerBuilder {
+        this.cameraDeviceType = deviceType
         return this
     }
 
@@ -77,7 +94,10 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
             directory = dir,
             plugins = plugins,
             qualityPriority = qualityPriority,
-            cameraDeviceType = cameraDeviceType
+            cameraDeviceType = cameraDeviceType,
+            returnFilePath = returnFilePath,
+            aspectRatio = aspectRatio,
+            targetResolution = targetResolution
         )
 
         return cameraController

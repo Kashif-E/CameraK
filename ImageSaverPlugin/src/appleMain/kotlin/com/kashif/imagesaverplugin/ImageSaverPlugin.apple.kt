@@ -73,7 +73,7 @@ class IOSImageSaverPlugin(
                 }
 
                 semaphore.wait()
-                assetId
+                assetId?.let { "ph://$it" }
             } catch (e: Exception) {
                 println("Exception while saving image: ${e.message}")
                 onImageSavedFailed(e.message ?: "Unknown exception")
@@ -83,7 +83,8 @@ class IOSImageSaverPlugin(
     }
 
     override fun getByteArrayFrom(path: String): ByteArray {
-        val fetchResult = PHAsset.fetchAssetsWithLocalIdentifiers(listOf(path), null)
+        val assetId = path.removePrefix("ph://")
+        val fetchResult = PHAsset.fetchAssetsWithLocalIdentifiers(listOf(assetId), null)
         if (fetchResult.count.toInt() == 0) {
             throw IOException("No asset found with identifier: $path")
         }
@@ -115,6 +116,29 @@ class IOSImageSaverPlugin(
 
 
         return imageData?.toByteArray() ?: byteArrayOf()
+    }
+
+    /**
+     * Resolve a Photos asset identifier to a temporary file path on disk.
+     * Returns null if the asset cannot be found or written.
+     */
+    @OptIn(ExperimentalForeignApi::class)
+    fun getFilePathFromAsset(path: String): String? {
+        return try {
+            val data = getByteArrayFrom(path)
+            val tempDir = platform.Foundation.NSTemporaryDirectory()
+            val fileName = "IMG_${platform.Foundation.NSUUID().UUIDString}.jpg"
+            val fullPath = "$tempDir$fileName"
+            val success = platform.Foundation.NSFileManager.defaultManager.createFileAtPath(
+                fullPath,
+                data.toNSData(),
+                null
+            )
+            if (success) fullPath else null
+        } catch (e: Exception) {
+            println("Failed to resolve asset to file: ${e.message}")
+            null
+        }
     }
 }
 
