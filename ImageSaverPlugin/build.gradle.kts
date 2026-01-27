@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.kashif.image_saver_plugin"
-version = "1.0"
+version = "0.1.0"
 
 kotlin {
     jvmToolchain(11)
@@ -78,7 +78,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "image_saver_plugin",
-        version = "0.0.6"
+        version = "0.1.0"
     )
 
 
