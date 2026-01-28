@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.kashif.ocr_plugin"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     jvmToolchain(11)
@@ -88,7 +88,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "ocr_plugin",
-        version = "0.1.0"
+        version = "0.2.0"
     )
 
 
