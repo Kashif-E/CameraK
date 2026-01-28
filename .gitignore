@@ -17,3 +17,6 @@ Pods/
 *gradle.properties
 # MkDocs build output
 site/
+
+# MkDocs build output
+site/
