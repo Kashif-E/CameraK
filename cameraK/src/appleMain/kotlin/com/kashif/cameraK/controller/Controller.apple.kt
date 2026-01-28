@@ -24,6 +24,7 @@ import platform.AVFoundation.AVCaptureFlashModeOff
 import platform.AVFoundation.AVCaptureFlashModeOn
 import platform.AVFoundation.AVCaptureMetadataOutput
 import platform.AVFoundation.AVCaptureMetadataOutputObjectsDelegateProtocol
+import platform.AVFoundation.AVCaptureOutput
 import platform.AVFoundation.AVCaptureTorchMode
 import platform.AVFoundation.AVCaptureTorchModeAuto
 import platform.AVFoundation.AVCaptureTorchModeOff
@@ -99,6 +100,27 @@ actual class CameraController(
     }
 
     fun getCameraPreviewLayer() = customCameraController.cameraPreviewLayer
+    
+    /**
+     * Returns whether the capture session is ready for use.
+     * Used by plugins to check if they can add outputs.
+     */
+    fun isSessionReady(): Boolean = customCameraController.captureSession != null
+
+    /**
+     * Queues a configuration change to be applied atomically (plugin outputs, etc).
+     * Used by plugins (OCR, QRScanner) to safely add outputs without crashes.
+     */
+    fun queueConfigurationChange(change: () -> Unit) {
+        customCameraController.queueConfigurationChange(change)
+    }
+
+    /**
+     * Safely adds an output within the queued configuration block.
+     */
+    fun safeAddOutput(output: AVCaptureOutput) {
+        customCameraController.safeAddOutput(output)
+    }
 
     internal fun currentVideoOrientation(): AVCaptureVideoOrientation {
         val orientation = UIDevice.currentDevice.orientation
@@ -196,10 +218,17 @@ actual class CameraController(
     }
 
     fun updateMetadataObjectTypes(newTypes: List<String>) {
-        if (customCameraController.captureSession?.isRunning() == true) {
-            metadataOutput.metadataObjectTypes += newTypes
+        // Note: This is called from queueConfigurationChange, so session may be in config mode
+        // Don't check isRunning() - just set the types
+        if (metadataOutput.availableMetadataObjectTypes.isNotEmpty()) {
+            // Filter to only supported types
+            val supportedTypes = newTypes.filter { type -> 
+                metadataOutput.availableMetadataObjectTypes.contains(type)
+            }
+            metadataOutput.metadataObjectTypes = supportedTypes
         } else {
-            platform.Foundation.NSLog("CameraK: Camera session is not running")
+            // Metadata output not fully ready yet, try setting all requested types
+            metadataOutput.metadataObjectTypes = newTypes
         }
     }
 
@@ -542,10 +571,16 @@ actual class CameraController(
     }
 
     actual fun startSession() {
-
-        memoryManager.clearBufferPools()
-        customCameraController.startSession()
-        initializeControllerPlugins()
+        // Note: The actual session start happens in onSessionReady callback (setupCamera).
+        // This method is called from CameraKStateHolder.initialize() which may be before
+        // viewDidLoad() triggers setupCamera(). The session will start automatically
+        // when ready, so we only need to handle the case where session IS ready.
+        if (customCameraController.captureSession != null) {
+            memoryManager.clearBufferPools()
+            customCameraController.startSession()
+            initializeControllerPlugins()
+        }
+        // If captureSession is null, onSessionReady will call startSession() when ready
     }
 
     actual fun stopSession() {

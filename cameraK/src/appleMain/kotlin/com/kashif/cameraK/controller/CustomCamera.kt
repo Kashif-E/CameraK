@@ -21,6 +21,7 @@ import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
 import platform.darwin.dispatch_get_global_queue
 import kotlin.collections.emptyList
+import kotlin.concurrent.Volatile
 
 /**
  * Convert CameraDeviceType enum to AVFoundation device type string
@@ -54,12 +55,12 @@ class CustomCameraController(
     var flashMode: AVCaptureFlashMode = AVCaptureFlashModeAuto
     var torchMode: AVCaptureTorchMode = AVCaptureTorchModeAuto
 
-
     private var highQualityEnabled = false
-
-    private fun log(message: String) {
-        NSLog("CameraK iOS: $message")
-    }
+    
+    // Configuration queue for plugin outputs (Apple WWDC pattern)
+    private val pendingConfigurations = mutableListOf<() -> Unit>()
+    @Volatile
+    private var isConfiguring = false
 
     sealed class CameraException : Exception() {
         class DeviceNotAvailable : CameraException()
@@ -102,15 +103,12 @@ class CustomCameraController(
 
                 setupPhotoOutput()
                 captureSession?.commitConfiguration()
-                log("session configuration committed")
 
                 // Switch to target resolution/aspect ratio preset on main queue once initial setup completes
                 dispatch_async(dispatch_get_main_queue()) {
-                    log("switching to final preset")
                     captureSession?.beginConfiguration()
                     val finalPreset = targetResolution?.toPreset() ?: aspectRatio.toSessionPreset()
                     captureSession?.sessionPreset = finalPreset
-                    log("final sessionPreset=$finalPreset")
                     captureSession?.commitConfiguration()
                     captureSession?.commitConfiguration()
                     onSessionReady?.invoke()
@@ -135,8 +133,6 @@ class CustomCameraController(
     private fun setupPhotoOutput() {
         photoOutput = AVCapturePhotoOutput()
         photoOutput?.setHighResolutionCaptureEnabled(false)
-
-        log("setupPhotoOutput start (quality=$qualityPrioritization)")
 
         when (qualityPrioritization) {
             QualityPrioritization.QUALITY -> {
@@ -165,24 +161,19 @@ class CustomCameraController(
 
         if (captureSession?.canAddOutput(photoOutput!!) == true) {
             captureSession?.addOutput(photoOutput!!)
-            log("photo output added to session")
         } else {
-            log("cannot add photo output")
             throw CameraException.ConfigurationError("Cannot add photo output")
         }
     }
 
     @OptIn(ExperimentalForeignApi::class)
     private fun setupInputs(cameraDeviceType: CameraDeviceType): Boolean {
-        // Discover available camera devices
         val deviceTypeString = cameraDeviceType.toAVCaptureDeviceType()
-        log("setupInputs deviceTypeString=$deviceTypeString")
         val deviceTypes = deviceTypeString?.let { listOf(it) } ?: listOfNotNull(
             AVCaptureDeviceTypeBuiltInWideAngleCamera,
             AVCaptureDeviceTypeBuiltInTelephotoCamera,
             AVCaptureDeviceTypeBuiltInUltraWideCamera
         )
-        log("setupInputs deviceTypes=${deviceTypes.joinToString()}")
         
         val discoverySession = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
             deviceTypes,
@@ -191,12 +182,9 @@ class CustomCameraController(
         )
         
         val devices = discoverySession.devices.ifEmpty {
-            // Fallback to default device if discovery fails
             AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo)?.let { listOf<Any?>(it) } ?: emptyList()
         }
-        log("setupInputs devices found=${devices.size}")
 
-        // Categorize devices by position and type
         devices.forEach { device ->
             val cam = device as AVCaptureDevice
             when (cam.position) {
@@ -205,7 +193,6 @@ class CustomCameraController(
             }
         }
 
-        // Prefer requested device type when available
         fun findByTypeAndPosition(type: String?, position: Long?): AVCaptureDevice? {
             return devices.firstOrNull { dev ->
                 val cam = dev as AVCaptureDevice
@@ -227,10 +214,7 @@ class CustomCameraController(
                 CameraLens.BACK -> backCamera ?: frontCamera
             }
             ?: return false
-
-        log("selected camera position=${currentCamera?.position} type=${currentCamera?.deviceType}")
     
-        // Set isUsingFrontCamera based on actual camera selected
         isUsingFrontCamera = (currentCamera == frontCamera)
 
         return try {
@@ -239,25 +223,84 @@ class CustomCameraController(
             
             if (captureSession?.canAddInput(input) == true) {
                 captureSession?.addInput(input)
-                log("camera input added")
                 true
             } else {
-                log("cannot add camera input")
                 false
             }
         } catch (e: Exception) {
-            log("setupInputs failed: ${e.message}")
             throw CameraException.ConfigurationError(e.message ?: "Unknown error")
         }
     }
 
-    fun startSession() {
-        if (captureSession == null) {
-            log("startSession skipped: captureSession is null")
+    /**
+     * Queues a configuration change to be applied atomically (Apple WWDC pattern).
+     * Used by plugins to safely add outputs without crashing.
+     * 
+     * If session is already running, processes configurations immediately.
+     * Otherwise queues for batch processing at startSession().
+     * 
+     * @param change Lambda to execute within beginConfiguration/commitConfiguration block
+     */
+    fun queueConfigurationChange(change: () -> Unit) {
+        pendingConfigurations.add(change)
+        
+        // If session is already running, process immediately
+        if (captureSession?.isRunning() == true && !isConfiguring) {
+            processPendingConfigurations()
+        }
+    }
+
+    /**
+     * Processes all queued configuration changes in a single transaction.
+     * Must be called on main thread or after session is ready.
+     * Prevents "startRunning may not be called between beginConfiguration and commitConfiguration" crash.
+     */
+    private fun processPendingConfigurations() {
+        if (isConfiguring || pendingConfigurations.isEmpty() || captureSession == null) {
             return
         }
+        
+        isConfiguring = true
+
+        try {
+            val session = captureSession ?: return
+            
+            session.beginConfiguration()
+
+            val changesToApply = pendingConfigurations.toList()
+            pendingConfigurations.clear()
+
+            for (change in changesToApply) {
+                try {
+                    change()
+                } catch (e: Exception) {
+                    NSLog("CameraK: Error processing configuration change: ${e.message}")
+                }
+            }
+
+            session.commitConfiguration()
+        } finally {
+            isConfiguring = false
+        }
+    }
+
+    /**
+     * Safely adds an output to the capture session.
+     * Should be called from within queueConfigurationChange block.
+     */
+    fun safeAddOutput(output: AVCaptureOutput) {
+        val session = captureSession
+        if (session != null && session.canAddOutput(output)) {
+            session.addOutput(output)
+        }
+    }
+
+    fun startSession() {
+        processPendingConfigurations()
+
+        if (captureSession == null) return
+        
         if (captureSession?.isRunning() == false) {
-            log("startSession: starting")
             dispatch_async(
                 dispatch_get_global_queue(
                     DISPATCH_QUEUE_PRIORITY_HIGH.toLong(),
@@ -265,28 +308,23 @@ class CustomCameraController(
                 )
             ) {
                 captureSession?.startRunning()
-                log("startSession: startRunning invoked")
             }
-        } else {
-            log("startSession: already running")
         }
     }
 
     fun stopSession() {
         if (captureSession?.isRunning() == true) {
-            log("stopSession: stopping")
             captureSession?.stopRunning()
         }
     }
 
     private fun AspectRatio.toSessionPreset(): String = when (this) {
         AspectRatio.RATIO_16_9, AspectRatio.RATIO_9_16 -> (AVCaptureSessionPreset1920x1080 ?: AVCaptureSessionPresetPhoto)!!
-        AspectRatio.RATIO_1_1 -> AVCaptureSessionPresetPhoto!! // closest available
+        AspectRatio.RATIO_1_1 -> AVCaptureSessionPresetPhoto!!
         AspectRatio.RATIO_4_3 -> AVCaptureSessionPresetPhoto!!
     }
 
     fun cleanupSession() {
-        log("cleanupSession")
         stopSession()
         cameraPreviewLayer?.removeFromSuperlayer()
         cameraPreviewLayer = null
@@ -299,13 +337,8 @@ class CustomCameraController(
 
     @OptIn(ExperimentalForeignApi::class)
     fun setupPreviewLayer(view: UIView) {
-        val session = captureSession
-        if (session == null) {
-            log("setupPreviewLayer skipped: captureSession is null")
-            return
-        }
+        val session = captureSession ?: return
 
-        log("setupPreviewLayer start bounds=${view.bounds}")
         val newPreviewLayer = AVCaptureVideoPreviewLayer(session = session).apply {
             videoGravity = AVLayerVideoGravityResizeAspectFill
             setFrame(view.bounds)
@@ -314,7 +347,6 @@ class CustomCameraController(
 
         view.layer.addSublayer(newPreviewLayer)
         cameraPreviewLayer = newPreviewLayer
-        log("setupPreviewLayer complete")
     }
 
     fun currentVideoOrientation(): AVCaptureVideoOrientation {
@@ -496,6 +528,11 @@ class CustomCameraController(
     @OptIn(ExperimentalForeignApi::class)
     fun switchCamera() {
         guard(captureSession != null) { return@guard }
+        
+        val wasRunning = captureSession?.isRunning() == true
+        if (wasRunning) {
+            captureSession?.stopRunning()
+        }
 
         captureSession?.beginConfiguration()
 
@@ -528,11 +565,30 @@ class CustomCameraController(
             }
 
             captureSession?.commitConfiguration()
+            
+            processPendingConfigurations()
+            
+            if (wasRunning) {
+                dispatch_async(
+                    dispatch_get_global_queue(
+                        DISPATCH_QUEUE_PRIORITY_HIGH.toLong(),
+                        0u
+                    )
+                ) {
+                    captureSession?.startRunning()
+                }
+            }
         } catch (e: CameraException) {
             captureSession?.commitConfiguration()
+            if (wasRunning) {
+                captureSession?.startRunning()
+            }
             onError?.invoke(e)
         } catch (e: Exception) {
             captureSession?.commitConfiguration()
+            if (wasRunning) {
+                captureSession?.startRunning()
+            }
             onError?.invoke(CameraException.ConfigurationError(e.message ?: "Unknown error"))
         }
     }

@@ -33,8 +33,6 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
         return this
     }
 
-
-
     override fun setImageFormat(imageFormat: ImageFormat): CameraControllerBuilder {
         this.imageFormat = imageFormat
         return this
@@ -69,7 +67,14 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
         this.directory = directory
         return this
     }
-    
+
+    /**
+     * Sets the preferred camera device type (wide-angle, telephoto, etc.).
+     * Note: Availability depends on device hardware.
+     *
+     * @param deviceType The desired camera device type.
+     * @return This builder instance for chaining.
+     */
     override fun setPreferredCameraDeviceType(deviceType: CameraDeviceType): CameraControllerBuilder {
         this.cameraDeviceType = deviceType
         return this
@@ -80,6 +85,12 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
         return this
     }
 
+    /**
+     * Builds the configured iOS camera controller.
+     *
+     * @return A fully configured [CameraController] instance.
+     * @throws InvalidConfigurationException If required configuration is missing.
+     */
     override fun build(): CameraController {
 
         val format = imageFormat ?: throw InvalidConfigurationException("ImageFormat must be set.")

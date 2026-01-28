@@ -56,7 +56,6 @@ class AndroidImageSaverPlugin(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI
             }
 
-
             try {
                 val imageUri = resolver.insert(collection, contentValues)
                     ?: throw IOException("Failed to create new MediaStore record.")
@@ -94,9 +93,13 @@ class AndroidImageSaverPlugin(
     }
 
     /**
-     * only for android may use this later on
+     * Retrieves the file system path from a MediaStore URI.
+     * Note: For future use with legacy storage access.
+     *
+     * @param uri The MediaStore URI.
+     * @return The file path, or null if unavailable.
      */
-     fun getActualPathFromUri(uri: Uri): String? {
+    fun getActualPathFromUri(uri: Uri): String? {
         val projection = arrayOf(MediaStore.Images.Media.DATA)
         return try {
             context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
@@ -111,13 +114,16 @@ class AndroidImageSaverPlugin(
         }
     }
 }
-/**
- * Factory function to create an Android-specific [ImageSaverPlugin].
- *
- * @param config Configuration settings for the plugin.
- * @return An instance of [AndroidImageSaverPlugin].
- */
 
+/**
+ * Factory for creating Android-specific [ImageSaverPlugin] instances.
+ *
+ * Uses scoped storage API for safe, permission-aware file access.
+ *
+ * @param context Platform context for ContentResolver access.
+ * @param config Configuration settings for the plugin.
+ * @return An [AndroidImageSaverPlugin] instance.
+ */
 actual fun createPlatformImageSaverPlugin(
     context: PlatformContext,
     config: ImageSaverConfig

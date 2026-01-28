@@ -1,0 +1,45 @@
+package com.kashif.cameraK.compose
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import com.kashif.cameraK.controller.CameraController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.launch
+
+/**
+ * Desktop implementation of stateless camera preview.
+ * Displays frames from JavaCV frame grabber.
+ */
+@Composable
+actual fun CameraPreviewView(
+    controller: CameraController,
+    modifier: Modifier
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val scope = rememberCoroutineScope()
+        val frameChannel = controller.getFrameChannel()
+        var currentFrame by remember { mutableStateOf<ImageBitmap?>(null) }
+
+        LaunchedEffect(controller) {
+            scope.launch(Dispatchers.Default) {
+                frameChannel.consumeAsFlow().collect { frame ->
+                    currentFrame = frame.toComposeImageBitmap()
+                }
+            }
+        }
+
+        currentFrame?.let { frame ->
+            Image(
+                bitmap = frame,
+                contentDescription = "Camera Preview",
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}

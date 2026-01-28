@@ -26,20 +26,42 @@ import platform.AVFoundation.AVMetadataObjectTypeUPCECode
 import platform.darwin.NSObject
 
 
+/**
+ * Represents a scanned code result from iOS camera metadata.
+ *
+ * Supports QR codes and common barcode formats.
+ */
 sealed class ScannedCode {
     abstract val value: String
     abstract val type: String
 
+    /**
+     * QR code result.
+     *
+     * @param value The decoded QR code text content
+     */
     data class QR(override val value: String) : ScannedCode() {
         override val type: String = "QR_CODE"
     }
 
+    /**
+     * Barcode result (EAN, CODE, PDF417, Aztec, DataMatrix, UPC).
+     *
+     * @param value The decoded barcode text content
+     * @param type The barcode format type (e.g., "EAN_13", "CODE_128")
+     */
     data class Barcode(
         override val value: String,
         override val type: String
     ) : ScannedCode()
 
     companion object {
+        /**
+         * Converts an AVFoundation metadata object to a [ScannedCode].
+         *
+         * @param metadata The AVFoundation machine-readable code object
+         * @return A [ScannedCode] if successful, null if metadata type is unsupported or empty
+         */
         fun fromAVMetadata(metadata: AVMetadataMachineReadableCodeObject): ScannedCode? {
             val value = metadata.stringValue ?: return null
             return when (metadata.type) {
@@ -63,6 +85,16 @@ sealed class ScannedCode {
     }
 }
 
+/**
+ * Enables QR code and barcode scanning on the iOS camera controller.
+ *
+ * Uses configuration queue pattern to safely add outputs without crashes.
+ * Configures AVCaptureMetadataOutput to detect QR codes and standard barcode formats
+ * (EAN-13, EAN-8, CODE-128, CODE-39, CODE-93, ITF-14, PDF-417, Aztec, DataMatrix, UPC-E).
+ *
+ * @param controller The camera controller to enable scanning on
+ * @param onQrScanner Callback invoked when a QR code is detected with the scanned text
+ */
 actual fun startScanning(
     controller: CameraController,
     onQrScanner: (String) -> Unit
@@ -72,33 +104,50 @@ actual fun startScanning(
     })
     controller.setMetadataObjectsDelegate(codeAnalyzer)
 
-
-    controller.updateMetadataObjectTypes(
-        listOf(
-            AVMetadataObjectTypeQRCode!!,
-            AVMetadataObjectTypeEAN13Code!!,
-            AVMetadataObjectTypeEAN8Code!!,
-            AVMetadataObjectTypeCode128Code!!,
-            AVMetadataObjectTypeCode39Code!!,
-            AVMetadataObjectTypeCode93Code!!,
-            AVMetadataObjectTypeCode39Mod43Code!!,
-            AVMetadataObjectTypeITF14Code!!,
-            AVMetadataObjectTypePDF417Code!!,
-            AVMetadataObjectTypeAztecCode!!,
-            AVMetadataObjectTypeDataMatrixCode!!,
-            AVMetadataObjectTypeUPCECode!!
+    // Queue all configuration changes atomically (WWDC pattern)
+    controller.queueConfigurationChange {
+        controller.updateMetadataObjectTypes(
+            listOf(
+                AVMetadataObjectTypeQRCode!!,
+                AVMetadataObjectTypeEAN13Code!!,
+                AVMetadataObjectTypeEAN8Code!!,
+                AVMetadataObjectTypeCode128Code!!,
+                AVMetadataObjectTypeCode39Code!!,
+                AVMetadataObjectTypeCode93Code!!,
+                AVMetadataObjectTypeCode39Mod43Code!!,
+                AVMetadataObjectTypeITF14Code!!,
+                AVMetadataObjectTypePDF417Code!!,
+                AVMetadataObjectTypeAztecCode!!,
+                AVMetadataObjectTypeDataMatrixCode!!,
+                AVMetadataObjectTypeUPCECode!!
+            )
         )
-    )
-    controller.startSession()
+    }
 }
 
+/**
+ * Internal iOS metadata output delegate for QR code and barcode detection.
+ *
+ * Uses AVCaptureMetadataOutputObjectsDelegateProtocol to receive metadata objects from
+ * the camera. Implements debouncing via atomic flag to process one code at a time.
+ *
+ * @param onCodeScanned Callback invoked when a QR code or barcode is successfully detected
+ */
 private class CodeAnalyzer(
     private val onCodeScanned: (ScannedCode) -> Unit
 ) : NSObject(), AVCaptureMetadataOutputObjectsDelegateProtocol {
 
     private val isProcessing = atomic(false)
     private val scope = CoroutineScope(Dispatchers.Main)
+    private val debounceMs = 500L
 
+    /**
+     * Processes metadata objects detected by the camera.
+     *
+     * @param captureOutput The metadata output instance
+     * @param didOutputMetadataObjects List of detected metadata objects
+     * @param fromConnection The capture connection
+     */
     override fun captureOutput(
         captureOutput: AVCaptureOutput,
         didOutputMetadataObjects: List<*>,
@@ -113,11 +162,17 @@ private class CodeAnalyzer(
         }
     }
 
+    /**
+     * Processes a scanned code with timeout-based debouncing.
+     *
+     * @param code The detected code to process
+     */
     private fun processCode(code: ScannedCode) {
-        scope.launch {
-            if (isProcessing.compareAndSet(expect = false, update = true)) {
+        if (isProcessing.compareAndSet(expect = false, update = true)) {
+            scope.launch {
                 try {
-                    onCodeScanned(code) // emit continuously without distinct (#47)
+                    onCodeScanned(code)
+                    delay(debounceMs)
                 } finally {
                     isProcessing.value = false
                 }

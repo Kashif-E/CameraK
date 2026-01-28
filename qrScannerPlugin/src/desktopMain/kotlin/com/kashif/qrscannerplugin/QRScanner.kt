@@ -10,7 +10,12 @@ import com.google.zxing.common.HybridBinarizer
 import java.awt.image.BufferedImage
 import java.util.concurrent.locks.ReentrantLock
 
-
+/**
+ * Desktop implementation of QR code scanning using ZXing library.
+ *
+ * Processes BufferedImage frames to detect QR codes with thread-safe locking
+ * and frame rate throttling to optimize performance.
+ */
 class QRScanner {
     private val reader = MultiFormatReader().apply {
         val hints = mapOf(
@@ -23,6 +28,15 @@ class QRScanner {
     private var lastProcessTime = 0L
     private val processInterval = 200L
 
+    /**
+     * Scans a BufferedImage for QR codes.
+     *
+     * Uses thread-safe locking and throttles processing to every 200ms to improve
+     * performance on resource-constrained systems.
+     *
+     * @param image The BufferedImage frame to scan
+     * @return The decoded QR code text if successful, null if no code is found or processing is skipped
+     */
     fun scanImage(image: BufferedImage): String? {
         if (!lock.tryLock()) return null
 
@@ -43,7 +57,6 @@ class QRScanner {
                 null
             }
         } catch (e: Exception) {
-            println("QR scanning error: ${e.message}")
             null
         } finally {
             lock.unlock()

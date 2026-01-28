@@ -42,6 +42,7 @@ kotlin {
             api(libs.kotlinx.coroutines.test)
             api(libs.kermit)
             api(compose.ui)
+            api(compose.material3)
             api(compose.foundation)
             api(libs.coil3.compose)
             api(libs.coil3.ktor)
