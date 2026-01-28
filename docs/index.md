@@ -1,86 +1,144 @@
-# CameraK
+# CameraK Documentation
 
-**Kotlin Multiplatform Camera SDK** – Capture stunning photos and videos across all platforms.
+**Modern camera SDK for Kotlin Multiplatform** — Android, iOS, and Desktop with a unified API.
 
-## Features
-
-- 📱 **Multiplatform Support** – Android, iOS, Desktop, and JavaScript
-- 🎥 **Flexible Camera Control** – Full control over camera settings and modes
-- 📸 **High-Quality Capture** – Support for various image formats and quality levels
-- 🔐 **Permission Handling** – Built-in permission management for all platforms
-- 🎨 **Jetpack Compose Integration** – Seamless UI integration with Compose Multiplatform
-- 🚀 **Performance Optimized** – Efficient resource usage across platforms
-- 📚 **Well Documented** – Comprehensive documentation and examples
-
-## Quick Start
+## Get Started in 60 Seconds
 
 ```kotlin
-// Initialize camera controller
-val controller = CameraController.Builder()
-    .setVideoResolution(1920, 1080)
-    .build()
-
-// Start camera preview
-controller.startPreview()
-
-// Capture photo
-val photo = controller.capturePhoto()
-```
-
-## Supported Platforms
-
-| Platform | Status | Features |
-|----------|--------|----------|
-| 🔶 Android | ✅ Full Support | CameraX API |
-| 🍎 iOS | ✅ Full Support | AVFoundation |
-| 🖥️ Desktop | ✅ Full Support | JavaCV |
-| 🌐 JavaScript | ✅ Full Support | Web Camera API |
-
-## Installation
-
-Install CameraK using Gradle:
-
-```gradle
 dependencies {
-    implementation("dev.kashif:cameraK:0.2.0")
+    implementation("io.github.kashif-mehmood-km:camerak:0.2.0")
 }
 ```
 
-## Platform-Specific Setup
-
-### Android
 ```kotlin
-// Add to AndroidManifest.xml
-<uses-permission android:name="android.permission.CAMERA" />
+@Composable
+fun CameraScreen() {
+    val permissions = providePermissions()
+    val stateHolder = rememberCameraKState(permissions = permissions)
+    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    
+    when (cameraState) {
+        is CameraKState.Ready -> {
+            val controller = (cameraState as CameraKState.Ready).controller
+            
+            CameraPreviewComposable(
+                controller = controller,
+                modifier = Modifier.fillMaxSize()
+            )
+            
+            Button(onClick = { 
+                scope.launch {
+                    val result = controller.takePictureToFile()
+                    // Photo saved!
+                }
+            }) {
+                Text("Capture")
+            }
+        }
+        is CameraKState.Error -> Text("Error: ${cameraState.exception.message}")
+        CameraKState.Initializing -> CircularProgressIndicator()
+    }
+}
 ```
 
-### iOS
-```swift
-// Add to Info.plist
-<key>NSCameraUsageDescription</key>
-<string>We need camera access to capture photos</string>
+## Features
+
+- **Cross-Platform**: Single API works on Android, iOS, and Desktop
+- **Compose-First**: Built for Jetpack Compose with reactive StateFlow
+- **Plugin System**: Add QR scanning, OCR, and custom processing
+- **Performance**: Direct file capture avoids memory overhead
+- **Type-Safe**: Sealed classes for errors, no runtime surprises
+
+## Installation
+
+Start with installation and configuration:
+
+- [Installation](getting-started/installation.md) — Add CameraK to your project
+- [Quick Start](getting-started/quick-start.md) — Build your first camera app in 5 minutes
+- [Configuration](getting-started/configuration.md) — Customize camera behavior
+- [Android Example](examples/android.md) — Android-specific setup
+
+## Core Concepts
+
+### State Management
+
+CameraK uses reactive state management via `CameraKStateHolder`:
+
+```kotlin
+sealed class CameraKState {
+    object Initializing : CameraKState()
+    data class Ready(val controller: CameraController) : CameraKState()
+    data class Error(val exception: Exception) : CameraKState()
+}
 ```
 
-## Documentation
+State flows automatically: `Initializing` → `Ready` → capture photos.
 
-- [Getting Started Guide](getting-started/installation.md)
-- [API Reference](api/camera-controller.md)
-- [Examples](examples/android.md)
+### Camera Controller
 
-## Contributing
+Low-level camera operations exposed when state is `Ready`:
 
-We welcome contributions! See [CONTRIBUTING.md](contributing.md) for guidelines.
+```kotlin
+interface CameraController {
+    suspend fun takePictureToFile(): ImageCaptureResult
+    fun setZoom(zoom: Float)
+    fun setFlashMode(mode: FlashMode)
+    fun toggleCameraLens()
+}
+```
 
-## License
+### Plugins
 
-CameraK is licensed under the MIT License. See [LICENSE](license.md) for details.
+Extend camera functionality modularly:
+
+```kotlin
+val stateHolder = rememberCameraKState(
+    permissions = permissions,
+    plugins = listOf(
+        rememberQRScannerPlugin(),
+        rememberOcrPlugin()
+    )
+)
+
+// QR codes available automatically
+val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle()
+```
+
+## Quick Links
+
+**Getting Started**
+- [Installation](getting-started/installation.md)
+- [Quick Start](getting-started/quick-start.md)
+- [Configuration](getting-started/configuration.md)
+
+**Guides**
+- [Camera Capture](guides/camera-capture.md)
+- [Flash and Torch](guides/flash-and-torch.md)
+- [Zoom Control](guides/zoom-control.md)
+- [Camera Switching](guides/camera-switching.md)
+- [Plugins](guides/plugins.md)
+
+**API Reference**
+- [CameraKStateHolder](api/state-holder.md)
+- [CameraController](api/controller.md)
+
+**Plugins**
+- [Plugin System](guides/plugins.md) — Using and creating plugins
+
+## Platform Requirements
+
+| Platform | Minimum Version | Backend |
+|----------|-----------------|---------|
+| Android  | API 21 (5.0)    | CameraX |
+| iOS      | 13.0            | AVFoundation |
+| Desktop  | JDK 11+         | JavaCV |
 
 ## Support
 
-- 📖 [Documentation](https://github.com/kashif-e/CameraK/tree/main/docs)
-- 🐛 [Report Issues](https://github.com/kashif-e/CameraK/issues)
-- 💬 [Discussions](https://github.com/kashif-e/CameraK/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Kashif-E/CameraK/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Kashif-E/CameraK/discussions)
+- **Examples**: [Sample Projects](https://github.com/Kashif-E/CameraK/tree/main/Sample)
 
----
+## License
 
-**Built with ❤️ for mobile and desktop developers**
+Apache 2.0 — [View License](license.md)

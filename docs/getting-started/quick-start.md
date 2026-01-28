@@ -1,181 +1,293 @@
 # Quick Start
 
-Get up and running with CameraK in 5 minutes.
+Build your first camera app in 5 minutes.
 
-## Basic Setup
-
-### 1. Initialize CameraController
+## Basic Camera Screen
 
 ```kotlin
-import dev.kashif.camerak.CameraController
-import dev.kashif.camerak.state.rememberCameraKState
-
 @Composable
 fun CameraScreen() {
-    // Initialize camera state
-    val cameraState = rememberCameraKState()
+    val permissions = providePermissions()
+    val scope = rememberCoroutineScope()
+    val stateHolder = rememberCameraKState(permissions = permissions)
+    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
     
-    // Create camera controller
-    val controller = CameraController.Builder()
-        .setCameraSelector(CameraSelector.BACK)
-        .setVideoResolution(1920, 1080)
-        .build()
-    
-    LaunchedEffect(Unit) {
-        controller.startPreview()
-    }
-}
-```
-
-### 2. Display Camera Preview
-
-```kotlin
-@Composable
-fun CameraPreview(controller: CameraController) {
-    CameraPreviewComposable(
-        controller = controller,
-        modifier = Modifier
-            .fillMaxSize()
-            .clip(RoundedCornerShape(16.dp))
-    )
-}
-```
-
-### 3. Capture Photo
-
-```kotlin
-@Composable
-fun CaptureButton(controller: CameraController) {
-    Button(
-        onClick = {
-            viewModelScope.launch {
-                try {
-                    val photo = controller.capturePhoto()
-                    // Handle captured photo
-                    println("Photo saved: ${photo.uri}")
-                } catch (e: Exception) {
-                    println("Capture failed: ${e.message}")
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (cameraState) {
+            is CameraKState.Ready -> {
+                val controller = (cameraState as CameraKState.Ready).controller
+                
+                // Camera preview
+                CameraPreviewComposable(
+                    controller = controller,
+                    modifier = Modifier.fillMaxSize()
+                )
+                
+                // Capture button
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            when (val result = controller.takePictureToFile()) {
+                                is ImageCaptureResult.SuccessWithFile -> {
+                                    println("Photo saved to: ${result.filePath}")
+                                }
+                                is ImageCaptureResult.Error -> {
+                                    println("Capture failed: ${result.exception.message}")
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp)
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = "Capture")
                 }
             }
+            
+            is CameraKState.Error -> {
+                Text(
+                    text = "Camera Error: ${(cameraState as CameraKState.Error).exception.message}",
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+            
+            CameraKState.Initializing -> {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            }
         }
-    ) {
-        Text("Capture Photo")
     }
 }
 ```
 
-## Complete Example
+**That's it!** You now have a working camera app.
+
+## What's Happening?
+
+### 1. Permission Handling
+
+```kotlin
+val permissions = providePermissions()
+```
+
+Provides platform-specific permission controller. Automatically requests camera permissions on first use.
+
+### 2. Camera State Management
+
+```kotlin
+val stateHolder = rememberCameraKState(permissions = permissions)
+val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+```
+
+Creates a state holder that manages camera lifecycle. State flows through:
+- `Initializing` → Camera starting
+- `Ready` → Camera operational
+- `Error` → Something went wrong
+
+### 3. Camera Preview
+
+```kotlin
+CameraPreviewComposable(
+    controller = controller,
+    modifier = Modifier.fillMaxSize()
+)
+```
+
+Displays live camera feed. Only available when state is `Ready`.
+
+### 4. Capture Photos
+
+```kotlin
+when (val result = controller.takePictureToFile()) {
+    is ImageCaptureResult.SuccessWithFile -> {
+        // result.filePath contains the saved image path
+    }
+    is ImageCaptureResult.Error -> {
+        // result.exception contains the error
+    }
+}
+```
+
+Captures and saves photo directly to file. Returns sealed class with type-safe results.
+
+## Add Flash Control
 
 ```kotlin
 @Composable
-fun SimpleCameraApp() {
-    val cameraState = rememberCameraKState()
-    var capturedImage by remember { mutableStateOf<Uri?>(null) }
+fun CameraScreenWithFlash() {
+    val permissions = providePermissions()
+    val scope = rememberCoroutineScope()
+    val stateHolder = rememberCameraKState(permissions = permissions)
+    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
     
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Camera Preview
-        CameraPreviewComposable(
-            controller = cameraState.controller,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        )
-        
-        // Capture Button
-        Button(
-            onClick = {
-                viewModelScope.launch {
-                    capturedImage = cameraState.controller.capturePhoto().uri
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (cameraState) {
+            is CameraKState.Ready -> {
+                val controller = (cameraState as CameraKState.Ready).controller
+                
+                CameraPreviewComposable(
+                    controller = controller,
+                    modifier = Modifier.fillMaxSize()
+                )
+                
+                // Flash toggle button
+                IconButton(
+                    onClick = { controller.toggleFlashMode() },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp)
+                ) {
+                    Icon(
+                        imageVector = when (controller.getFlashMode()) {
+                            FlashMode.ON -> Icons.Default.FlashOn
+                            FlashMode.OFF -> Icons.Default.FlashOff
+                            FlashMode.AUTO -> Icons.Default.FlashAuto
+                            else -> Icons.Default.FlashOff
+                        },
+                        contentDescription = "Flash"
+                    )
                 }
-            },
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .padding(16.dp)
-        ) {
-            Text("📸 Capture")
+                
+                // Capture button
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            controller.takePictureToFile()
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp)
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = "Capture")
+                }
+            }
+            
+            is CameraKState.Error -> {
+                Text("Error: ${(cameraState as CameraKState.Error).exception.message}")
+            }
+            
+            CameraKState.Initializing -> {
+                CircularProgressIndicator()
+            }
         }
     }
 }
 ```
 
-## Platform-Specific Notes
+**New**: `toggleFlashMode()` cycles through OFF → ON → AUTO.
 
-### Android
-- Requires `android.permission.CAMERA` permission
-- Runtime permission check automatically handled
-- Compatible with CameraX 1.3+
-
-### iOS
-- Requires `NSCameraUsageDescription` in Info.plist
-- Uses AVFoundation framework
-- Supports iOS 14+
-
-### Desktop
-- Works on Windows, macOS, Linux
-- Requires webcam/USB camera
-- Uses JavaCV backend
-
-## Common Tasks
-
-### Request Permissions
+## Add Camera Switching
 
 ```kotlin
-// Android (handled automatically with Compose permissions library)
-LaunchedEffect(Unit) {
-    requestPermission(android.Manifest.permission.CAMERA)
+@Composable
+fun CameraScreenWithSwitching() {
+    val permissions = providePermissions()
+    val scope = rememberCoroutineScope()
+    val stateHolder = rememberCameraKState(permissions = permissions)
+    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (cameraState) {
+            is CameraKState.Ready -> {
+                val controller = (cameraState as CameraKState.Ready).controller
+                
+                CameraPreviewComposable(
+                    controller = controller,
+                    modifier = Modifier.fillMaxSize()
+                )
+                
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Flash toggle
+                    IconButton(onClick = { controller.toggleFlashMode() }) {
+                        Icon(Icons.Default.FlashOn, contentDescription = "Flash")
+                    }
+                    
+                    // Camera switch
+                    IconButton(onClick = { controller.toggleCameraLens() }) {
+                        Icon(Icons.Default.Cameraswitch, contentDescription = "Switch Camera")
+                    }
+                }
+                
+                // Capture button
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            controller.takePictureToFile()
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp)
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = "Capture")
+                }
+            }
+            
+            is CameraKState.Error -> {
+                Text("Error: ${(cameraState as CameraKState.Error).exception.message}")
+            }
+            
+            CameraKState.Initializing -> {
+                CircularProgressIndicator()
+            }
+        }
+    }
 }
 ```
 
-### Switch Between Cameras
+**New**: `toggleCameraLens()` switches between front and back cameras.
+
+## Configuration Options
+
+Customize camera behavior during initialization:
 
 ```kotlin
-// Switch to front camera
-controller.setCameraSelector(CameraSelector.FRONT)
-
-// Switch to back camera
-controller.setCameraSelector(CameraSelector.BACK)
+val stateHolder = rememberCameraKState(
+    permissions = permissions,
+    cameraConfiguration = {
+        setCameraLens(CameraLens.FRONT)           // Start with front camera
+        setFlashMode(FlashMode.OFF)               // Flash off by default
+        setAspectRatio(AspectRatio.RATIO_16_9)    // 16:9 widescreen
+        setImageFormat(ImageFormat.JPEG)          // JPEG compression
+        setDirectory(Directory.PICTURES)          // Save to Pictures folder
+    }
+)
 ```
 
-### Record Video
+See [Configuration Guide](configuration.md) for all options.
+
+## Add Plugins
+
+Enable QR scanning or OCR:
 
 ```kotlin
-// Start recording
-controller.startVideoRecording()
+val stateHolder = rememberCameraKState(
+    permissions = permissions,
+    plugins = listOf(
+        rememberQRScannerPlugin(),
+        rememberOcrPlugin()
+    )
+)
 
-// Stop recording
-val videoFile = controller.stopVideoRecording()
+// Access scanned QR codes
+val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle(initial = emptyList())
+
+// Access recognized text
+val recognizedText by stateHolder.recognizedTextFlow.collectAsStateWithLifecycle(initial = "")
 ```
 
-### Adjust Camera Settings
-
-```kotlin
-controller.apply {
-    setExposure(compensationValue = 0.5f)
-    setZoom(zoomRatio = 2.0f)
-    setFlash(CameraFlash.AUTO)
-}
-```
+See [Plugins Guide](../guides/plugins.md) for details.
 
 ## Next Steps
 
-- [Configuration Guide](configuration.md)
-- [Core Concepts](../guide/core-concepts.md)
-- [API Reference](../api/camera-controller.md)
-- [Examples](../examples/android.md)
-
-## Troubleshooting
-
-**Camera not initializing?**
-- Check permission declarations
-- Ensure camera device is available
-- See [Troubleshooting Guide](../troubleshooting.md)
-
-**Preview not showing?**
-- Verify `CameraPreviewComposable` is properly sized
-- Check camera permissions are granted
-- Enable debug logging in configuration
-
-**Capture not working?**
-- Ensure storage permissions are granted
-- Check disk space availability
-- Verify camera controller is initialized
+- [Configuration](configuration.md) — Customize camera settings
+- [Camera Capture Guide](../guides/camera-capture.md) — Advanced capture techniques
+- [Flash and Torch](../guides/flash-and-torch.md) — Lighting control
+- [Zoom Control](../guides/zoom-control.md) — Pinch-to-zoom
+- [Plugins](../guides/plugins.md) — Extend functionality

@@ -1,161 +1,436 @@
 # Troubleshooting
 
-## Camera Not Initializing
+Common issues and solutions for CameraK.
 
-### Issue: `CameraNotAvailableException`
+## Installation Issues
 
-**Cause:** No camera device available
+### "Could not find io.github.kashif-mehmood-km:camerak"
 
-**Solutions:**
-- Check device has camera hardware
-- Ensure no other app has exclusive camera access
-- Restart app
-- Restart device
+**Cause:** Repository not configured.
 
-### Issue: `PermissionDeniedException`
+**Solution:** Ensure Maven Central is in repositories:
 
-**Cause:** Camera permission not granted
-
-**Solutions:**
-- Check permission declarations in manifest
-- Request permission at runtime
-- Check app permissions in Settings
-
-## Preview Not Showing
-
-### Issue: Black screen with no preview
-
-**Cause:** Various factors
-
-**Debug Steps:**
 ```kotlin
+repositories {
+    mavenCentral()
+}
+```
+
+### Gradle Sync Failed
+
+**Cause:** Version conflict or network issue.
+
+**Solution:**
+1. Check internet connection
+2. Invalidate caches: `File` → `Invalidate Caches / Restart`
+3. Clean build: `./gradlew clean build`
+
+## Permission Issues
+
+### "Camera permission denied" (Android)
+
+**Cause:** User denied camera permission.
+
+**Solution:** Request permission in manifest and code:
+
+```xml
+<uses-permission android:name="android.permission.CAMERA" />
+```
+
+```kotlin
+val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
 LaunchedEffect(Unit) {
-    try {
-        controller.startPreview()
-        Log.d("Camera", "Preview started successfully")
-    } catch (e: Exception) {
-        Log.e("Camera", "Preview failed: ${e.message}", e)
+    if (!cameraPermission.status.isGranted) {
+        cameraPermission.launchPermissionRequest()
     }
 }
 ```
 
-**Solutions:**
-- Verify `CameraPreviewComposable` has proper size constraints
-- Check camera permissions
-- Ensure camera device is not in use by other app
-- Try switching between front/back camera
+### "Camera access requires NSCameraUsageDescription" (iOS)
 
-## Photo Capture Fails
+**Cause:** Missing usage description in Info.plist.
 
-### Issue: `StorageException`
+**Solution:** Add to Info.plist:
 
-**Cause:** Insufficient storage or permission
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Camera access required for taking photos</string>
+```
 
-**Solutions:**
-- Check available storage space
-- Grant write permission
-- Clean up old captures
-- Use external storage explicitly
+## Camera Not Working
 
-### Issue: `CameraTimeoutException`
+### "Camera not available"
 
-**Cause:** Capture took too long
+**Cause:** Device has no camera or emulator misconfigured.
 
-**Solutions:**
-- Reduce photo resolution
-- Check device performance
-- Disable heavy effects
-- Retry operation
+**Solution:**
+- **Physical device**: Ensure camera hardware exists
+- **Emulator**: Configure camera in AVD settings
+- **Desktop**: Connect webcam
 
-## Video Recording Issues
+### Camera Preview Black Screen
 
-### Issue: Audio not recorded
+**Cause:** Camera not initialized or permission denied.
 
-**Cause:** Missing microphone permission
+**Solution:**
+1. Check camera state is `Ready`
+2. Verify permissions granted
+3. Restart app
 
-**Solutions:**
-- Add `RECORD_AUDIO` to manifest
-- Request microphone permission
-- Check system audio settings
-
-### Issue: Video file corrupted
-
-**Cause:** Recording interrupted
-
-**Solutions:**
-- Always call `stopVideoRecording()` when done
-- Check available storage
-- Use proper exception handling
-
-## Performance Issues
-
-### Issue: App freezes during capture
-
-**Solutions:**
-- Use coroutines: `viewModelScope.launch { capture() }`
-- Reduce photo resolution
-- Run on background thread
-- Profile with Android Studio Profiler
-
-### Issue: High memory usage
-
-**Solutions:**
-- Release photos after processing
-- Process in chunks for burst capture
-- Reduce resolution
-- Call `System.gc()` between captures
-
-## Platform-Specific Issues
-
-### Android: Camera crashes on cold start
-
-**Solution:** Add permission check:
 ```kotlin
-if (ContextCompat.checkSelfPermission(
-    context, 
-    Manifest.permission.CAMERA
-) == PackageManager.PERMISSION_GRANTED) {
-    startPreview()
+when (cameraState) {
+    is CameraKState.Ready -> {
+        // Camera operational
+    }
+    is CameraKState.Error -> {
+        println("Error: ${(cameraState as CameraKState.Error).exception.message}")
+    }
 }
 ```
 
-### iOS: Info.plist keys missing
+### Preview Frozen
 
-**Solution:** Verify in Info.plist:
-```xml
-<key>NSCameraUsageDescription</key>
-<string>Description</string>
+**Cause:** Camera session stopped.
+
+**Solution:** Restart camera session:
+
+```kotlin
+DisposableEffect(Unit) {
+    controller.startSession()
+    onDispose {
+        controller.stopSession()
+    }
+}
 ```
 
-### Desktop: Webcam not detected
+## Capture Issues
 
-**Solution:** Check webcam is not in use by other app:
+### "Capture failed: Camera not initialized"
+
+**Cause:** Attempting capture before camera ready.
+
+**Solution:** Only capture when state is `Ready`:
+
+```kotlin
+when (cameraState) {
+    is CameraKState.Ready -> {
+        val controller = (cameraState as CameraKState.Ready).controller
+        Button(onClick = {
+            scope.launch {
+                controller.takePictureToFile()
+            }
+        }) {
+            Text("Capture")
+        }
+    }
+}
+```
+
+### "Storage permission denied" (Android < 10)
+
+**Cause:** Missing WRITE_EXTERNAL_STORAGE permission.
+
+**Solution:** Add to manifest:
+
+```xml
+<uses-permission 
+    android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    android:maxSdkVersion="28" />
+```
+
+### Images Not Saving
+
+**Cause:** Invalid directory or storage full.
+
+**Solution:**
+1. Check storage space
+2. Use valid directory:
+
+```kotlin
+cameraConfiguration = {
+    setDirectory(Directory.PICTURES)  // or DCIM, DOWNLOADS, etc.
+}
+```
+
+### Poor Image Quality
+
+**Cause:** Low quality prioritization or resolution.
+
+**Solution:** Configure for quality:
+
+```kotlin
+cameraConfiguration = {
+    setQualityPrioritization(QualityPrioritization.QUALITY)
+    setResolution(3840 to 2160)  // 4K
+    setImageFormat(ImageFormat.PNG)  // Lossless
+}
+```
+
+## Flash/Torch Issues
+
+### Flash Not Working
+
+**Cause:** Front camera selected (no flash) or device doesn't support flash.
+
+**Solution:** Switch to rear camera:
+
+```kotlin
+controller.setCameraLens(CameraLens.BACK)
+controller.setFlashMode(FlashMode.ON)
+```
+
+### Torch Stays On After Closing App
+
+**Cause:** Torch not disabled in cleanup.
+
+**Solution:** Disable in cleanup:
+
+```kotlin
+DisposableEffect(Unit) {
+    onDispose {
+        controller.setTorchMode(TorchMode.OFF)
+        controller.cleanup()
+    }
+}
+```
+
+## Zoom Issues
+
+### Zoom Not Working
+
+**Cause:** Camera doesn't support zoom or at max zoom.
+
+**Solution:** Check zoom support:
+
+```kotlin
+val maxZoom = controller.getMaxZoom()
+if (maxZoom > 1.0f) {
+    controller.setZoom(2.0f)
+} else {
+    println("Zoom not supported")
+}
+```
+
+### Zoom Resets When Switching Cameras
+
+**Cause:** Each camera has independent zoom settings.
+
+**Solution:** Re-apply zoom after switch:
+
+```kotlin
+val savedZoom = controller.getZoom()
+controller.toggleCameraLens()
+delay(200)
+controller.setZoom(savedZoom.coerceIn(1f, controller.getMaxZoom()))
+```
+
+## Performance Issues
+
+### Slow Capture
+
+**Cause:** Using deprecated `takePicture()` instead of `takePictureToFile()`.
+
+**Solution:** Use recommended method:
+
+```kotlin
+// ❌ Slow (deprecated)
+val result = controller.takePicture()
+
+// ✅ Fast (recommended)
+val result = controller.takePictureToFile()
+```
+
+### App Crashes on Capture
+
+**Cause:** Out of memory or too many concurrent captures.
+
+**Solution:**
+1. Limit burst captures to 3-5 photos
+2. Use lower resolution
+3. Use `takePictureToFile()` instead of `takePicture()`
+
+```kotlin
+cameraConfiguration = {
+    setResolution(1920 to 1080)  // Lower resolution
+}
+```
+
+### High Memory Usage
+
+**Cause:** Multiple plugins or high-resolution processing.
+
+**Solution:**
+1. Reduce plugin count
+2. Lower resolution
+3. Use `ImageFormat.JPEG` instead of PNG
+
+## Plugin Issues
+
+### QR Scanner Not Detecting Codes
+
+**Cause:** Poor lighting or QR code quality.
+
+**Solution:**
+1. Enable torch for better lighting
+2. Ensure QR code is clear and unobstructed
+3. Move camera closer to QR code
+
+### OCR Not Recognizing Text
+
+**Cause:** Text too small, blurry, or language not supported.
+
+**Solution:**
+1. Move camera closer
+2. Ensure good lighting
+3. Hold camera steady (avoid motion blur)
+
+### Plugin Not Activating
+
+**Cause:** Plugin added after camera already ready.
+
+**Solution:** Add plugins during initialization:
+
+```kotlin
+val stateHolder = rememberCameraKState(
+    permissions = permissions,
+    plugins = listOf(
+        rememberQRScannerPlugin(),
+        rememberOcrPlugin()
+    )
+)
+```
+
+## Platform-Specific Issues
+
+### Android
+
+**Issue:** "CameraX binding failed"
+
+**Solution:** Ensure minSdk is 21+:
+
+```kotlin
+android {
+    defaultConfig {
+        minSdk = 21
+    }
+}
+```
+
+**Issue:** "No suitable camera found"
+
+**Solution:** Check device has both front and back cameras, or handle gracefully:
+
+```kotlin
+val lens = controller.getCameraLens()
+if (lens == null) {
+    println("Camera not available")
+}
+```
+
+### iOS
+
+**Issue:** "Camera preview upside down"
+
+**Solution:** Device orientation handling. CameraK handles this automatically - report if issue persists.
+
+**Issue:** "Camera types not available (TELEPHOTO, ULTRA_WIDE)"
+
+**Solution:** These features require specific iPhone models:
+- Ultra-wide: iPhone 11+
+- Telephoto: iPhone 7 Plus+
+
+Check availability:
+
+```kotlin
+cameraConfiguration = {
+    setCameraDeviceType(CameraDeviceType.ULTRA_WIDE)
+}
+// Falls back to DEFAULT if not available
+```
+
+### Desktop
+
+**Issue:** "No webcam detected"
+
+**Solution:** Ensure webcam is:
+1. Connected to computer
+2. Not in use by another application
+3. Drivers installed
+
+**Issue:** Flash/torch not working
+
+**Cause:** Desktop webcams don't have flash hardware.
+
+**Solution:** Use external lighting.
+
+## Build Issues
+
+### "Duplicate class" Error
+
+**Cause:** Conflicting dependencies.
+
+**Solution:** Check for duplicate libraries:
+
 ```bash
-# macOS
-lsof | grep -i camera
+./gradlew :app:dependencies
+```
 
-# Windows (PowerShell)
-Get-Process | Where-Object {$_.Modules -like "*camera*"}
+Remove conflicting CameraX or Kotlin versions.
+
+### iOS Build Fails
+
+**Cause:** Cocoapods not configured.
+
+**Solution:** Run in iOS project:
+
+```bash
+cd iosApp
+pod install
 ```
 
 ## Getting Help
 
-1. **Check Logs**
-   ```bash
-   adb logcat | grep -i camera
-   ```
+If you're still stuck:
 
-2. **Enable Debug Mode**
-   ```kotlin
-   CameraController.Builder()
-       .enableDebugLogging(true)
-       .build()
-   ```
+1. **Check Examples**: [Sample Projects](https://github.com/Kashif-E/CameraK/tree/main/Sample)
+2. **Search Issues**: [GitHub Issues](https://github.com/Kashif-E/CameraK/issues)
+3. **Ask Questions**: [GitHub Discussions](https://github.com/Kashif-E/CameraK/discussions)
+4. **Report Bugs**: [New Issue](https://github.com/Kashif-E/CameraK/issues/new)
 
-3. **Report Issues**
-   - GitHub: https://github.com/kashif-e/CameraK/issues
-   - Include device model, OS version, error stack trace
-   - Minimal reproduction code
+### When Reporting Issues
 
-4. **Community**
-   - Discussions: https://github.com/kashif-e/CameraK/discussions
+Include:
+- CameraK version
+- Platform (Android/iOS/Desktop)
+- Device/emulator details
+- Minimal reproducible code
+- Stack trace/error messages
+- Expected vs actual behavior
+
+**Good issue:**
+```
+CameraK 0.2.0
+Android 13 (Pixel 6)
+
+Preview shows black screen when using:
+```kotlin
+val stateHolder = rememberCameraKState(...)
+```
+
+Error: "Camera not available"
+
+Expected: Camera preview displays
+```
+
+## Known Limitations
+
+1. **Desktop**: Limited flash/torch support (hardware limitation)
+2. **iOS Simulator**: Camera not available (use real device)
+3. **Android Emulator**: Limited camera features (use real device for testing)
+4. **Burst Capture**: Max 3 concurrent captures (prevents memory issues)
+
+## Next Steps
+
+- [Quick Start](getting-started/quick-start.md) — Get started quickly
+- [Configuration](getting-started/configuration.md) — Customize behavior
+- [API Reference](api/state-holder.md) — Full API documentation

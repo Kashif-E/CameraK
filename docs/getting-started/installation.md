@@ -1,119 +1,175 @@
 # Installation
 
+Add CameraK to your Kotlin Multiplatform project in under 5 minutes.
+
 ## Prerequisites
 
-- Kotlin 1.9+
-- Gradle 8.0+
-- Android 8.0+ (for Android platform)
-- iOS 14+ (for iOS platform)
-- Java 11+ (for Desktop platform)
+- Kotlin 1.9.0 or higher
+- Gradle 8.0 or higher
+- Target platforms:
+    - **Android**: API 21+ (Android 5.0)
+    - **iOS**: iOS 13.0+
+    - **Desktop**: JDK 11+
 
-## Adding CameraK to Your Project
+## Step 1: Add Dependencies
 
-### Step 1: Add Repository
+### Using Gradle (Kotlin DSL)
 
-Add the CameraK repository to your `build.gradle.kts`:
+Add to your `build.gradle.kts`:
 
 ```kotlin
-repositories {
-    mavenCentral()
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation("io.github.kashif-mehmood-km:camerak:0.2.0")
+        }
+    }
 }
 ```
 
-### Step 2: Add Dependency
+### Using Version Catalog
 
-Add CameraK to your module's `build.gradle.kts`:
+Add to `gradle/libs.versions.toml`:
 
-=== "Multiplatform"
-    ```kotlin
-    kotlin {
-        sourceSets {
-            commonMain.dependencies {
-                implementation("dev.kashif:cameraK:0.2.0")
-            }
+```toml
+[versions]
+camerak = "0.2.0"
+
+[libraries]
+camerak = { module = "io.github.kashif-mehmood-km:camerak", version.ref = "camerak" }
+```
+
+Then in `build.gradle.kts`:
+
+```kotlin
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.camerak)
         }
     }
-    ```
+}
+```
 
-=== "Android Only"
-    ```kotlin
-    dependencies {
-        implementation("dev.kashif:cameraK:0.2.0")
-    }
-    ```
+### Android-Only Project
 
-=== "iOS Only"
-    ```kotlin
-    kotlin {
-        iosMain.dependencies {
-            implementation("dev.kashif:cameraK:0.2.0")
-        }
-    }
-    ```
+```kotlin
+dependencies {
+    implementation("io.github.kashif-mehmood-km:camerak:0.2.0")
+}
+```
 
-## Platform Configuration
+## Step 2: Platform-Specific Setup
 
 ### Android
 
-Add the following to your `AndroidManifest.xml`:
+Add permissions to `AndroidManifest.xml`:
 
 ```xml
-<uses-permission android:name="android.permission.CAMERA" />
-<uses-permission android:name="android.permission.RECORD_AUDIO" />
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+<manifest>
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+</manifest>
 ```
+
+No additional configuration needed — CameraX is included automatically.
 
 ### iOS
 
-Add to your `Info.plist`:
+Add usage descriptions to `Info.plist`:
 
 ```xml
 <key>NSCameraUsageDescription</key>
-<string>We need camera access to capture photos and videos</string>
-<key>NSMicrophoneUsageDescription</key>
-<string>We need microphone access for video recording</string>
-<key>NSPhotoLibraryUsageDescription</key>
-<string>We need access to your photo library</string>
+<string>This app needs camera access to capture photos</string>
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>This app needs to save photos to your library</string>
 ```
 
-### Desktop
+### Desktop (JVM)
 
-No additional configuration required. CameraK uses JavaCV for desktop support.
+No additional setup required. JavaCV dependencies are included automatically.
 
-## Verification
+## Step 3: Sync Project
 
-To verify the installation, create a simple test:
+Run Gradle sync:
+
+```bash
+./gradlew build
+```
+
+## Optional: Add Plugins
+
+### QR Scanner Plugin
 
 ```kotlin
-fun main() {
-    try {
-        val controller = CameraController.Builder()
-            .build()
-        println("✅ CameraK initialized successfully!")
-    } catch (e: Exception) {
-        println("❌ Failed to initialize: ${e.message}")
+dependencies {
+    implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.2.0")
+}
+```
+
+### OCR Plugin
+
+```kotlin
+dependencies {
+    implementation("io.github.kashif-mehmood-km:ocr_plugin:0.2.0")
+}
+```
+
+### Image Saver Plugin
+
+```kotlin
+dependencies {
+    implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.2.0")
+}
+```
+
+## Verify Installation
+
+Create a simple test to verify:
+
+```kotlin
+@Composable
+fun TestCameraScreen() {
+    val permissions = providePermissions()
+    val stateHolder = rememberCameraKState(permissions = permissions)
+    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    
+    when (cameraState) {
+        is CameraKState.Ready -> Text("✅ CameraK is ready!")
+        is CameraKState.Error -> Text("❌ Error: ${cameraState.exception.message}")
+        CameraKState.Initializing -> CircularProgressIndicator()
     }
 }
 ```
 
+If you see "CameraK is ready!" — you're all set!
+
 ## Troubleshooting
 
-### Dependencies Not Found
-- Clear Gradle cache: `rm -rf ~/.gradle/caches`
-- Run: `./gradlew clean build`
+### Android: "CameraX not found"
 
-### Build Fails on iOS
-- Ensure CocoaPods is updated: `pod repo update`
-- Clean Xcode build: `xcodebuild clean -scheme CameraK`
+Ensure you're using API 21+:
 
-### Runtime Issues
-- Check [Troubleshooting Guide](../troubleshooting.md)
-- Review platform-specific setup
-- Enable debug logging in configuration
+```kotlin
+android {
+    defaultConfig {
+        minSdk = 21
+    }
+}
+```
+
+### iOS: "Camera permission denied"
+
+Check your `Info.plist` has `NSCameraUsageDescription`.
+
+### Desktop: "No camera detected"
+
+Ensure a webcam is connected and accessible by your OS.
 
 ## Next Steps
 
-- [Quick Start Guide](quick-start.md)
-- [Configuration](configuration.md)
-- [Examples](../examples/android.md)
+- [Quick Start Guide](quick-start.md) — Build your first camera app
+- [Configuration](configuration.md) — Customize camera behavior
+- [Platform-Specific Guides](../examples/android.md) — Deep dives per platform

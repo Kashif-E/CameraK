@@ -1,86 +1,329 @@
-# Android Examples
+# Android Setup
 
-## Basic Camera App
+Setup CameraK for Android applications.
+
+## Requirements
+
+- **Minimum SDK**: API 21 (Android 5.0 Lollipop)
+- **Target SDK**: API 34+ recommended
+- **Kotlin**: 1.9.0+
+- **Gradle**: 8.0+
+- **Compose**: 1.5.0+
+
+## Step 1: Add Dependency
+
+### build.gradle.kts (Module-level)
+
+```kotlin
+dependencies {
+    implementation("io.github.kashif-mehmood-km:camerak:0.2.0")
+}
+```
+
+### Version Catalog
+
+`gradle/libs.versions.toml`:
+
+```toml
+[versions]
+camerak = "0.2.0"
+
+[libraries]
+camerak = { module = "io.github.kashif-mehmood-km:camerak", version.ref = "camerak" }
+```
+
+`build.gradle.kts`:
+
+```kotlin
+dependencies {
+    implementation(libs.camerak)
+}
+```
+
+## Step 2: Permissions
+
+### AndroidManifest.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Camera feature -->
+    <uses-feature 
+        android:name="android.hardware.camera" 
+        android:required="true" />
+    
+    <!-- Camera permission -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- Storage permission (Android 9 and below) -->
+    <uses-permission 
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    
+    <application
+        android:name=".MyApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.App">
+        
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        
+    </application>
+</manifest>
+```
+
+## Step 3: Request Permissions
+
+### Using Accompanist Permissions
+
+Add dependency:
+
+```kotlin
+dependencies {
+    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+}
+```
+
+Request permissions in Compose:
+
+```kotlin
+@Composable
+fun CameraScreenWithPermissions() {
+    val cameraPermissionState = rememberPermissionState(
+        android.Manifest.permission.CAMERA
+    )
+    
+    LaunchedEffect(Unit) {
+        if (!cameraPermissionState.status.isGranted) {
+            cameraPermissionState.launchPermissionRequest()
+        }
+    }
+    
+    when {
+        cameraPermissionState.status.isGranted -> {
+            CameraScreen()  // Your camera UI
+        }
+        cameraPermissionState.status.shouldShowRationale -> {
+            PermissionRationaleDialog(
+                onRequestPermission = { cameraPermissionState.launchPermissionRequest() }
+            )
+        }
+        else -> {
+            PermissionDeniedScreen()
+        }
+    }
+}
+```
+
+### Using CameraK's Built-in Permission Provider
+
+```kotlin
+@Composable
+fun CameraScreen() {
+    val permissions = providePermissions()
+    val stateHolder = rememberCameraKState(permissions = permissions)
+    
+    // Camera automatically requests permissions
+    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    
+    when (cameraState) {
+        is CameraKState.Ready -> {
+            // Camera ready - permissions granted
+            CameraPreviewComposable(...)
+        }
+        is CameraKState.Error -> {
+            // Check if error is permission-related
+            Text("Camera error: ${(cameraState as CameraKState.Error).exception.message}")
+        }
+        CameraKState.Initializing -> {
+            CircularProgressIndicator()
+        }
+    }
+}
+```
+
+## Step 4: Basic Implementation
 
 ```kotlin
 @Composable
 fun AndroidCameraScreen() {
-    val cameraState = rememberCameraKState()
-    var capturedImage by remember { mutableStateOf<Uri?>(null) }
-    
-    Column(Modifier.fillMaxSize()) {
-        CameraPreviewComposable(
-            controller = cameraState.controller,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        )
-        
-        Button(
-            onClick = {
-                viewModelScope.launch {
-                    capturedImage = cameraState.controller.capturePhoto().uri
-                }
-            },
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        ) {
-            Text("Capture")
+    val permissions = providePermissions()
+    val scope = rememberCoroutineScope()
+    val stateHolder = rememberCameraKState(
+        permissions = permissions,
+        cameraConfiguration = {
+            setCameraLens(CameraLens.BACK)
+            setFlashMode(FlashMode.AUTO)
+            setAspectRatio(AspectRatio.RATIO_16_9)
+            setImageFormat(ImageFormat.JPEG)
+            setDirectory(Directory.PICTURES)
         }
-    }
-}
-```
-
-## With Permissions
-
-```kotlin
-@Composable
-fun CameraWithPermissions() {
-    val permissionState = rememberPermissionState(
-        android.Manifest.permission.CAMERA
     )
     
-    when {
-        permissionState.status.isGranted -> {
-            AndroidCameraScreen()
-        }
-        else -> {
-            LaunchedEffect(Unit) {
-                permissionState.launchPermissionRequest()
-            }
-        }
-    }
-}
-```
-
-## Video Recording
-
-```kotlin
-@Composable
-fun VideoRecorderScreen() {
-    val cameraState = rememberCameraKState()
-    var isRecording by remember { mutableStateOf(false) }
+    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
     
-    Column(Modifier.fillMaxSize()) {
-        CameraPreviewComposable(
-            controller = cameraState.controller,
-            modifier = Modifier.weight(1f)
-        )
-        
-        Button(
-            onClick = {
-                if (!isRecording) {
-                    cameraState.controller.startVideoRecording()
-                    isRecording = true
-                } else {
-                    viewModelScope.launch {
-                        cameraState.controller.stopVideoRecording()
-                        isRecording = false
-                    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (cameraState) {
+            is CameraKState.Ready -> {
+                val controller = (cameraState as CameraKState.Ready).controller
+                
+                // Camera preview
+                CameraPreviewComposable(
+                    controller = controller,
+                    modifier = Modifier.fillMaxSize()
+                )
+                
+                // Capture button
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            when (val result = controller.takePictureToFile()) {
+                                is ImageCaptureResult.SuccessWithFile -> {
+                                    Toast.makeText(
+                                        context,
+                                        "Photo saved: ${result.filePath}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                                is ImageCaptureResult.Error -> {
+                                    Toast.makeText(
+                                        context,
+                                        "Error: ${result.exception.message}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(32.dp)
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = "Capture")
                 }
             }
-        ) {
-            Text(if (isRecording) "Stop Recording" else "Start Recording")
+            
+            is CameraKState.Error -> {
+                Text(
+                    text = "Camera Error: ${(cameraState as CameraKState.Error).exception.message}",
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+            
+            CameraKState.Initializing -> {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            }
         }
     }
 }
 ```
+
+## Step 5: ProGuard Rules
+
+If using ProGuard/R8, add rules:
+
+### proguard-rules.pro
+
+```proguard
+# CameraK
+-keep class com.kashif.cameraK.** { *; }
+-keepclassmembers class com.kashif.cameraK.** { *; }
+
+# CameraX
+-keep class androidx.camera.** { *; }
+-keepclassmembers class androidx.camera.** { *; }
+```
+
+## File Storage Paths
+
+On Android, photos are saved to:
+
+- `Directory.PICTURES` → `/storage/emulated/0/Pictures/`
+- `Directory.DCIM` → `/storage/emulated/0/DCIM/`
+- `Directory.DOWNLOADS` → `/storage/emulated/0/Download/`
+- `Directory.DOCUMENTS` → `/data/data/your.package/files/Documents/`
+- `Directory.CACHE` → `/data/data/your.package/cache/`
+
+## Testing
+
+### Emulator Setup
+
+1. Create AVD with camera support
+2. Enable camera in AVD settings:
+   - **Front camera**: Webcam or Emulated
+   - **Back camera**: VirtualScene or Emulated
+
+### Physical Device
+
+Test on real device for:
+- Flash/torch functionality
+- Camera switching
+- High-resolution capture
+- Performance testing
+
+## Common Issues
+
+### "Camera not available"
+
+**Cause:** Emulator doesn't have camera configured.
+
+**Solution:** Use physical device or configure AVD camera.
+
+### "Permission denied"
+
+**Cause:** Camera permission not granted.
+
+**Solution:** Check manifest has `<uses-permission android:name="android.permission.CAMERA" />`.
+
+### "No space left on device"
+
+**Cause:** Storage full.
+
+**Solution:** Clear device storage or use `Directory.CACHE` for temporary files.
+
+### CameraX Initialization Error
+
+**Cause:** CameraX version conflict.
+
+**Solution:** CameraK includes CameraX automatically - don't add manual CameraX dependencies.
+
+## Platform-Specific Features
+
+### Android-Only Features
+
+- **Image Analysis** — Process frames in real-time
+- **CameraX Integration** — Built on Android's CameraX
+- **Scoped Storage** — Android 10+ privacy-safe storage
+
+### Configuration Example
+
+```kotlin
+val stateHolder = rememberCameraKState(
+    permissions = permissions,
+    cameraConfiguration = {
+        // Android supports all features
+        setCameraLens(CameraLens.BACK)
+        setAspectRatio(AspectRatio.RATIO_16_9)
+        setResolution(1920 to 1080)
+        setFlashMode(FlashMode.AUTO)
+        setImageFormat(ImageFormat.JPEG)
+        setDirectory(Directory.PICTURES)
+        setQualityPrioritization(QualityPrioritization.BALANCED)
+    }
+)
+```
+
+## Next Steps
+
+- [Quick Start](../getting-started/quick-start.md) — Build your first camera app
+- [Configuration](../getting-started/configuration.md) — Customize settings
+- [Camera Capture](../guides/camera-capture.md) — Advanced capture techniques
