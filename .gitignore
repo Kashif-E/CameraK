@@ -20,3 +20,6 @@ site/
 
 # MkDocs build output
 site/
+
+# GitHub Copilot Instructions (keep local only)
+.github/copilot-instructions.md
