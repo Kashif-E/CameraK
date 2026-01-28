@@ -7,12 +7,20 @@ Configure CameraK to suit your application's needs.
 CameraK uses the Builder pattern for flexible configuration:
 
 ```kotlin
-val controller = CameraController.Builder()
-    .setCameraSelector(CameraSelector.BACK)
-    .setVideoResolution(1920, 1080)
-    .setPhotoResolution(4000, 3000)
-    .setFlash(CameraFlash.AUTO)
-    .setSceneMode(SceneMode.AUTO)
+// Platform-specific builder creation
+val builder = when (platform) {
+    Platform.Android -> createAndroidCameraControllerBuilder(context, lifecycleOwner)
+    Platform.iOS -> createIOSCameraControllerBuilder()
+    Platform.Desktop -> DesktopCameraControllerBuilder()
+}
+
+val controller = builder
+    .setCameraLens(CameraLens.BACK)
+    .setFlashMode(FlashMode.AUTO)
+    .setImageFormat(ImageFormat.JPEG)
+    .setDirectory(Directory.DCIM)
+    .setAspectRatio(AspectRatio.RATIO_16_9)
+    .setQualityPrioritization(QualityPrioritization.BALANCED)
     .build()
 ```
 
@@ -21,81 +29,86 @@ val controller = CameraController.Builder()
 ### Camera Selection
 
 ```kotlin
-// Select camera
-builder.setCameraSelector(CameraSelector.BACK)  // Back/main camera
-builder.setCameraSelector(CameraSelector.FRONT) // Front/selfie camera
+// Select camera lens
+builder.setCameraLens(CameraLens.BACK)   // Back/main camera
+builder.setCameraLens(CameraLens.FRONT)  // Front/selfie camera
+
+// Preferred camera device type (hardware dependent)
+builder.setPreferredCameraDeviceType(CameraDeviceType.WIDE_ANGLE)
+builder.setPreferredCameraDeviceType(CameraDeviceType.TELEPHOTO)
+builder.setPreferredCameraDeviceType(CameraDeviceType.ULTRA_WIDE)
 ```
 
-### Resolution
+### Resolution & Aspect Ratio
 
 ```kotlin
-// Photo resolution (default: device max)
-builder.setPhotoResolution(width = 3840, height = 2160)
-
-// Video resolution (default: 1920x1080)
-builder.setVideoResolution(width = 1920, height = 1080)
-
-// Aspect ratio (Android)
+// Aspect ratio for preview and capture
 builder.setAspectRatio(AspectRatio.RATIO_16_9)
+builder.setAspectRatio(AspectRatio.RATIO_4_3)
+builder.setAspectRatio(AspectRatio.RATIO_9_16)
+builder.setAspectRatio(AspectRatio.RATIO_1_1)
+
+// Target resolution (platform may use closest supported)
+builder.setResolution(width = 3840, height = 2160)
 ```
 
-### Flash Control
+### Flash Mode
 
 ```kotlin
-builder.setFlash(CameraFlash.ON)      // Always on
-builder.setFlash(CameraFlash.OFF)     // Always off
-builder.setFlash(CameraFlash.AUTO)    // Auto detect
+builder.setFlashMode(FlashMode.ON)    // Always on
+builder.setFlashMode(FlashMode.OFF)   // Always off
+builder.setFlashMode(FlashMode.AUTO)  // Auto detect
 ```
 
-### Focus Mode
+### Torch Mode
 
 ```kotlin
-builder.setFocusMode(FocusMode.AUTO)     // Automatic focus
-builder.setFocusMode(FocusMode.MANUAL)   // Manual focus control
-builder.setFocusMode(FocusMode.CONTINUOUS) // Continuous autofocus
+builder.setTorchMode(TorchMode.ON)    // Continuous light on
+builder.setTorchMode(TorchMode.OFF)   // Light off
+builder.setTorchMode(TorchMode.AUTO)  // Auto (iOS only)
 ```
 
-### Scene Modes
+**Note:** On Android, `TorchMode.AUTO` is not natively supported by CameraX and will be treated as `ON`. iOS supports AUTO mode natively through AVFoundation.
+
+### Image Format & Quality
 
 ```kotlin
-builder.setSceneMode(SceneMode.AUTO)       // Automatic
-builder.setSceneMode(SceneMode.PORTRAIT)   // Portrait mode
-builder.setSceneMode(SceneMode.LANDSCAPE)  // Landscape mode
-builder.setSceneMode(SceneMode.NIGHT)      // Night mode
-builder.setSceneMode(SceneMode.ACTION)     // Action/sports
-builder.setSceneMode(SceneMode.DOCUMENT)   // Document scanning
-```
-
-### Image Format
-
-```kotlin
-// JPEG compression quality (0-100)
-builder.setJpegQuality(quality = 95)
-
 // Output format
 builder.setImageFormat(ImageFormat.JPEG)
 builder.setImageFormat(ImageFormat.PNG)
+
+// Quality prioritization
+builder.setQualityPrioritization(QualityPrioritization.BALANCED)
+builder.setQualityPrioritization(QualityPrioritization.SPEED)
+builder.setQualityPrioritization(QualityPrioritization.QUALITY)
 ```
 
-### Exposure & White Balance
+### Directory & File Output
 
 ```kotlin
-// Exposure compensation (-2.0 to +2.0)
-builder.setExposureCompensation(compensationValue = 0.5f)
+// Save location
+builder.setDirectory(Directory.DCIM)
+builder.setDirectory(Directory.PICTURES)
+builder.setDirectory(Directory.DOCUMENTS)
 
-// White balance mode
-builder.setWhiteBalance(WhiteBalance.AUTO)
-builder.setWhiteBalance(WhiteBalance.DAYLIGHT)
-builder.setWhiteBalance(WhiteBalance.CLOUDY)
-builder.setWhiteBalance(WhiteBalance.TUNGSTEN)
-builder.setWhiteBalance(WhiteBalance.FLUORESCENT)
+// Return type configuration
+builder.setReturnFilePath(true)  // Return file path (faster)
+builder.setReturnFilePath(false) // Return ByteArray (default)
 ```
 
-### Zoom
+### Runtime Control (Not Builder)
+
+Zoom and other runtime controls are accessed through the `CameraController` instance after building:
 
 ```kotlin
-// Set zoom level (1.0 = no zoom)
-builder.setZoom(zoomRatio = 2.0f)
+// Get controller from Ready state
+val controller = (cameraState as CameraKState.Ready).controller
+
+// Zoom control (runtime only)
+controller.setZoom(2.5f)
+val currentZoom = controller.getZoom()
+val maxZoom = controller.getMaxZoom()
+```
 
 // Get available zoom range
 val minZoom = controller.getMinZoomRatio()

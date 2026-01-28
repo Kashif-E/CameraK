@@ -22,6 +22,9 @@ ktlint_function_naming_ignore_when_annotated_with = Composable
 # Filename rules are disabled to maintain project structure
 ktlint_standard_filename = disabled
 
+# Platform interop (e.g., platform.AVFoundation.*) requires wildcard imports for ergonomics
+ktlint_standard_no-wildcard-imports = disabled
+
 [*.{json,yml,yaml}]
 indent_size = 2
 

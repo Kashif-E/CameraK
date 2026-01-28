@@ -1,434 +1,407 @@
 # CameraController
 
-Core API for controlling camera operations.
+Core API for controlling camera operations at runtime.
 
 ## Interface Definition
 
 ```kotlin
-interface CameraController {
-    // Lifecycle
-    fun startPreview()
-    fun stopPreview()
-    fun release()
-    
+expect class CameraController {
     // Capture
-    suspend fun capturePhoto(): Photo
-    suspend fun capturePhotoWithEffect(effect: PhotoEffect): Photo
-    suspend fun captureBurst(count: Int, interval: Long): List<Photo>
+    @Deprecated("Use takePictureToFile() instead")
+    suspend fun takePicture(): ImageCaptureResult
+    suspend fun takePictureToFile(): ImageCaptureResult
     
-    // Video
-    fun startVideoRecording()
-    suspend fun stopVideoRecording(): Video
+    // Flash control
+    fun toggleFlashMode()
+    fun setFlashMode(mode: FlashMode)
+    fun getFlashMode(): FlashMode?
     
-    // Configuration
-    fun setCameraSelector(selector: CameraSelector)
-    fun setFlash(flash: CameraFlash)
+    // Torch control
+    fun toggleTorchMode()
+    fun setTorchMode(mode: TorchMode)
+    fun getTorchMode(): TorchMode?
+    
+    // Camera lens
+    fun toggleCameraLens()
+    fun getCameraLens(): CameraLens?
+    
+    // Zoom control
     fun setZoom(zoomRatio: Float)
-    fun setExposure(compensationValue: Float)
-    fun setWhiteBalance(whiteBalance: WhiteBalance)
-    fun setFocusMode(focusMode: FocusMode)
+    fun getZoom(): Float
+    fun getMaxZoom(): Float
     
     // Getters
-    fun getCurrentCameraSelector(): CameraSelector
-    fun getMinZoomRatio(): Float
-    fun getMaxZoomRatio(): Float
-    fun isTorchAvailable(): Boolean
-    fun isAutoFocusAvailable(): Boolean
+    fun getImageFormat(): ImageFormat
+    fun getQualityPrioritization(): QualityPrioritization
+    fun getPreferredCameraDeviceType(): CameraDeviceType
+    
+    // Session management
+    fun startSession()
+    fun stopSession()
+    
+    // Listeners & cleanup
+    fun addImageCaptureListener(listener: (ByteArray) -> Unit)
+    fun initializeControllerPlugins()
+    fun cleanup()
 }
 ```
 
-## Methods
+## Image Capture
 
-### startPreview()
+### takePictureToFile()
 
-Starts the camera preview stream.
-
-```kotlin
-fun startPreview()
-```
-
-**Throws:**
-- `PermissionDeniedException` – Camera permission not granted
-- `CameraNotAvailableException` – No camera device available
-- `CameraException` – General camera error
-
-**Example:**
-```kotlin
-try {
-    controller.startPreview()
-} catch (e: PermissionDeniedException) {
-    println("Request camera permission")
-}
-```
-
-### stopPreview()
-
-Stops the camera preview stream.
+**Recommended method** - Captures an image and saves it directly to a file for optimal performance.
 
 ```kotlin
-fun stopPreview()
-```
-
-**Note:** Call this when leaving the camera screen to free resources.
-
-### capturePhoto()
-
-Captures a single photo.
-
-```kotlin
-suspend fun capturePhoto(): Photo
+suspend fun takePictureToFile(): ImageCaptureResult
 ```
 
 **Returns:**
-- `Photo` object with uri, dimensions, metadata
+- `ImageCaptureResult.SuccessWithFile` - Contains the file path
+- `ImageCaptureResult.Error` - On capture failure
 
-**Throws:**
-- `CameraTimeoutException` – Capture timed out
-- `StorageException` – No storage space available
-- `CameraException` – General error
+**Benefits:**
+- 2-3 seconds faster than `takePicture()`
+- No ByteArray conversion overhead
+- Direct disk write without decode/encode cycles
 
 **Example:**
 ```kotlin
-viewModelScope.launch {
-    try {
-        val photo = controller.capturePhoto()
-        println("Photo saved: ${photo.uri}")
-    } catch (e: StorageException) {
-        println("No storage space available")
+when (val result = controller.takePictureToFile()) {
+    is ImageCaptureResult.SuccessWithFile -> {
+        println("Saved to: ${result.filePath}")
+    }
+    is ImageCaptureResult.Error -> {
+        println("Error: ${result.exception.message}")
     }
 }
 ```
 
-### capturePhotoWithEffect()
+### takePicture()
 
-Captures a photo with an effect applied.
-
-```kotlin
-suspend fun capturePhotoWithEffect(effect: PhotoEffect): Photo
-```
-
-**Parameters:**
-- `effect` – `PhotoEffect.BEAUTY_FILTER`, `PhotoEffect.BLACK_AND_WHITE`, `PhotoEffect.HDR`, etc.
-
-**Example:**
-```kotlin
-val beautifulPhoto = controller.capturePhotoWithEffect(
-    effect = PhotoEffect.BEAUTY_FILTER
-)
-```
-
-### captureBurst()
-
-Captures multiple photos in rapid succession.
+**Deprecated** - Captures an image and returns it as ByteArray. Use `takePictureToFile()` instead for better performance.
 
 ```kotlin
-suspend fun captureBurst(count: Int, interval: Long): List<Photo>
-```
-
-**Parameters:**
-- `count` – Number of photos to capture (1-20)
-- `interval` – Time between captures in milliseconds
-
-**Example:**
-```kotlin
-val photos = controller.captureBurst(
-    count = 10,
-    interval = 100
-)
-```
-
-### startVideoRecording()
-
-Starts recording video.
-
-```kotlin
-fun startVideoRecording()
-```
-
-**Throws:**
-- `AudioPermissionException` – Microphone permission not granted (when audio enabled)
-- `StorageException` – Insufficient storage
-
-**Example:**
-```kotlin
-try {
-    controller.startVideoRecording()
-} catch (e: StorageException) {
-    println("Insufficient storage for video")
-}
-```
-
-### stopVideoRecording()
-
-Stops video recording and returns the file.
-
-```kotlin
-suspend fun stopVideoRecording(): Video
+@Deprecated("Use takePictureToFile() instead")
+suspend fun takePicture(): ImageCaptureResult
 ```
 
 **Returns:**
-- `Video` object with uri, duration, codec, etc.
+- `ImageCaptureResult.Success` - Contains ByteArray
+- `ImageCaptureResult.Error` - On capture failure
+
+**Note:** This method will be removed in v2.0.0.
+
+## Flash Control
+
+### toggleFlashMode()
+
+Cycles through flash modes: OFF → ON → AUTO → OFF
+
+```kotlin
+fun toggleFlashMode()
+```
 
 **Example:**
 ```kotlin
-val video = controller.stopVideoRecording()
-println("Video duration: ${video.duration}ms")
+controller.toggleFlashMode()
+val currentMode = controller.getFlashMode()
 ```
 
-### setCameraSelector()
+### setFlashMode()
+
+Sets a specific flash mode.
+
+```kotlin
+fun setFlashMode(mode: FlashMode)
+```
+
+**Parameters:**
+- `mode` - `FlashMode.ON`, `FlashMode.OFF`, or `FlashMode.AUTO`
+
+**Example:**
+```kotlin
+controller.setFlashMode(FlashMode.AUTO)
+```
+
+### getFlashMode()
+
+Gets the current flash mode.
+
+```kotlin
+fun getFlashMode(): FlashMode?
+```
+
+**Returns:** Current `FlashMode` or null if not available
+
+## Torch Control
+
+### toggleTorchMode()
+
+Cycles through torch modes: OFF → ON → AUTO → OFF
+
+```kotlin
+fun toggleTorchMode()
+```
+
+**Platform notes:**
+- **Android:** AUTO mode is not supported by CameraX and will be treated as ON
+- **iOS:** AUTO mode is fully supported through AVFoundation
+- **Desktop:** Torch is not available
+
+### setTorchMode()
+
+Sets a specific torch mode.
+
+```kotlin
+fun setTorchMode(mode: TorchMode)
+```
+
+**Parameters:**
+- `mode` - `TorchMode.ON`, `TorchMode.OFF`, or `TorchMode.AUTO`
+
+**Platform notes:**
+- **Android:** AUTO will be treated as ON
+- **iOS:** AUTO is supported
+- **Desktop:** No-op
+
+**Example:**
+```kotlin
+controller.setTorchMode(TorchMode.ON)
+```
+
+### getTorchMode()
+
+Gets the current torch mode.
+
+```kotlin
+fun getTorchMode(): TorchMode?
+```
+
+**Returns:** Current `TorchMode` or null if not available (Desktop)
+
+## Camera Lens
+
+### toggleCameraLens()
 
 Switches between front and back cameras.
 
 ```kotlin
-fun setCameraSelector(selector: CameraSelector)
+fun toggleCameraLens()
 ```
 
-**Parameters:**
-- `selector` – `CameraSelector.BACK` or `CameraSelector.FRONT`
-
-**Throws:**
-- `CameraNotAvailableException` – Selected camera not available
+**Platform notes:**
+- **Desktop:** No-op (single camera)
 
 **Example:**
 ```kotlin
-// Switch to selfie camera
-controller.setCameraSelector(CameraSelector.FRONT)
-
-// Switch back to main camera
-controller.setCameraSelector(CameraSelector.BACK)
+controller.toggleCameraLens()
+val currentLens = controller.getCameraLens()
 ```
 
-### setFlash()
+### getCameraLens()
 
-Controls flash mode.
+Gets the current camera lens.
 
 ```kotlin
-fun setFlash(flash: CameraFlash)
+fun getCameraLens(): CameraLens?
 ```
 
-**Parameters:**
-- `flash` – `CameraFlash.ON`, `CameraFlash.OFF`, or `CameraFlash.AUTO`
+**Returns:** `CameraLens.FRONT` or `CameraLens.BACK`, or null if not available
 
-**Example:**
-```kotlin
-controller.setFlash(CameraFlash.AUTO)
-```
+## Zoom Control
 
 ### setZoom()
 
-Sets zoom level.
+Sets the zoom level.
 
 ```kotlin
 fun setZoom(zoomRatio: Float)
 ```
 
 **Parameters:**
-- `zoomRatio` – Zoom multiplier (1.0 = no zoom, max = `getMaxZoomRatio()`)
-
-**Throws:**
-- `IllegalArgumentException` – Zoom ratio out of range
+- `zoomRatio` - Zoom ratio where 1.0 is no zoom, values > 1.0 zoom in
+  - **Android:** Typically 1.0 to 2.0-10.0 depending on hardware
+  - **iOS:** Typically 1.0 to device.maxAvailableVideoZoomFactor
+  - **Desktop:** Not supported (no-op)
 
 **Example:**
 ```kotlin
-// 2x zoom
-controller.setZoom(2.0f)
-
-// Get supported range
-val minZoom = controller.getMinZoomRatio()
-val maxZoom = controller.getMaxZoomRatio()
-controller.setZoom(maxZoom / 2)  // Half max zoom
+controller.setZoom(2.5f)
 ```
 
-### setExposure()
+### getZoom()
 
-Adjusts exposure compensation.
+Gets the current zoom ratio.
 
 ```kotlin
-fun setExposure(compensationValue: Float)
+fun getZoom(): Float
+```
+
+**Returns:** Current zoom ratio, or 1.0 if zoom is not supported
+
+### getMaxZoom()
+
+Gets the maximum supported zoom ratio.
+
+```kotlin
+fun getMaxZoom(): Float
+```
+
+**Returns:** Maximum zoom ratio, or 1.0 if zoom is not supported
+
+**Example:**
+```kotlin
+val maxZoom = controller.getMaxZoom()
+println("Max zoom: ${maxZoom}x")
+
+// Set to half of max zoom
+controller.setZoom(maxZoom / 2)
+```
+
+## Configuration Getters
+
+### getImageFormat()
+
+Gets the configured image format.
+
+```kotlin
+fun getImageFormat(): ImageFormat
+```
+
+**Returns:** `ImageFormat.JPEG` or `ImageFormat.PNG`
+
+### getQualityPrioritization()
+
+Gets the quality prioritization setting.
+
+```kotlin
+fun getQualityPrioritization(): QualityPrioritization
+```
+
+**Returns:** 
+- `QualityPrioritization.QUALITY` - Best quality, slower
+- `QualityPrioritization.SPEED` - Faster capture, lower quality
+- `QualityPrioritization.BALANCED` - Balanced approach
+- `QualityPrioritization.NONE` - Platform default
+
+### getPreferredCameraDeviceType()
+
+Gets the preferred camera device type.
+
+```kotlin
+fun getPreferredCameraDeviceType(): CameraDeviceType
+```
+
+**Returns:**
+- `CameraDeviceType.DEFAULT` - Default camera
+- `CameraDeviceType.WIDE_ANGLE` - Wide angle camera
+- `CameraDeviceType.TELEPHOTO` - Telephoto camera
+- `CameraDeviceType.ULTRA_WIDE` - Ultra-wide camera
+- Others based on platform support
+
+## Session Management
+
+### startSession()
+
+Starts the camera session. Called automatically when `CameraKState` transitions to `Ready`.
+
+```kotlin
+fun startSession()
+```
+
+### stopSession()
+
+Stops the camera session. Called automatically when disposing.
+
+```kotlin
+fun stopSession()
+```
+
+## Listeners & Cleanup
+
+### addImageCaptureListener()
+
+Adds a listener for image capture events.
+
+```kotlin
+fun addImageCaptureListener(listener: (ByteArray) -> Unit)
 ```
 
 **Parameters:**
-- `compensationValue` – Exposure compensation (-2.0 to +2.0)
+- `listener` - Lambda receiving captured image as ByteArray
 
 **Example:**
 ```kotlin
-controller.setExposure(-0.5f)  // Darker
-controller.setExposure(0.5f)   // Brighter
-controller.setExposure(0.0f)   // Normal
+controller.addImageCaptureListener { imageData ->
+    println("Captured ${imageData.size} bytes")
+    processImage(imageData)
+}
 ```
 
-### setWhiteBalance()
+### initializeControllerPlugins()
 
-Sets white balance mode.
+Initializes all registered plugins. Called automatically during controller setup.
 
 ```kotlin
-fun setWhiteBalance(whiteBalance: WhiteBalance)
+fun initializeControllerPlugins()
 ```
 
-**Parameters:**
-- `whiteBalance` – `WhiteBalance.AUTO`, `DAYLIGHT`, `CLOUDY`, `TUNGSTEN`, `FLUORESCENT`
+### cleanup()
 
-**Example:**
-```kotlin
-controller.setWhiteBalance(WhiteBalance.DAYLIGHT)
-```
-
-### setFocusMode()
-
-Configures focus behavior.
+Cleans up resources when the controller is no longer needed.
 
 ```kotlin
-fun setFocusMode(focusMode: FocusMode)
+fun cleanup()
 ```
 
-**Parameters:**
-- `focusMode` – `FocusMode.AUTO`, `MANUAL`, or `CONTINUOUS`
+**Important:** After calling `cleanup()`, the controller should not be used again.
 
-**Example:**
-```kotlin
-// Continuous autofocus (video mode)
-controller.setFocusMode(FocusMode.CONTINUOUS)
+**Note:** This is typically called automatically when the `CameraKStateHolder` is disposed.
 
-// Manual focus control
-controller.setFocusMode(FocusMode.MANUAL)
-controller.setFocusDistance(0.5f)
-```
-
-## Getters
-
-### getMinZoomRatio()
+## Complete Example
 
 ```kotlin
-fun getMinZoomRatio(): Float
-```
+// Get controller from Ready state
+val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
 
-Returns minimum supported zoom (typically 1.0).
-
-### getMaxZoomRatio()
-
-```kotlin
-fun getMaxZoomRatio(): Float
-```
-
-Returns maximum supported zoom (typically 2.0-10.0 depending on device).
-
-### isTorchAvailable()
-
-```kotlin
-fun isTorchAvailable(): Boolean
-```
-
-Checks if flashlight/torch is available.
-
-### isAutoFocusAvailable()
-
-```kotlin
-fun isAutoFocusAvailable(): Boolean
-```
-
-Checks if autofocus is supported.
-
-## Builder Pattern
-
-### CameraController.Builder
-
-```kotlin
-val controller = CameraController.Builder()
-    .setCameraSelector(CameraSelector.BACK)
-    .setPhotoResolution(3840, 2160)
-    .setVideoResolution(1920, 1080)
-    .setFlash(CameraFlash.AUTO)
-    .setFocusMode(FocusMode.CONTINUOUS)
-    .build()
-```
-
-See [Configuration Guide](../getting-started/configuration.md) for all builder options.
-
-## Exception Hierarchy
-
-```
-CameraException
-├── PermissionDeniedException
-├── CameraNotAvailableException
-├── CameraTimeoutException
-├── StorageException
-├── AudioPermissionException
-└── GeneralCameraException
-```
-
-## Usage Examples
-
-### Complete Camera App
-
-```kotlin
-@Composable
-fun SimpleCameraApp(viewModel: CameraViewModel) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val cameraState = rememberCameraKState()
-    
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Camera Preview
-        CameraPreviewComposable(
-            controller = cameraState.controller,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        )
+when (cameraState) {
+    is CameraKState.Ready -> {
+        val controller = (cameraState as CameraKState.Ready).controller
         
-        // Controls
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            // Switch Camera
-            IconButton(onClick = {
-                val selector = if (state.isFrontCamera) {
-                    CameraSelector.BACK
-                } else {
-                    CameraSelector.FRONT
+        // Configure zoom
+        val maxZoom = controller.getMaxZoom()
+        controller.setZoom(maxZoom / 2)
+        
+        // Configure flash
+        controller.setFlashMode(FlashMode.AUTO)
+        
+        // Switch to front camera
+        controller.toggleCameraLens()
+        
+        // Capture image
+        launch {
+            when (val result = controller.takePictureToFile()) {
+                is ImageCaptureResult.SuccessWithFile -> {
+                    println("Saved to: ${result.filePath}")
                 }
-                cameraState.controller.setCameraSelector(selector)
-                viewModel.toggleCamera()
-            }) {
-                Icon(Icons.Default.Flip, contentDescription = "Switch Camera")
-            }
-            
-            // Capture Button
-            IconButton(onClick = {
-                viewModel.capturePhoto(cameraState.controller)
-            }) {
-                Icon(Icons.Default.PhotoCamera, contentDescription = "Capture")
-            }
-            
-            // Flash Control
-            IconButton(onClick = {
-                viewModel.toggleFlash(cameraState.controller)
-            }) {
-                Icon(Icons.Default.Flashlight, contentDescription = "Flash")
+                is ImageCaptureResult.Error -> {
+                    println("Error: ${result.exception.message}")
+                }
             }
         }
+    }
+    is CameraKState.Error -> {
+        println("Camera error: ${(cameraState as CameraKState.Error).exception}")
+    }
+    else -> {
+        // Handle other states
     }
 }
 ```
 
-## Best Practices
-
-1. ✅ Check permissions before starting preview
-2. ✅ Call `stopPreview()` when leaving camera screen
-3. ✅ Wrap suspend functions in try-catch
-4. ✅ Test zoom levels before using `setZoom()`
-5. ✅ Use `isTorchAvailable()` before enabling flash
-
-## Platform-Specific Notes
-
-- **Android:** Uses CameraX 1.5+
-- **iOS:** Uses AVFoundation
-- **Desktop:** Uses OpenCV/JavaCV
-
 ## See Also
 
-- [Getting Started](../getting-started/quick-start.md)
-- [Configuration](../getting-started/configuration.md)
-- [Camera Capture Guide](../guide/camera-capture.md)
+- [Configuration Guide](../getting-started/configuration.md)
+- [Data Models](models.md)
+- [Examples](../examples/android.md)

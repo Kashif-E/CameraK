@@ -145,9 +145,10 @@ tasks.withType<org.jetbrains.dokka.gradle.DokkaTask>().configureEach {
     moduleName.set("CameraK")
     moduleVersion.set("0.2.0")
     outputDirectory.set(file("${layout.buildDirectory}/dokka/html"))
-    
-    pluginsMapConfiguration.set(mapOf(
-        "org.jetbrains.dokka.base.DokkaBase" to """{
+
+    pluginsMapConfiguration.set(
+        mapOf(
+            "org.jetbrains.dokka.base.DokkaBase" to """{
             "customStyleSheets": ["styles/custom.css"],
             "customAssets": [],
             "homepageLink": "https://github.com/kashif-e/CameraK",
@@ -156,9 +157,10 @@ tasks.withType<org.jetbrains.dokka.gradle.DokkaTask>().configureEach {
             "mergeImplicitExpectActualDeclarations": true,
             "sourceSetDependencies": {},
             "hideSourceSets": false
-        }"""
-    ))
-    
+        }""",
+        ),
+    )
+
     dokkaSourceSets {
         configureEach {
             includes.from("README.md")
@@ -166,7 +168,7 @@ tasks.withType<org.jetbrains.dokka.gradle.DokkaTask>().configureEach {
             reportUndocumented.set(true)
             noStdlibLink.set(false)
             noJdkLink.set(false)
-            
+
             sourceLink {
                 localDirectory.set(file("src"))
                 remoteUrl.set(uri("https://github.com/kashif-e/CameraK/tree/main/cameraK/src").toURL())
@@ -182,24 +184,25 @@ tasks.register("injectCustomCSS") {
     doLast {
         val customCssSource = file("src/dokka/assets/styles/custom.css")
         val customCssDest = file("${layout.buildDirectory}/dokka/html/styles/custom.css")
-        
+
         // Copy custom CSS
         if (customCssSource.exists()) {
             customCssDest.parentFile.mkdirs()
             customCssSource.copyTo(customCssDest, overwrite = true)
             println("✓ Custom CSS copied to build output")
         }
-        
+
         // Inject custom CSS link into HTML files
         fileTree("${layout.buildDirectory}/dokka/html") {
             include("**/*.html")
         }.forEach { htmlFile ->
             val content = htmlFile.readText()
             if (!content.contains("custom.css")) {
-                val updated = content.replace(
-                    "styles/font-jb-sans-auto.css\" rel=\"Stylesheet\">",
-                    "styles/font-jb-sans-auto.css\" rel=\"Stylesheet\">\n        <link href=\"styles/custom.css\" rel=\"Stylesheet\">"
-                )
+                val updated =
+                    content.replace(
+                        "styles/font-jb-sans-auto.css\" rel=\"Stylesheet\">",
+                        "styles/font-jb-sans-auto.css\" rel=\"Stylesheet\">\n        <link href=\"styles/custom.css\" rel=\"Stylesheet\">",
+                    )
                 htmlFile.writeText(updated)
             }
         }

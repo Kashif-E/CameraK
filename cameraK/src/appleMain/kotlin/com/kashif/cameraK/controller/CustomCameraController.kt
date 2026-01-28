@@ -1,10 +1,9 @@
 package com.kashif.cameraK.controller
 
-import androidx.compose.ui.util.fastForEach
+import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.QualityPrioritization
-import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.utils.MemoryManager
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.AVFoundation.*
@@ -14,12 +13,11 @@ import platform.Foundation.NSLog
 import platform.UIKit.UIDevice
 import platform.UIKit.UIDeviceOrientation
 import platform.UIKit.UIView
-import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
 import platform.darwin.DISPATCH_QUEUE_PRIORITY_HIGH
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
-import platform.darwin.dispatch_get_main_queue
 import platform.darwin.dispatch_get_global_queue
+import platform.darwin.dispatch_get_main_queue
 import kotlin.collections.emptyList
 import kotlin.concurrent.Volatile
 
@@ -38,8 +36,9 @@ class CustomCameraController(
     val qualityPrioritization: QualityPrioritization,
     private var initialCameraLens: CameraLens = CameraLens.BACK,
     private val aspectRatio: AspectRatio = AspectRatio.RATIO_4_3,
-    private val targetResolution: Pair<Int, Int>? = null
-) : NSObject(), AVCapturePhotoCaptureDelegateProtocol {
+    private val targetResolution: Pair<Int, Int>? = null,
+) : NSObject(),
+    AVCapturePhotoCaptureDelegateProtocol {
     var captureSession: AVCaptureSession? = null
     private var backCamera: AVCaptureDevice? = null
     private var frontCamera: AVCaptureDevice? = null
@@ -56,9 +55,10 @@ class CustomCameraController(
     var torchMode: AVCaptureTorchMode = AVCaptureTorchModeAuto
 
     private var highQualityEnabled = false
-    
+
     // Configuration queue for plugin outputs (Apple WWDC pattern)
     private val pendingConfigurations = mutableListOf<() -> Unit>()
+
     @Volatile
     private var isConfiguring = false
 
@@ -138,16 +138,16 @@ class CustomCameraController(
             QualityPrioritization.QUALITY -> {
                 photoOutput?.setHighResolutionCaptureEnabled(true)
                 photoOutput?.setMaxPhotoQualityPrioritization(
-                    AVCapturePhotoQualityPrioritizationQuality
+                    AVCapturePhotoQualityPrioritizationQuality,
                 )
             }
 
             QualityPrioritization.BALANCED -> photoOutput?.setMaxPhotoQualityPrioritization(
-                AVCapturePhotoQualityPrioritizationBalanced
+                AVCapturePhotoQualityPrioritizationBalanced,
             )
 
             QualityPrioritization.SPEED -> photoOutput?.setMaxPhotoQualityPrioritization(
-                AVCapturePhotoQualityPrioritizationSpeed
+                AVCapturePhotoQualityPrioritizationSpeed,
             )
 
             QualityPrioritization.NONE -> null
@@ -172,15 +172,15 @@ class CustomCameraController(
         val deviceTypes = deviceTypeString?.let { listOf(it) } ?: listOfNotNull(
             AVCaptureDeviceTypeBuiltInWideAngleCamera,
             AVCaptureDeviceTypeBuiltInTelephotoCamera,
-            AVCaptureDeviceTypeBuiltInUltraWideCamera
+            AVCaptureDeviceTypeBuiltInUltraWideCamera,
         )
-        
+
         val discoverySession = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
             deviceTypes,
             AVMediaTypeVideo,
-            AVCaptureDevicePositionUnspecified
+            AVCaptureDevicePositionUnspecified,
         )
-        
+
         val devices = discoverySession.devices.ifEmpty {
             AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo)?.let { listOf<Any?>(it) } ?: emptyList()
         }
@@ -193,12 +193,10 @@ class CustomCameraController(
             }
         }
 
-        fun findByTypeAndPosition(type: String?, position: Long?): AVCaptureDevice? {
-            return devices.firstOrNull { dev ->
-                val cam = dev as AVCaptureDevice
-                (type == null || cam.deviceType == type) && (position == null || cam.position == position)
-            } as? AVCaptureDevice
-        }
+        fun findByTypeAndPosition(type: String?, position: Long?): AVCaptureDevice? = devices.firstOrNull { dev ->
+            val cam = dev as AVCaptureDevice
+            (type == null || cam.deviceType == type) && (position == null || cam.position == position)
+        } as? AVCaptureDevice
 
         val requestedType = cameraDeviceType.toAVCaptureDeviceType()
         val desiredPosition = when (initialCameraLens) {
@@ -207,20 +205,20 @@ class CustomCameraController(
         }
 
         currentCamera =
-            findByTypeAndPosition(requestedType, desiredPosition) ?:
-            findByTypeAndPosition(requestedType, null) ?:
-            when (initialCameraLens) {
-                CameraLens.FRONT -> frontCamera ?: backCamera
-                CameraLens.BACK -> backCamera ?: frontCamera
-            }
-            ?: return false
-    
+            findByTypeAndPosition(requestedType, desiredPosition)
+                ?: findByTypeAndPosition(requestedType, null)
+                ?: when (initialCameraLens) {
+                    CameraLens.FRONT -> frontCamera ?: backCamera
+                    CameraLens.BACK -> backCamera ?: frontCamera
+                }
+                ?: return false
+
         isUsingFrontCamera = (currentCamera == frontCamera)
 
         return try {
-            val input = AVCaptureDeviceInput.deviceInputWithDevice(currentCamera!!, null) 
+            val input = AVCaptureDeviceInput.deviceInputWithDevice(currentCamera!!, null)
                 ?: return false
-            
+
             if (captureSession?.canAddInput(input) == true) {
                 captureSession?.addInput(input)
                 true
@@ -235,15 +233,15 @@ class CustomCameraController(
     /**
      * Queues a configuration change to be applied atomically (Apple WWDC pattern).
      * Used by plugins to safely add outputs without crashing.
-     * 
+     *
      * If session is already running, processes configurations immediately.
      * Otherwise queues for batch processing at startSession().
-     * 
+     *
      * @param change Lambda to execute within beginConfiguration/commitConfiguration block
      */
     fun queueConfigurationChange(change: () -> Unit) {
         pendingConfigurations.add(change)
-        
+
         // If session is already running, process immediately
         if (captureSession?.isRunning() == true && !isConfiguring) {
             processPendingConfigurations()
@@ -259,12 +257,12 @@ class CustomCameraController(
         if (isConfiguring || pendingConfigurations.isEmpty() || captureSession == null) {
             return
         }
-        
+
         isConfiguring = true
 
         try {
             val session = captureSession ?: return
-            
+
             session.beginConfiguration()
 
             val changesToApply = pendingConfigurations.toList()
@@ -299,13 +297,13 @@ class CustomCameraController(
         processPendingConfigurations()
 
         if (captureSession == null) return
-        
+
         if (captureSession?.isRunning() == false) {
             dispatch_async(
                 dispatch_get_global_queue(
                     DISPATCH_QUEUE_PRIORITY_HIGH.toLong(),
-                    0u
-                )
+                    0u,
+                ),
             ) {
                 captureSession?.startRunning()
             }
@@ -319,7 +317,10 @@ class CustomCameraController(
     }
 
     private fun AspectRatio.toSessionPreset(): String = when (this) {
-        AspectRatio.RATIO_16_9, AspectRatio.RATIO_9_16 -> (AVCaptureSessionPreset1920x1080 ?: AVCaptureSessionPresetPhoto)!!
+        AspectRatio.RATIO_16_9, AspectRatio.RATIO_9_16 -> (
+            AVCaptureSessionPreset1920x1080
+                ?: AVCaptureSessionPresetPhoto
+            )!!
         AspectRatio.RATIO_1_1 -> AVCaptureSessionPresetPhoto!!
         AspectRatio.RATIO_4_3 -> AVCaptureSessionPresetPhoto!!
     }
@@ -410,17 +411,13 @@ class CustomCameraController(
      * Gets the current zoom level.
      * @return Current zoom factor (1.0 = no zoom)
      */
-    fun getZoom(): Float {
-        return currentCamera?.videoZoomFactor?.toFloat() ?: 1.0f
-    }
+    fun getZoom(): Float = currentCamera?.videoZoomFactor?.toFloat() ?: 1.0f
 
     /**
      * Gets the maximum zoom level supported by the current camera.
      * @return Maximum zoom factor
      */
-    fun getMaxZoom(): Float {
-        return currentCamera?.activeFormat?.videoMaxZoomFactor?.toFloat() ?: 1.0f
-    }
+    fun getMaxZoom(): Float = currentCamera?.activeFormat?.videoMaxZoomFactor?.toFloat() ?: 1.0f
 
     /**
      * Sets the session preset quality based on memory conditions
@@ -432,7 +429,6 @@ class CustomCameraController(
         val memoryUsage = MemoryManager.getMemoryUsagePercentage()
         val underPressure = MemoryManager.isUnderMemoryPressure()
 
-
         val newPreset = when {
             underPressure -> AVCaptureSessionPresetMedium
             memoryUsage > 70 -> AVCaptureSessionPresetHigh
@@ -441,7 +437,6 @@ class CustomCameraController(
 
         captureSession?.sessionPreset = newPreset
         captureSession?.commitConfiguration()
-
 
         highQualityEnabled = newPreset == AVCaptureSessionPresetPhoto
     }
@@ -456,17 +451,15 @@ class CustomCameraController(
             return
         }
 
-
         if (MemoryManager.isUnderMemoryPressure()) {
             adjustSessionQuality()
         }
 
         val settings = AVCapturePhotoSettings.photoSettingsWithFormat(
             mapOf(
-                AVVideoCodecKey to AVVideoCodecJPEG
-            )
+                AVVideoCodecKey to AVVideoCodecJPEG,
+            ),
         )
-
 
         settings.setHighResolutionPhotoEnabled(false)
 
@@ -496,12 +489,9 @@ class CustomCameraController(
             settings.flashMode = AVCaptureFlashModeOff
         }
 
-
         if (highQualityEnabled && quality > 0.8) {
-
             settings.setAutoStillImageStabilizationEnabled(true)
         } else {
-
             settings.setAutoStillImageStabilizationEnabled(false)
         }
 
@@ -518,9 +508,7 @@ class CustomCameraController(
         }
     }
 
-
     fun captureImage() {
-
         val quality = MemoryManager.getOptimalImageQuality()
         captureImage(quality)
     }
@@ -528,7 +516,7 @@ class CustomCameraController(
     @OptIn(ExperimentalForeignApi::class)
     fun switchCamera() {
         guard(captureSession != null) { return@guard }
-        
+
         val wasRunning = captureSession?.isRunning() == true
         if (wasRunning) {
             captureSession?.stopRunning()
@@ -548,7 +536,7 @@ class CustomCameraController(
 
             val newInput = AVCaptureDeviceInput.deviceInputWithDevice(
                 newCamera,
-                null
+                null,
             ) ?: throw CameraException.ConfigurationError("Failed to create input")
 
             if (captureSession?.canAddInput(newInput) == true) {
@@ -565,15 +553,15 @@ class CustomCameraController(
             }
 
             captureSession?.commitConfiguration()
-            
+
             processPendingConfigurations()
-            
+
             if (wasRunning) {
                 dispatch_async(
                     dispatch_get_global_queue(
                         DISPATCH_QUEUE_PRIORITY_HIGH.toLong(),
-                        0u
-                    )
+                        0u,
+                    ),
                 ) {
                     captureSession?.startRunning()
                 }
@@ -596,7 +584,7 @@ class CustomCameraController(
     override fun captureOutput(
         output: AVCapturePhotoOutput,
         didFinishProcessingPhoto: AVCapturePhoto,
-        error: NSError?
+        error: NSError?,
     ) {
         if (error != null) {
             onError?.invoke(CameraException.CaptureError(error.localizedDescription))

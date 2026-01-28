@@ -54,31 +54,48 @@ enum class CameraFlash {
 
 ```kotlin
 enum class ImageFormat {
-    JPEG, PNG, WEBP, RAW
+    JPEG, PNG
 }
 ```
 
-## WhiteBalance
+## TorchMode
 
 ```kotlin
-enum class WhiteBalance {
-    AUTO,
-    DAYLIGHT,
-    CLOUDY,
-    TUNGSTEN,
-    FLUORESCENT
+enum class TorchMode {
+    ON,
+    OFF,
+    AUTO
 }
 ```
 
-## FocusMode
+**Platform notes:**
+- Android: AUTO is not supported by CameraX and will be treated as ON
+- iOS: AUTO is fully supported
+- Desktop: Not available
+
+## QualityPrioritization
 
 ```kotlin
-enum class FocusMode {
-    AUTO,
-    MANUAL,
-    CONTINUOUS
+enum class QualityPrioritization {
+    QUALITY,    // Best quality, slower
+    SPEED,      // Faster capture, lower quality
+    BALANCED,   // Balanced approach
+    NONE        // Platform default
 }
 ```
+
+## CameraDeviceType
+
+```kotlin
+enum class CameraDeviceType {
+    DEFAULT,
+    WIDE_ANGLE,
+    TELEPHOTO,
+    ULTRA_WIDE
+}
+```
+
+**Note:** Availability depends on device hardware. If requested type is not available, platform falls back to DEFAULT.
 
 ## Exceptions
 
