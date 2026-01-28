@@ -15,3 +15,8 @@ Pods/
 *.jks
 *yarn.lock
 *gradle.properties
+# MkDocs build output
+site/
+
+# MkDocs build output
+site/
