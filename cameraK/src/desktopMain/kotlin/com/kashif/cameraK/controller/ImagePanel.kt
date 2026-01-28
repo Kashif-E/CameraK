@@ -9,7 +9,6 @@ import java.awt.image.BufferedImage
 import java.awt.image.VolatileImage
 import javax.swing.JPanel
 
-
 class ImagePanel : JPanel(true) {
     private var volatileImage: VolatileImage? = null
     var currentImage: BufferedImage? = null
@@ -20,11 +19,9 @@ class ImagePanel : JPanel(true) {
         background = Color(0, 0, 0, 0)
         isOpaque = false
 
-
         enableEvents(0L)
         isEnabled = false
     }
-
 
     override fun contains(x: Int, y: Int): Boolean = false
 
@@ -50,7 +47,8 @@ class ImagePanel : JPanel(true) {
 
         if (volatileImage == null ||
             volatileImage?.width != width ||
-            volatileImage?.height != height) {
+            volatileImage?.height != height
+        ) {
             volatileImage = gc.createCompatibleVolatileImage(width, height, Transparency.TRANSLUCENT)
         }
 
@@ -62,7 +60,7 @@ class ImagePanel : JPanel(true) {
             volatileImage?.createGraphics()?.let { volatileG ->
                 volatileG.setRenderingHint(
                     RenderingHints.KEY_INTERPOLATION,
-                    RenderingHints.VALUE_INTERPOLATION_BILINEAR
+                    RenderingHints.VALUE_INTERPOLATION_BILINEAR,
                 )
                 volatileG.composite = AlphaComposite.SrcOver
                 volatileG.drawImage(currentImage, 0, 0, width, height, null)

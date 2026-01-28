@@ -11,9 +11,10 @@ import javax.imageio.ImageIO
 
 class ImageCaptureManager {
     private val isCapturing = AtomicBoolean(false)
-    private val outputDir = File("captured_images").apply {
-        if (!exists()) mkdirs()
-    }
+    private val outputDir =
+        File("captured_images").apply {
+            if (!exists()) mkdirs()
+        }
 
     suspend fun captureImage(image: BufferedImage): Result<File> = withContext(Dispatchers.IO) {
         if (!isCapturing.compareAndSet(false, true)) {
@@ -21,9 +22,10 @@ class ImageCaptureManager {
         }
 
         try {
-            val timestamp = LocalDateTime.now().format(
-                DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss-SSS")
-            )
+            val timestamp =
+                LocalDateTime.now().format(
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss-SSS"),
+                )
             val outputFile = File(outputDir, "capture_$timestamp.jpg")
 
             Result.runCatching {

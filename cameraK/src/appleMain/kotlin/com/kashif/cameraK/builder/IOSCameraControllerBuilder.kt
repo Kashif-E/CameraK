@@ -1,8 +1,14 @@
 package com.kashif.cameraK.builder
 
-
 import com.kashif.cameraK.controller.CameraController
-import com.kashif.cameraK.enums.*
+import com.kashif.cameraK.enums.AspectRatio
+import com.kashif.cameraK.enums.CameraDeviceType
+import com.kashif.cameraK.enums.CameraLens
+import com.kashif.cameraK.enums.Directory
+import com.kashif.cameraK.enums.FlashMode
+import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.QualityPrioritization
+import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.utils.InvalidConfigurationException
 
@@ -92,10 +98,8 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
      * @throws InvalidConfigurationException If required configuration is missing.
      */
     override fun build(): CameraController {
-
         val format = imageFormat ?: throw InvalidConfigurationException("ImageFormat must be set.")
         val dir = directory ?: throw InvalidConfigurationException("Directory must be set.")
-
 
         val cameraController = CameraController(
             flashMode = flashMode,
@@ -108,7 +112,7 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
             cameraDeviceType = cameraDeviceType,
             returnFilePath = returnFilePath,
             aspectRatio = aspectRatio,
-            targetResolution = targetResolution
+            targetResolution = targetResolution,
         )
 
         return cameraController

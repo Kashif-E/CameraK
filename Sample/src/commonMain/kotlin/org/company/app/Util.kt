@@ -20,14 +20,15 @@ fun formatString(format: String, value: Float): String {
     val placeholder = matchResult.value
     val decimalPlaces = matchResult.groups[2]?.value?.toIntOrNull()
 
-    val formattedValue = when {
-        placeholder.contains(".") && placeholder.endsWith("f") && decimalPlaces != null -> {
-            formatFloatWithDecimals(value, decimalPlaces)
+    val formattedValue =
+        when {
+            placeholder.contains(".") && placeholder.endsWith("f") && decimalPlaces != null -> {
+                formatFloatWithDecimals(value, decimalPlaces)
+            }
+            placeholder == "%f" -> value.toString()
+            placeholder == "%d" -> value.toInt().toString()
+            else -> value.toString()
         }
-        placeholder == "%f" -> value.toString()
-        placeholder == "%d" -> value.toInt().toString()
-        else -> value.toString()
-    }
 
     return format.replaceFirst(placeholder, formattedValue)
 }
@@ -49,7 +50,10 @@ private fun formatFloatWithDecimals(value: Float, decimalPlaces: Int): String {
     // Handle edge case: 0 decimal places means integer
     if (decimalPlaces == 0) {
         // Round to nearest integer
-        return kotlin.math.round(value).toInt().toString()
+        return kotlin.math
+            .round(value)
+            .toInt()
+            .toString()
     }
 
     // Calculate the multiplier for rounding (e.g., 2 decimals = 100)
@@ -84,4 +88,3 @@ private fun Double.pow(n: Int): Double {
     }
     return result
 }
-

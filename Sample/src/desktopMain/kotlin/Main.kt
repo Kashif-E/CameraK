@@ -4,7 +4,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import org.company.app.App
 
-fun main()= application {
+fun main() = application {
     System.setProperty("compose.interop.blending", "true")
     System.setProperty("compose.swing.render.on.layer", "true")
     System.setProperty("compose.interop.blending", "true")
@@ -16,5 +16,4 @@ fun main()= application {
     ) {
         App()
     }
-
 }

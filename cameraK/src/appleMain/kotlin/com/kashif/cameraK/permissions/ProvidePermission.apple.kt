@@ -82,7 +82,7 @@ private class IOSPermissionsImpl : Permissions {
 @Deprecated(
     message = "Use providePermissions() instead",
     replaceWith = ReplaceWith("providePermissions()"),
-    level = DeprecationLevel.WARNING
+    level = DeprecationLevel.WARNING,
 )
 @Composable
 fun rememberIOSPermissions(): Permissions = remember { IOSPermissionsImpl() }

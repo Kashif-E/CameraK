@@ -1,6 +1,5 @@
 package com.kashif.cameraK.controller
 
-import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
@@ -29,7 +28,7 @@ actual class CameraController(
     private val directory: Directory,
     private val horizontalFlip: Boolean = false,
     private val customGrabber: FrameGrabber? = null,
-    private val targetResolution: Pair<Int, Int>? = null
+    private val targetResolution: Pair<Int, Int>? = null,
 ) {
     private var cameraGrabber: CameraGrabber? = null
     private val frameChannel = Channel<BufferedImage>(Channel.CONFLATED)
@@ -47,7 +46,7 @@ actual class CameraController(
     @Deprecated(
         message = "Use takePictureToFile() instead for better performance",
         replaceWith = ReplaceWith("takePictureToFile()"),
-        level = DeprecationLevel.WARNING
+        level = DeprecationLevel.WARNING,
     )
     actual suspend fun takePicture(): ImageCaptureResult {
         TODO("Not yet implemented")
@@ -94,9 +93,7 @@ actual class CameraController(
     /**
      * @return the current [FlashMode] of the camera, if available
      */
-    actual fun getFlashMode(): FlashMode? {
-        return FlashMode.OFF
-    }
+    actual fun getFlashMode(): FlashMode? = FlashMode.OFF
 
     /**
      * Toggles the torch mode between ON, OFF, and AUTO.
@@ -111,21 +108,19 @@ actual class CameraController(
      * Sets the torch mode of the camera
      *
      * @param mode The desired [TorchMode]
-     * 
+     *
      * Note: Torch is not available on desktop hardware.
      */
     actual fun setTorchMode(mode: TorchMode) {
         // torch not available on desktop
     }
-    
+
     /**
      * Gets the current torch mode.
-     * 
+     *
      * @return null as Desktop doesn't support torch mode
      */
-    actual fun getTorchMode(): TorchMode? {
-        return null
-    }
+    actual fun getTorchMode(): TorchMode? = null
 
     /**
      * Toggles the camera lens between FRONT and BACK.
@@ -133,69 +128,57 @@ actual class CameraController(
     actual fun toggleCameraLens() {
         // camera lens not available on desktop
     }
-    
+
     /**
      * Gets the current camera lens.
-     * 
+     *
      * @return null as Desktop doesn't support camera lens switching
      */
-    actual fun getCameraLens(): CameraLens? {
-        return null
-    }
-    
+    actual fun getCameraLens(): CameraLens? = null
+
     /**
      * Gets the current image format.
-     * 
+     *
      * @return The configured [ImageFormat]
      */
-    actual fun getImageFormat(): ImageFormat {
-        return imageFormat
-    }
-    
+    actual fun getImageFormat(): ImageFormat = imageFormat
+
     /**
      * Gets the current quality prioritization setting.
-     * 
+     *
      * @return The configured [QualityPrioritization] (always NONE on Desktop)
      */
-    actual fun getQualityPrioritization(): QualityPrioritization {
-        return qualityPriority
-    }
-    
+    actual fun getQualityPrioritization(): QualityPrioritization = qualityPriority
+
     /**
      * Gets the current camera device type.
-     * 
+     *
      * @return The configured [CameraDeviceType] (always DEFAULT on Desktop)
      */
-    actual fun getPreferredCameraDeviceType(): CameraDeviceType {
-        return CameraDeviceType.DEFAULT
-    }
+    actual fun getPreferredCameraDeviceType(): CameraDeviceType = CameraDeviceType.DEFAULT
 
     /**
      * Sets the zoom level.
-     * 
+     *
      * Note: Zoom is not supported on Desktop.
      */
     actual fun setZoom(zoomRatio: Float) {
         // zoom not available on desktop
     }
-    
+
     /**
      * Gets the current zoom ratio.
-     * 
+     *
      * @return 1.0 as Desktop doesn't support zoom
      */
-    actual fun getZoom(): Float {
-        return 1.0f
-    }
-    
+    actual fun getZoom(): Float = 1.0f
+
     /**
      * Gets the maximum zoom ratio.
-     * 
+     *
      * @return 1.0 as Desktop doesn't support zoom
      */
-    actual fun getMaxZoom(): Float {
-        return 1.0f
-    }
+    actual fun getMaxZoom(): Float = 1.0f
 
     /**
      * Starts the camera session.
@@ -236,7 +219,7 @@ actual class CameraController(
             it.initialize(this)
         }
     }
-    
+
     actual fun cleanup() {
         cameraGrabber?.stop()
         frameChannel.close()

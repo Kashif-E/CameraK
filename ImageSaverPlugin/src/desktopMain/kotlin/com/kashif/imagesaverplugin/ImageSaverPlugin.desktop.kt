@@ -19,32 +19,27 @@ import javax.imageio.ImageIO
 class JVMImageSaverPlugin(
     config: ImageSaverConfig,
     private val onImageSaved: () -> Unit,
-    private val onImageSavedFailed: (String) -> Unit
+    private val onImageSavedFailed: (String) -> Unit,
 ) : ImageSaverPlugin(config) {
-
-    override suspend fun saveImage(byteArray: ByteArray, imageName: String?): String? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val image = ImageIO.read(ByteArrayInputStream(byteArray))
-                val fileName = "${imageName ?: "image_${System.currentTimeMillis()}"}.jpg"
-                val outputDirectory = File(config.directory.name)
-                val outputFile = File(outputDirectory, fileName)
-                val outputStream = FileOutputStream(outputFile)
-                ImageIO.write(image, "jpg", outputStream)
-                outputStream.close()
-                outputFile.absolutePath
-            } catch (e: Exception) {
-                null
-            }
+    override suspend fun saveImage(byteArray: ByteArray, imageName: String?): String? = withContext(Dispatchers.IO) {
+        try {
+            val image = ImageIO.read(ByteArrayInputStream(byteArray))
+            val fileName = "${imageName ?: "image_${System.currentTimeMillis()}"}.jpg"
+            val outputDirectory = File(config.directory.name)
+            val outputFile = File(outputDirectory, fileName)
+            val outputStream = FileOutputStream(outputFile)
+            ImageIO.write(image, "jpg", outputStream)
+            outputStream.close()
+            outputFile.absolutePath
+        } catch (e: Exception) {
+            null
         }
     }
 
-    override fun getByteArrayFrom(path: String): ByteArray {
-        return try {
-            File(path).readBytes()
-        } catch (e: Exception) {
-            throw IOException("Failed to read image from path: $path", e)
-        }
+    override fun getByteArrayFrom(path: String): ByteArray = try {
+        File(path).readBytes()
+    } catch (e: Exception) {
+        throw IOException("Failed to read image from path: $path", e)
     }
 }
 
@@ -55,13 +50,9 @@ class JVMImageSaverPlugin(
  * @return An instance of [JVMImageSaverPlugin].
  */
 
-actual fun createPlatformImageSaverPlugin(
-    context: PlatformContext,
-    config: ImageSaverConfig
-): ImageSaverPlugin {
-    return JVMImageSaverPlugin(
+actual fun createPlatformImageSaverPlugin(context: PlatformContext, config: ImageSaverConfig): ImageSaverPlugin =
+    JVMImageSaverPlugin(
         config = config,
         onImageSaved = { println("Image saved successfully!") },
-        onImageSavedFailed = { errorMessage -> println("Failed to save image: $errorMessage") }
+        onImageSavedFailed = { errorMessage -> println("Failed to save image: $errorMessage") },
     )
-}

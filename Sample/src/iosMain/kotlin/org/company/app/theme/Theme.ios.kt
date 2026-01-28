@@ -11,7 +11,7 @@ import platform.UIKit.setStatusBarStyle
 internal actual fun SystemAppearance(isDark: Boolean) {
     LaunchedEffect(isDark) {
         UIApplication.sharedApplication.setStatusBarStyle(
-            if (isDark) UIStatusBarStyleDarkContent else UIStatusBarStyleLightContent
+            if (isDark) UIStatusBarStyleDarkContent else UIStatusBarStyleLightContent,
         )
     }
 }

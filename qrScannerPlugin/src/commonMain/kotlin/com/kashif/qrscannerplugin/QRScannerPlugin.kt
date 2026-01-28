@@ -17,11 +17,11 @@ import com.kashif.cameraK.state.CameraKState
 import com.kashif.cameraK.state.CameraKStateHolder
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Job
 
 /**
  * QR Scanner plugin that works with both old and new camera APIs.
@@ -58,9 +58,9 @@ import kotlinx.coroutines.Job
  * @property coroutineScope Scope for managing QR scanning operations and event emission.
  */
 @Stable
-class QRScannerPlugin(
-    private val coroutineScope: CoroutineScope
-) : CameraPlugin, CameraKPlugin {
+class QRScannerPlugin(private val coroutineScope: CoroutineScope) :
+    CameraPlugin,
+    CameraKPlugin {
     private var cameraController: CameraController? = null
     private var stateHolder: CameraKStateHolder? = null
     private val qrCodeFlow = MutableSharedFlow<String>()
@@ -87,14 +87,15 @@ class QRScannerPlugin(
         println("QRScannerPlugin attached (new API)")
         this.stateHolder = stateHolder
 
-        collectorJob = stateHolder.pluginScope.launch {
-            stateHolder.cameraState
-                .filterIsInstance<CameraKState.Ready>()
-                .collect { readyState ->
-                    this@QRScannerPlugin.cameraController = readyState.controller
-                    startScanning()
-                }
-        }
+        collectorJob =
+            stateHolder.pluginScope.launch {
+                stateHolder.cameraState
+                    .filterIsInstance<CameraKState.Ready>()
+                    .collect { readyState ->
+                        this@QRScannerPlugin.cameraController = readyState.controller
+                        startScanning()
+                    }
+            }
     }
 
     /**
@@ -177,10 +178,7 @@ class QRScannerPlugin(
  * @param controller The CameraController to be used for scanning.
  * @param onQrScanner A callback function that is invoked when a QR code is scanned.
  */
-expect fun startScanning(
-    controller: CameraController,
-    onQrScanner: (String) -> Unit
-)
+expect fun startScanning(controller: CameraController, onQrScanner: (String) -> Unit)
 
 /**
  * Creates and remembers a QRScannerPlugin composable.
@@ -189,10 +187,6 @@ expect fun startScanning(
  * @return A remembered instance of QRScannerPlugin.
  */
 @Composable
-fun rememberQRScannerPlugin(
-    coroutineScope: CoroutineScope = rememberCoroutineScope()
-): QRScannerPlugin {
-    return remember {
-        QRScannerPlugin(coroutineScope)
-    }
+fun rememberQRScannerPlugin(coroutineScope: CoroutineScope = rememberCoroutineScope()): QRScannerPlugin = remember {
+    QRScannerPlugin(coroutineScope)
 }

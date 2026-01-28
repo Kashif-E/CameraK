@@ -5,7 +5,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 
@@ -20,12 +22,11 @@ actual fun providePermissions(): Permissions {
     return remember(context) {
         object : Permissions {
             override fun hasCameraPermission(): Boolean =
-                ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == 
-                PackageManager.PERMISSION_GRANTED
+                ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                    PackageManager.PERMISSION_GRANTED
 
-            override fun hasStoragePermission(): Boolean =
-                Build.VERSION.SDK_INT >= 32 || 
-                ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == 
+            override fun hasStoragePermission(): Boolean = Build.VERSION.SDK_INT >= 32 ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
                 PackageManager.PERMISSION_GRANTED
 
             @Composable
@@ -33,10 +34,11 @@ actual fun providePermissions(): Permissions {
                 if (hasCameraPermission()) {
                     LaunchedEffect(Unit) { onGranted() }
                 } else {
-                    val launcher = rememberLauncherForActivityResult(
-                        ActivityResultContracts.RequestPermission()
-                    ) { isGranted -> if (isGranted) onGranted() else onDenied() }
-                    
+                    val launcher =
+                        rememberLauncherForActivityResult(
+                            ActivityResultContracts.RequestPermission(),
+                        ) { isGranted -> if (isGranted) onGranted() else onDenied() }
+
                     LaunchedEffect(Unit) {
                         launcher.launch(Manifest.permission.CAMERA)
                     }
@@ -48,10 +50,11 @@ actual fun providePermissions(): Permissions {
                 if (hasStoragePermission()) {
                     LaunchedEffect(Unit) { onGranted() }
                 } else {
-                    val launcher = rememberLauncherForActivityResult(
-                        ActivityResultContracts.RequestPermission()
-                    ) { isGranted -> if (isGranted) onGranted() else onDenied() }
-                    
+                    val launcher =
+                        rememberLauncherForActivityResult(
+                            ActivityResultContracts.RequestPermission(),
+                        ) { isGranted -> if (isGranted) onGranted() else onDenied() }
+
                     LaunchedEffect(Unit) {
                         launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     }

@@ -18,7 +18,6 @@ import java.awt.image.BufferedImage
 import java.awt.image.DataBufferByte
 import java.io.File
 
-
 /**
  * Desktop implementation of OCR text recognition using Tesseract engine.
  *
@@ -46,7 +45,7 @@ class OCRProcessor {
             } else {
                 api.SetVariable(
                     "tessedit_char_whitelist",
-                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?"
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?",
                 )
                 api.SetPageSegMode(PSM_AUTO)
                 isInitialized = true
@@ -58,12 +57,16 @@ class OCRProcessor {
     }
 
     private fun findTessdataDirectory(): String? {
-        val possiblePaths = listOf(
-            File("ocrPlugin/src/desktopMain/kotlin/com/kashif/ocrPlugin").absolutePath,
-            File("./ocrPlugin/src/desktopMain/kotlin/com/kashif/ocrPlugin").absolutePath,
-            System.getenv("TESSDATA_PREFIX"),
-            File(System.getProperty("user.dir"), "ocrPlugin/src/desktopMain/kotlin/com/kashif/ocrPlugin").absolutePath
-        )
+        val possiblePaths =
+            listOf(
+                File("ocrPlugin/src/desktopMain/kotlin/com/kashif/ocrPlugin").absolutePath,
+                File("./ocrPlugin/src/desktopMain/kotlin/com/kashif/ocrPlugin").absolutePath,
+                System.getenv("TESSDATA_PREFIX"),
+                File(
+                    System.getProperty("user.dir"),
+                    "ocrPlugin/src/desktopMain/kotlin/com/kashif/ocrPlugin",
+                ).absolutePath,
+            )
 
         return possiblePaths.firstOrNull { path ->
             path != null && File(path).exists() && File("$path/eng.traineddata").exists()
@@ -110,12 +113,12 @@ class OCRProcessor {
      * @return A grayscale BufferedImage
      */
     private fun preprocessImage(image: BufferedImage): BufferedImage {
-
-        val grayImage = BufferedImage(
-            image.width,
-            image.height,
-            BufferedImage.TYPE_BYTE_GRAY
-        )
+        val grayImage =
+            BufferedImage(
+                image.width,
+                image.height,
+                BufferedImage.TYPE_BYTE_GRAY,
+            )
 
         val g = grayImage.graphics
         g.drawImage(image, 0, 0, null)
@@ -157,7 +160,6 @@ class OCRProcessor {
     }
 }
 
-
 actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String {
     val ocrProcessor = OCRProcessor()
     return ocrProcessor.scanImage(bitmap.toAwtImage()) ?: ""
@@ -171,10 +173,7 @@ actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String {
  * @param cameraController The camera controller providing frames
  * @param onText Callback invoked when text is detected with the extracted text
  */
-actual fun startRecognition(
-    cameraController: CameraController,
-    onText: (text: String) -> Unit
-) {
+actual fun startRecognition(cameraController: CameraController, onText: (text: String) -> Unit) {
     val ocrProcessor = OCRProcessor()
     val scope = CoroutineScope(Dispatchers.Default)
 
@@ -188,4 +187,3 @@ actual fun startRecognition(
         }
     }
 }
-

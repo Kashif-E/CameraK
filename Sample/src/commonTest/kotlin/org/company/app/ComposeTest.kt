@@ -18,7 +18,6 @@ import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
 class ComposeTest {
-
     @Test
     fun simpleCheck() = runComposeUiTest {
         setContent {
@@ -26,11 +25,11 @@ class ComposeTest {
             Column {
                 Text(
                     text = txt,
-                    modifier = Modifier.testTag("t_text")
+                    modifier = Modifier.testTag("t_text"),
                 )
                 Button(
                     onClick = { txt += "." },
-                    modifier = Modifier.testTag("t_button")
+                    modifier = Modifier.testTag("t_button"),
                 ) {
                     Text("click me")
                 }

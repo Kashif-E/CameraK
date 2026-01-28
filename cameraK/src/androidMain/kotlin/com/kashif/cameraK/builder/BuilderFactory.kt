@@ -1,6 +1,5 @@
 package com.kashif.cameraK.builder
 
-
 import android.content.Context
 import androidx.lifecycle.LifecycleOwner
 
@@ -11,7 +10,5 @@ import androidx.lifecycle.LifecycleOwner
  * @param lifecycleOwner The [LifecycleOwner], usually the hosting Activity or Fragment.
  * @return An instance of [CameraControllerBuilder].
  */
-fun createAndroidCameraControllerBuilder(
-    context: Context,
-    lifecycleOwner: LifecycleOwner
-): CameraControllerBuilder = AndroidCameraControllerBuilder(context, lifecycleOwner)
+fun createAndroidCameraControllerBuilder(context: Context, lifecycleOwner: LifecycleOwner): CameraControllerBuilder =
+    AndroidCameraControllerBuilder(context, lifecycleOwner)

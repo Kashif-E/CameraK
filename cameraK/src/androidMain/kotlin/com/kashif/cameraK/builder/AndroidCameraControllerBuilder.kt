@@ -14,17 +14,14 @@ import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.utils.InvalidConfigurationException
 
-
 /**
  * Android-specific implementation of [CameraControllerBuilder].
  *
  * @param context The Android [Context], typically an Activity or Application context.
  * @param lifecycleOwner The [LifecycleOwner], usually the hosting Activity or Fragment.
  */
-class AndroidCameraControllerBuilder(
-    private val context: Context,
-    private val lifecycleOwner: LifecycleOwner
-) : CameraControllerBuilder {
+class AndroidCameraControllerBuilder(private val context: Context, private val lifecycleOwner: LifecycleOwner) :
+    CameraControllerBuilder {
 
     private var flashMode: FlashMode = FlashMode.OFF
     private var cameraLens: CameraLens = CameraLens.BACK
@@ -47,14 +44,14 @@ class AndroidCameraControllerBuilder(
         this.cameraLens = cameraLens
         return this
     }
-    
+
     /**
      * Sets the preferred camera device type (telephoto, ultra-wide, macro, etc.).
-     * 
+     *
      * The controller will attempt to select the specified camera type using Camera2 Interop.
      * If the requested type is not available on the device, it will gracefully fall back
      * to the default camera.
-     * 
+     *
      * @param deviceType The desired camera device type
      * @return This builder instance for chaining
      */
@@ -62,7 +59,6 @@ class AndroidCameraControllerBuilder(
         this.cameraDeviceType = deviceType
         return this
     }
-
 
     override fun setTorchMode(torchMode: TorchMode): CameraControllerBuilder {
         this.torchMode = torchMode
@@ -105,10 +101,8 @@ class AndroidCameraControllerBuilder(
     }
 
     override fun build(): CameraController {
-
         val format = imageFormat ?: throw InvalidConfigurationException("ImageFormat must be set.")
         val dir = directory ?: throw InvalidConfigurationException("Directory must be set.")
-
 
         /* if (flashMode == FlashMode.ON && cameraLens == CameraLens.FRONT) {
              throw InvalidConfigurationException("Flash mode ON is not supported with the front camera.")
@@ -126,12 +120,11 @@ class AndroidCameraControllerBuilder(
             cameraDeviceType = cameraDeviceType,
             returnFilePath = returnFilePath,
             aspectRatio = aspectRatio,
-            targetResolution = targetResolution
+            targetResolution = targetResolution,
         )
         plugins.forEach {
             it.initialize(cameraController)
         }
-
 
         return cameraController
     }
