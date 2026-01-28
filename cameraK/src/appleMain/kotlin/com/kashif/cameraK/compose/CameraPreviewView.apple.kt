@@ -14,10 +14,7 @@ import platform.UIKit.UIDeviceOrientationDidChangeNotification
  * Displays the camera feed using AVFoundation preview layer.
  */
 @Composable
-actual fun CameraPreviewView(
-    controller: CameraController,
-    modifier: Modifier
-) {
+actual fun CameraPreviewView(controller: CameraController, modifier: Modifier) {
     // Key on controller identity to force recreation when controller changes
     key(controller) {
         DisposableEffect(controller) {
@@ -25,7 +22,7 @@ actual fun CameraPreviewView(
             val observer = notificationCenter.addObserverForName(
                 UIDeviceOrientationDidChangeNotification,
                 null,
-                null
+                null,
             ) { _ ->
                 controller.getCameraPreviewLayer()?.connection?.videoOrientation =
                     controller.currentVideoOrientation()
@@ -41,7 +38,7 @@ actual fun CameraPreviewView(
             modifier = modifier,
             update = { viewController ->
                 // No update needed - controller manages itself
-            }
+            },
         )
     }
 }

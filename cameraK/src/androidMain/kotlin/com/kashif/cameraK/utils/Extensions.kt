@@ -4,9 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Bitmap
-import android.os.Build
 import java.io.ByteArrayOutputStream
-
 
 fun Context.getActivityOrNull(): Activity? {
     var context = this
@@ -28,23 +26,22 @@ fun Context.getActivityOrNull(): Activity? {
 fun Bitmap.compressToByteArray(
     format: Bitmap.CompressFormat = Bitmap.CompressFormat.JPEG,
     quality: Int = 95,
-    recycleInput: Boolean = false
+    recycleInput: Boolean = false,
 ): ByteArray {
-
-    val initialSize = when (format) {
-        Bitmap.CompressFormat.JPEG -> width * height / 8
-        Bitmap.CompressFormat.PNG -> width * height / 4
-        else -> width * height / 6
-    }
-    
+    val initialSize =
+        when (format) {
+            Bitmap.CompressFormat.JPEG -> width * height / 8
+            Bitmap.CompressFormat.PNG -> width * height / 4
+            else -> width * height / 6
+        }
 
     val outputStream = ByteArrayOutputStream(initialSize.coerceIn(16384, 1024 * 1024))
-    
+
     compress(format, quality.coerceIn(0, 100), outputStream)
-    
+
     if (recycleInput) {
         recycle()
     }
-    
+
     return outputStream.toByteArray()
 }

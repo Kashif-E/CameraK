@@ -1,0 +1,90 @@
+site_name: CameraK
+site_description: Kotlin Multiplatform Camera SDK
+site_author: Kashif-E
+site_url: https://kashif-e.github.io/CameraK/
+repo_url: https://github.com/kashif-e/CameraK
+repo_name: kashif-e/CameraK
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.ico
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - content.code.select
+    - content.code.annotate
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      use_pygments: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - toc:
+      permalink: true
+  - tables
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+    - Configuration: getting-started/configuration.md
+  - Guide:
+    - Core Concepts: guide/core-concepts.md
+    - Camera Capture: guide/camera-capture.md
+    - Permission Handling: guide/permissions.md
+    - Advanced Usage: guide/advanced.md
+  - API Reference:
+    - CameraController: api/camera-controller.md
+    - CameraPlugin: api/camera-plugin.md
+    - Data Models: api/models.md
+  - Examples:
+    - Android: examples/android.md
+    - iOS: examples/ios.md
+    - Desktop: examples/desktop.md
+  - Troubleshooting: troubleshooting.md
+  - Contributing: contributing.md
+  - License: license.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/kashif-e/CameraK
+      name: GitHub
+  version: 0.2.0
+
+copyright: Copyright &copy; 2024 CameraK

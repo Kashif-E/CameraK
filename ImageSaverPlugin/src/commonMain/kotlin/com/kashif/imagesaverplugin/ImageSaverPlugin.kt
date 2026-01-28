@@ -9,8 +9,8 @@ import coil3.compose.LocalPlatformContext
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.plugins.CameraPlugin
-import com.kashif.cameraK.state.CameraKStateHolder
 import com.kashif.cameraK.state.CameraKPlugin
+import com.kashif.cameraK.state.CameraKStateHolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -32,7 +32,7 @@ data class ImageSaverConfig(
     val prefix: String? = null,
     val directory: Directory = Directory.PICTURES,
     val customFolderName: String? = null,
-    val imageFormat : ImageFormat= ImageFormat.JPEG
+    val imageFormat: ImageFormat = ImageFormat.JPEG,
 )
 
 /**
@@ -62,10 +62,9 @@ data class ImageSaverConfig(
  * ```
  */
 @Stable
-abstract class ImageSaverPlugin(
-    val config: ImageSaverConfig
-) : CameraPlugin, CameraKPlugin {
-
+abstract class ImageSaverPlugin(val config: ImageSaverConfig) :
+    CameraPlugin,
+    CameraKPlugin {
     private var stateHolder: CameraKStateHolder? = null
 
     /**
@@ -153,11 +152,9 @@ abstract class ImageSaverPlugin(
 @Composable
 fun rememberImageSaverPlugin(
     config: ImageSaverConfig,
-    context: PlatformContext = LocalPlatformContext.current
-): ImageSaverPlugin {
-    return remember(config) {
-        createPlatformImageSaverPlugin(context, config)
-    }
+    context: PlatformContext = LocalPlatformContext.current,
+): ImageSaverPlugin = remember(config) {
+    createPlatformImageSaverPlugin(context, config)
 }
 
 /**
@@ -169,7 +166,4 @@ fun rememberImageSaverPlugin(
  * @param config Configuration settings for the plugin.
  * @return An instance of [ImageSaverPlugin] for the current platform.
  */
-expect fun createPlatformImageSaverPlugin(
-    context: PlatformContext,
-    config: ImageSaverConfig
-): ImageSaverPlugin
+expect fun createPlatformImageSaverPlugin(context: PlatformContext, config: ImageSaverConfig): ImageSaverPlugin

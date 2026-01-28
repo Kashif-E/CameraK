@@ -1,6 +1,5 @@
 package com.kashif.cameraK.permissions
 
-
 import androidx.compose.runtime.Composable
 
 /**

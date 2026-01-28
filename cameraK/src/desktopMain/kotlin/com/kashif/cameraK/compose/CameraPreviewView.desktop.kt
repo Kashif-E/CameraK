@@ -3,7 +3,13 @@ package com.kashif.cameraK.compose
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -17,10 +23,7 @@ import kotlinx.coroutines.launch
  * Displays frames from JavaCV frame grabber.
  */
 @Composable
-actual fun CameraPreviewView(
-    controller: CameraController,
-    modifier: Modifier
-) {
+actual fun CameraPreviewView(controller: CameraController, modifier: Modifier) {
     BoxWithConstraints(modifier = modifier) {
         val scope = rememberCoroutineScope()
         val frameChannel = controller.getFrameChannel()
@@ -38,7 +41,7 @@ actual fun CameraPreviewView(
             Image(
                 bitmap = frame,
                 contentDescription = "Camera Preview",
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }

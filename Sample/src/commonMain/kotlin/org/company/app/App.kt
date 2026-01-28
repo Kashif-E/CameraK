@@ -48,7 +48,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,6 +75,8 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.SwitchCamera
 import com.composables.icons.lucide.X
 import com.composables.icons.lucide.Zap
+import com.kashif.cameraK.compose.CameraKScreen
+import com.kashif.cameraK.compose.rememberCameraKState
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
@@ -88,17 +89,15 @@ import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.permissions.Permissions
 import com.kashif.cameraK.permissions.providePermissions
 import com.kashif.cameraK.result.ImageCaptureResult
-import com.kashif.cameraK.compose.CameraKScreen
-import com.kashif.cameraK.compose.rememberCameraKState
 import com.kashif.cameraK.state.CameraConfiguration
 import com.kashif.cameraK.state.CameraKState
 import com.kashif.imagesaverplugin.ImageSaverConfig
 import com.kashif.imagesaverplugin.ImageSaverPlugin
 import com.kashif.imagesaverplugin.rememberImageSaverPlugin
-import com.kashif.qrscannerplugin.QRScannerPlugin
-import com.kashif.qrscannerplugin.rememberQRScannerPlugin
 import com.kashif.ocrPlugin.OcrPlugin
 import com.kashif.ocrPlugin.rememberOcrPlugin
+import com.kashif.qrscannerplugin.QRScannerPlugin
+import com.kashif.qrscannerplugin.rememberQRScannerPlugin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.company.app.theme.AppTheme
@@ -121,7 +120,7 @@ fun App() = AppTheme {
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars)
+        modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
     ) {
         val cameraPermissionState = remember { mutableStateOf(permissions.hasCameraPermission()) }
         val storagePermissionState = remember { mutableStateOf(permissions.hasStoragePermission()) }
@@ -132,8 +131,8 @@ fun App() = AppTheme {
                 isAutoSave = true,
                 prefix = "CameraK",
                 directory = Directory.PICTURES,
-                customFolderName = "CameraK"
-            )
+                customFolderName = "CameraK",
+            ),
         )
         val qrScannerPlugin = rememberQRScannerPlugin()
         val ocrPlugin = rememberOcrPlugin()
@@ -141,7 +140,7 @@ fun App() = AppTheme {
         PermissionsHandler(
             permissions = permissions,
             cameraPermissionState = cameraPermissionState,
-            storagePermissionState = storagePermissionState
+            storagePermissionState = storagePermissionState,
         )
 
         if (cameraPermissionState.value && storagePermissionState.value) {
@@ -150,36 +149,35 @@ fun App() = AppTheme {
                     imageSaverPlugin = imageSaverPlugin,
                     qrScannerPlugin = qrScannerPlugin,
                     ocrPlugin = ocrPlugin,
-                    onToggleApi = { useNewApi = !useNewApi }
+                    onToggleApi = { useNewApi = !useNewApi },
                 )
             } else {
                 LegacyAppContent(
                     imageSaverPlugin = imageSaverPlugin,
-                    onToggleApi = { useNewApi = !useNewApi }
+                    onToggleApi = { useNewApi = !useNewApi },
                 )
             }
         }
     }
 }
 
-
 @Composable
 private fun PermissionsHandler(
     permissions: Permissions,
     cameraPermissionState: MutableState<Boolean>,
-    storagePermissionState: MutableState<Boolean>
+    storagePermissionState: MutableState<Boolean>,
 ) {
     if (!cameraPermissionState.value) {
         permissions.RequestCameraPermission(
             onGranted = { cameraPermissionState.value = true },
-            onDenied = { println("Camera Permission Denied") }
+            onDenied = { println("Camera Permission Denied") },
         )
     }
 
     if (!storagePermissionState.value) {
         permissions.RequestStoragePermission(
             onGranted = { storagePermissionState.value = true },
-            onDenied = { println("Storage Permission Denied") }
+            onDenied = { println("Storage Permission Denied") },
         )
     }
 }
@@ -189,7 +187,7 @@ private fun CameraContent(
     imageSaverPlugin: ImageSaverPlugin,
     qrScannerPlugin: QRScannerPlugin,
     ocrPlugin: OcrPlugin,
-    onToggleApi: () -> Unit = {}
+    onToggleApi: () -> Unit = {},
 ) {
     var aspectRatio by remember { mutableStateOf(AspectRatio.RATIO_4_3) }
     var resolution by remember { mutableStateOf<Pair<Int, Int>?>(null) }
@@ -227,13 +225,13 @@ private fun CameraContent(
             qualityPrioritization = qualityPrioritization,
             cameraDeviceType = cameraDeviceType,
             aspectRatio = aspectRatio,
-            targetResolution = resolution
+            targetResolution = resolution,
         ),
         setupPlugins = { stateHolder ->
             stateHolder.attachPlugin(imageSaverPlugin)
             stateHolder.attachPlugin(qrScannerPlugin)
             stateHolder.attachPlugin(ocrPlugin)
-        }
+        },
     )
 
     CameraKScreen(
@@ -242,16 +240,16 @@ private fun CameraContent(
         loadingContent = {
             Box(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text(
                         "Initializing Camera...",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
@@ -259,33 +257,33 @@ private fun CameraContent(
         errorContent = { error ->
             Box(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.padding(32.dp)
+                    modifier = Modifier.padding(32.dp),
                 ) {
                     Icon(
                         imageVector = Lucide.X,
                         contentDescription = "Error",
                         tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(48.dp),
                     )
                     Text(
                         "Camera Error",
                         style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.error,
                     )
                     Text(
                         error.message,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
-        }
+        },
     ) { state ->
         EnhancedCameraScreen(
             cameraState = state,
@@ -319,7 +317,7 @@ private fun CameraContent(
                 cameraDeviceType = device
                 configVersion++
             },
-            onToggleApi = onToggleApi
+            onToggleApi = onToggleApi,
         )
     }
 }
@@ -343,7 +341,7 @@ fun EnhancedCameraScreen(
     onImageFormatChange: (ImageFormat) -> Unit,
     onQualityPrioritizationChange: (QualityPrioritization) -> Unit,
     onCameraDeviceTypeChange: (CameraDeviceType) -> Unit,
-    onToggleApi: () -> Unit = {}
+    onToggleApi: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val cameraController = cameraState.controller
@@ -364,7 +362,7 @@ fun EnhancedCameraScreen(
     // Bottom sheet state
     val bottomSheetState = rememberStandardBottomSheetState(
         initialValue = SheetValue.PartiallyExpanded,
-        skipHiddenState = false
+        skipHiddenState = false,
     )
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = bottomSheetState)
 
@@ -454,10 +452,10 @@ fun EnhancedCameraScreen(
                 onOCRToggle = {
                     isOCREnabled = it
                 },
-                onToggleApi = onToggleApi
+                onToggleApi = onToggleApi,
             )
         },
-        sheetContentColor = MaterialTheme.colorScheme.onSurface
+        sheetContentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Plugin outputs overlay (top left)
@@ -466,14 +464,14 @@ fun EnhancedCameraScreen(
                 detectedQR = detectedQR,
                 recognizedText = recognizedText,
                 isQREnabled = isQRScanningEnabled,
-                isOCREnabled = isOCREnabled
+                isOCREnabled = isOCREnabled,
             )
 
             // OCR output overlay (bottom left)
             OcrOutputOverlay(
                 modifier = Modifier.align(Alignment.BottomStart),
                 recognizedText = recognizedText,
-                isOCREnabled = isOCREnabled
+                isOCREnabled = isOCREnabled,
             )
 
             // Quick controls overlay
@@ -488,7 +486,7 @@ fun EnhancedCameraScreen(
                 onTorchToggle = {
                     cameraController.toggleTorchMode()
                     torchMode = cameraController.getTorchMode() ?: TorchMode.OFF
-                }
+                },
             )
 
             // Capture button
@@ -502,12 +500,12 @@ fun EnhancedCameraScreen(
                             handleImageCapture(
                                 cameraController = cameraController,
                                 imageSaverPlugin = imageSaverPlugin,
-                                onImageCaptured = { imageBitmap = it }
+                                onImageCaptured = { imageBitmap = it },
                             )
                             isCapturing = false
                         }
                     }
-                }
+                },
             )
 
             // Captured image preview
@@ -524,16 +522,16 @@ private fun QuickControlsOverlay(
     flashMode: FlashMode,
     torchMode: TorchMode,
     onFlashToggle: () -> Unit,
-    onTorchToggle: () -> Unit
+    onTorchToggle: () -> Unit,
 ) {
     Surface(
         modifier = modifier.padding(16.dp),
         color = Color.Black.copy(alpha = 0.6f),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(12.dp),
     ) {
         Row(
             modifier = Modifier.padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             IconButton(onClick = onFlashToggle) {
                 Icon(
@@ -543,14 +541,14 @@ private fun QuickControlsOverlay(
                         FlashMode.AUTO -> Lucide.Flashlight
                     },
                     contentDescription = "Flash: $flashMode",
-                    tint = Color.White
+                    tint = Color.White,
                 )
             }
             IconButton(onClick = onTorchToggle) {
                 Icon(
                     imageVector = if (torchMode != TorchMode.OFF) Lucide.Flashlight else Lucide.FlashlightOff,
                     contentDescription = "Torch: $torchMode",
-                    tint = Color.White
+                    tint = Color.White,
                 )
             }
         }
@@ -558,25 +556,21 @@ private fun QuickControlsOverlay(
 }
 
 @Composable
-private fun CaptureButton(
-    modifier: Modifier = Modifier,
-    isCapturing: Boolean,
-    onCapture: () -> Unit
-) {
+private fun CaptureButton(modifier: Modifier = Modifier, isCapturing: Boolean, onCapture: () -> Unit) {
     FilledTonalButton(
         onClick = onCapture,
         enabled = !isCapturing,
         modifier = modifier.size(80.dp).clip(CircleShape),
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = MaterialTheme.colorScheme.primary,
-            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-        )
+            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+        ),
     ) {
         Icon(
             imageVector = Lucide.Camera,
             contentDescription = "Capture",
             tint = if (isCapturing) Color.White.copy(alpha = 0.5f) else Color.White,
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier.size(32.dp),
         )
     }
 }
@@ -605,7 +599,7 @@ private fun CameraControlsBottomSheet(
     onCameraDeviceTypeChange: (CameraDeviceType) -> Unit,
     onQRScanningToggle: (Boolean) -> Unit,
     onOCRToggle: (Boolean) -> Unit,
-    onToggleApi: () -> Unit = {}
+    onToggleApi: () -> Unit = {},
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
@@ -613,7 +607,7 @@ private fun CameraControlsBottomSheet(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item(span = { GridItemSpan(3) }) {
             Row(
@@ -621,27 +615,27 @@ private fun CameraControlsBottomSheet(
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "Camera Controls",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF221B00)
+                    color = Color(0xFF221B00),
                 )
-                
+
                 FilledTonalButton(
                     onClick = onToggleApi,
                     modifier = Modifier.widthIn(min = 100.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = Color(0xFFD4A574),
-                        contentColor = Color(0xFF221B00)
-                    )
+                        contentColor = Color(0xFF221B00),
+                    ),
                 ) {
                     Text(
                         "Switch API",
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 }
             }
@@ -653,7 +647,7 @@ private fun CameraControlsBottomSheet(
                 ZoomControl(
                     zoomLevel = zoomLevel,
                     maxZoom = maxZoom,
-                    onZoomChange = onZoomChange
+                    onZoomChange = onZoomChange,
                 )
             }
         }
@@ -662,7 +656,7 @@ private fun CameraControlsBottomSheet(
         item {
             FlashModeControl(
                 flashMode = flashMode,
-                onFlashModeChange = onFlashModeChange
+                onFlashModeChange = onFlashModeChange,
             )
         }
 
@@ -670,42 +664,42 @@ private fun CameraControlsBottomSheet(
         item {
             TorchModeControl(
                 torchMode = torchMode,
-                onTorchModeChange = onTorchModeChange
+                onTorchModeChange = onTorchModeChange,
             )
         }
 
         item {
             AspectRatioControl(
                 aspectRatio = aspectRatio,
-                onAspectRatioChange = onAspectRatioChange
+                onAspectRatioChange = onAspectRatioChange,
             )
         }
 
         item {
             ResolutionControl(
                 resolution = resolution,
-                onResolutionChange = onResolutionChange
+                onResolutionChange = onResolutionChange,
             )
         }
 
         item {
             ImageFormatControl(
                 imageFormat = imageFormat,
-                onImageFormatChange = onImageFormatChange
+                onImageFormatChange = onImageFormatChange,
             )
         }
 
         item {
             QualityPrioritizationControl(
                 qualityPrioritization = qualityPrioritization,
-                onQualityPrioritizationChange = onQualityPrioritizationChange
+                onQualityPrioritizationChange = onQualityPrioritizationChange,
             )
         }
 
         item {
             CameraDeviceTypeControl(
                 cameraDeviceType = cameraDeviceType,
-                onCameraDeviceTypeChange = onCameraDeviceTypeChange
+                onCameraDeviceTypeChange = onCameraDeviceTypeChange,
             )
         }
 
@@ -721,7 +715,7 @@ private fun CameraControlsBottomSheet(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF221B00),
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
             )
         }
 
@@ -729,7 +723,7 @@ private fun CameraControlsBottomSheet(
             PluginToggleControl(
                 label = "QR Scanner",
                 isEnabled = isQRScanningEnabled,
-                onToggle = onQRScanningToggle
+                onToggle = onQRScanningToggle,
             )
         }
 
@@ -737,33 +731,29 @@ private fun CameraControlsBottomSheet(
             PluginToggleControl(
                 label = "OCR (Text Recognition)",
                 isEnabled = isOCREnabled,
-                onToggle = onOCRToggle
+                onToggle = onOCRToggle,
             )
         }
     }
 }
 
 @Composable
-private fun ZoomControl(
-    zoomLevel: Float,
-    maxZoom: Float,
-    onZoomChange: (Float) -> Unit
-) {
+private fun ZoomControl(zoomLevel: Float, maxZoom: Float, onZoomChange: (Float) -> Unit) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "Zoom",
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
             )
             Text(
                 text = "Zoom: ${(zoomLevel * 10).toInt() / 10f}x",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
             )
         }
         Slider(
@@ -773,32 +763,29 @@ private fun ZoomControl(
             steps = ((maxZoom - 1f) * 10).toInt().coerceAtLeast(0),
             colors = SliderDefaults.colors(
                 thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary
-            )
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+            ),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 text = "1.0x",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = "${(maxZoom * 10).toInt() / 10f}x",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
 
 @Composable
-private fun FlashModeControl(
-    flashMode: FlashMode,
-    onFlashModeChange: (FlashMode) -> Unit
-) {
+private fun FlashModeControl(flashMode: FlashMode, onFlashModeChange: (FlashMode) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
     Column(
@@ -807,7 +794,7 @@ private fun FlashModeControl(
             .clickable { expanded = true }
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
             imageVector = when (flashMode) {
@@ -817,7 +804,7 @@ private fun FlashModeControl(
             },
             contentDescription = "Flash Mode",
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp),
         )
 
         Text(
@@ -825,12 +812,12 @@ private fun FlashModeControl(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            color = Color(0xFF221B00)
+            color = Color(0xFF221B00),
         )
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
         ) {
             FlashMode.entries.forEach { mode ->
                 DropdownMenuItem(
@@ -846,9 +833,9 @@ private fun FlashModeControl(
                                 FlashMode.OFF -> Lucide.FlashlightOff
                                 FlashMode.AUTO -> Lucide.Flashlight
                             },
-                            contentDescription = null
+                            contentDescription = null,
                         )
-                    }
+                    },
                 )
             }
         }
@@ -856,10 +843,7 @@ private fun FlashModeControl(
 }
 
 @Composable
-private fun TorchModeControl(
-    torchMode: TorchMode,
-    onTorchModeChange: (TorchMode) -> Unit
-) {
+private fun TorchModeControl(torchMode: TorchMode, onTorchModeChange: (TorchMode) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
     Column(
@@ -868,13 +852,13 @@ private fun TorchModeControl(
             .clickable { expanded = true }
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
             imageVector = if (torchMode != TorchMode.OFF) Lucide.Flashlight else Lucide.FlashlightOff,
             contentDescription = "Torch Mode",
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp),
         )
 
         Text(
@@ -882,12 +866,12 @@ private fun TorchModeControl(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            color = Color(0xFF221B00)
+            color = Color(0xFF221B00),
         )
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
         ) {
             TorchMode.entries.forEach { mode ->
                 DropdownMenuItem(
@@ -899,9 +883,9 @@ private fun TorchModeControl(
                     leadingIcon = {
                         Icon(
                             imageVector = if (mode != TorchMode.OFF) Lucide.Flashlight else Lucide.FlashlightOff,
-                            contentDescription = null
+                            contentDescription = null,
                         )
-                    }
+                    },
                 )
             }
         }
@@ -909,10 +893,7 @@ private fun TorchModeControl(
 }
 
 @Composable
-private fun AspectRatioControl(
-    aspectRatio: AspectRatio,
-    onAspectRatioChange: (AspectRatio) -> Unit
-) {
+private fun AspectRatioControl(aspectRatio: AspectRatio, onAspectRatioChange: (AspectRatio) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
     Column(
@@ -921,13 +902,13 @@ private fun AspectRatioControl(
             .clickable { expanded = true }
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
             imageVector = Lucide.Crop,
             contentDescription = "Aspect Ratio",
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp),
         )
 
         Text(
@@ -935,12 +916,12 @@ private fun AspectRatioControl(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            color = Color(0xFF221B00)
+            color = Color(0xFF221B00),
         )
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
         ) {
             AspectRatio.entries.forEach { ratio ->
                 DropdownMenuItem(
@@ -948,7 +929,7 @@ private fun AspectRatioControl(
                     onClick = {
                         onAspectRatioChange(ratio)
                         expanded = false
-                    }
+                    },
                 )
             }
         }
@@ -956,15 +937,11 @@ private fun AspectRatioControl(
 }
 
 @Composable
-private fun ResolutionControl(
-    resolution: Pair<Int, Int>?,
-    onResolutionChange: (Pair<Int, Int>?) -> Unit
-) {
+private fun ResolutionControl(resolution: Pair<Int, Int>?, onResolutionChange: (Pair<Int, Int>?) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val options = listOf(null, 1920 to 1080, 1280 to 720, 640 to 480)
 
-    fun label(pair: Pair<Int, Int>?): String =
-        pair?.let { "${it.first}x${it.second}" } ?: "Auto"
+    fun label(pair: Pair<Int, Int>?): String = pair?.let { "${it.first}x${it.second}" } ?: "Auto"
 
     Column(
         modifier = Modifier
@@ -972,13 +949,13 @@ private fun ResolutionControl(
             .clickable { expanded = true }
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
             imageVector = Lucide.Frame,
             contentDescription = "Resolution",
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp),
         )
 
         Text(
@@ -986,12 +963,12 @@ private fun ResolutionControl(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            color = Color(0xFF221B00)
+            color = Color(0xFF221B00),
         )
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
         ) {
             options.forEach { option ->
                 DropdownMenuItem(
@@ -999,7 +976,7 @@ private fun ResolutionControl(
                     onClick = {
                         onResolutionChange(option)
                         expanded = false
-                    }
+                    },
                 )
             }
         }
@@ -1007,10 +984,7 @@ private fun ResolutionControl(
 }
 
 @Composable
-private fun ImageFormatControl(
-    imageFormat: ImageFormat,
-    onImageFormatChange: (ImageFormat) -> Unit
-) {
+private fun ImageFormatControl(imageFormat: ImageFormat, onImageFormatChange: (ImageFormat) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
     Column(
@@ -1019,13 +993,13 @@ private fun ImageFormatControl(
             .clickable { expanded = true }
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
             imageVector = Lucide.Image,
             contentDescription = "Image Format",
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp),
         )
 
         Text(
@@ -1033,12 +1007,12 @@ private fun ImageFormatControl(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            color = Color(0xFF221B00)
+            color = Color(0xFF221B00),
         )
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
         ) {
             ImageFormat.entries.forEach { format ->
                 DropdownMenuItem(
@@ -1046,7 +1020,7 @@ private fun ImageFormatControl(
                     onClick = {
                         onImageFormatChange(format)
                         expanded = false
-                    }
+                    },
                 )
             }
         }
@@ -1056,7 +1030,7 @@ private fun ImageFormatControl(
 @Composable
 private fun QualityPrioritizationControl(
     qualityPrioritization: QualityPrioritization,
-    onQualityPrioritizationChange: (QualityPrioritization) -> Unit
+    onQualityPrioritizationChange: (QualityPrioritization) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -1066,13 +1040,13 @@ private fun QualityPrioritizationControl(
             .clickable { expanded = true }
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
             imageVector = Lucide.Zap,
             contentDescription = "Quality Priority",
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp),
         )
 
         Text(
@@ -1080,12 +1054,12 @@ private fun QualityPrioritizationControl(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            color = Color(0xFF221B00)
+            color = Color(0xFF221B00),
         )
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
         ) {
             QualityPrioritization.entries.forEach { priority ->
                 DropdownMenuItem(
@@ -1093,7 +1067,7 @@ private fun QualityPrioritizationControl(
                     onClick = {
                         onQualityPrioritizationChange(priority)
                         expanded = false
-                    }
+                    },
                 )
             }
         }
@@ -1103,7 +1077,7 @@ private fun QualityPrioritizationControl(
 @Composable
 private fun CameraDeviceTypeControl(
     cameraDeviceType: CameraDeviceType,
-    onCameraDeviceTypeChange: (CameraDeviceType) -> Unit
+    onCameraDeviceTypeChange: (CameraDeviceType) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -1113,13 +1087,13 @@ private fun CameraDeviceTypeControl(
             .clickable { expanded = true }
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
             imageVector = Lucide.SwitchCamera,
             contentDescription = "Camera Type",
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp),
         )
 
         Text(
@@ -1127,12 +1101,12 @@ private fun CameraDeviceTypeControl(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            color = Color(0xFF221B00)
+            color = Color(0xFF221B00),
         )
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
         ) {
             CameraDeviceType.entries.forEach { type ->
                 DropdownMenuItem(
@@ -1140,7 +1114,7 @@ private fun CameraDeviceTypeControl(
                     onClick = {
                         onCameraDeviceTypeChange(type)
                         expanded = false
-                    }
+                    },
                 )
             }
         }
@@ -1148,56 +1122,48 @@ private fun CameraDeviceTypeControl(
 }
 
 @Composable
-private fun CameraLensControl(
-    onLensSwitch: () -> Unit
-) {
+private fun CameraLensControl(onLensSwitch: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onLensSwitch)
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
             imageVector = Lucide.SwitchCamera,
             contentDescription = "Switch Camera",
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp),
         )
         Text(
             text = "Switch Camera",
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            color = Color(0xFF221B00)
+            color = Color(0xFF221B00),
         )
     }
 }
 
-
 @Composable
-private fun CameraControlSwitch(
-    icon: ImageVector,
-    text: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
+private fun CameraControlSwitch(icon: ImageVector, text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(horizontal = 8.dp)
+        modifier = Modifier.padding(horizontal = 8.dp),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = Color.White,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = text,
             color = Color.White,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(modifier = Modifier.width(8.dp))
         Switch(
@@ -1205,22 +1171,18 @@ private fun CameraControlSwitch(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.primary,
-                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-            )
+                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+            ),
         )
     }
 }
 
-
 @Composable
-private fun CapturedImagePreview(
-    imageBitmap: ImageBitmap?,
-    onDismiss: () -> Unit
-) {
+private fun CapturedImagePreview(imageBitmap: ImageBitmap?, onDismiss: () -> Unit) {
     imageBitmap?.let { bitmap ->
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = Color.Black.copy(alpha = 0.9f)
+            color = Color.Black.copy(alpha = 0.9f),
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Image(
@@ -1229,7 +1191,7 @@ private fun CapturedImagePreview(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(16.dp),
-                    contentScale = ContentScale.Fit
+                    contentScale = ContentScale.Fit,
                 )
 
                 IconButton(
@@ -1239,14 +1201,14 @@ private fun CapturedImagePreview(
                         .padding(16.dp)
                         .background(
                             MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
-                            CircleShape
-                        )
+                            CircleShape,
+                        ),
                 ) {
                     Icon(
                         imageVector = Lucide.X,
                         contentDescription = "Close Preview",
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.rotate(120f)
+                        modifier = Modifier.rotate(120f),
                     )
                 }
             }
@@ -1275,7 +1237,7 @@ private fun CapturedImagePreview(
 private suspend fun handleImageCapture(
     cameraController: CameraController,
     imageSaverPlugin: ImageSaverPlugin,
-    onImageCaptured: (ImageBitmap) -> Unit
+    onImageCaptured: (ImageBitmap) -> Unit,
 ) {
     when (val result = cameraController.takePictureToFile()) {
         is ImageCaptureResult.SuccessWithFile -> {
@@ -1304,23 +1266,23 @@ private fun PluginOutputsOverlay(
     detectedQR: String?,
     recognizedText: String?,
     isQREnabled: Boolean,
-    isOCREnabled: Boolean
+    isOCREnabled: Boolean,
 ) {
     if ((isQREnabled && detectedQR != null) || (isOCREnabled && recognizedText != null)) {
         Surface(
             modifier = modifier.padding(16.dp),
             color = Color.Black.copy(alpha = 0.8f),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
         ) {
             Column(
                 modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
                     "Plugin Outputs",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = Color.White,
                 )
 
                 if (isQREnabled && detectedQR != null) {
@@ -1328,12 +1290,12 @@ private fun PluginOutputsOverlay(
                         Text(
                             "QR Code:",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.7f)
+                            color = Color.White.copy(alpha = 0.7f),
                         )
                         Text(
                             detectedQR,
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF4CAF50)
+                            color = Color(0xFF4CAF50),
                         )
                     }
                 }
@@ -1343,12 +1305,12 @@ private fun PluginOutputsOverlay(
                         Text(
                             "Recognized Text:",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.7f)
+                            color = Color.White.copy(alpha = 0.7f),
                         )
                         Text(
                             recognizedText.take(100) + if (recognizedText.length > 100) "..." else "",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF2196F3)
+                            color = Color(0xFF2196F3),
                         )
                     }
                 }
@@ -1358,28 +1320,24 @@ private fun PluginOutputsOverlay(
 }
 
 @Composable
-private fun PluginToggleControl(
-    label: String,
-    isEnabled: Boolean,
-    onToggle: (Boolean) -> Unit
-) {
+private fun PluginToggleControl(label: String, isEnabled: Boolean, onToggle: (Boolean) -> Unit) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xFF221B00)
+                color = Color(0xFF221B00),
             )
             Switch(
                 checked = isEnabled,
@@ -1388,38 +1346,34 @@ private fun PluginToggleControl(
                     checkedThumbColor = Color(0xFF4CAF50),
                     checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
                     uncheckedThumbColor = Color.Gray,
-                    uncheckedTrackColor = Color.Gray.copy(alpha = 0.3f)
-                )
+                    uncheckedTrackColor = Color.Gray.copy(alpha = 0.3f),
+                ),
             )
         }
     }
 }
 
 @Composable
-private fun OcrOutputOverlay(
-    modifier: Modifier = Modifier,
-    recognizedText: String?,
-    isOCREnabled: Boolean
-) {
+private fun OcrOutputOverlay(modifier: Modifier = Modifier, recognizedText: String?, isOCREnabled: Boolean) {
     if (isOCREnabled && recognizedText != null) {
         Surface(
             modifier = modifier
                 .padding(16.dp)
                 .border(2.dp, Color(0xFF2196F3), RoundedCornerShape(12.dp)),
             color = Color(0xFF1F1F1F),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
         ) {
             Column(
                 modifier = Modifier
                     .padding(12.dp)
                     .widthIn(max = 250.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
                     "📝 Recognized Text",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2196F3)
+                    color = Color(0xFF2196F3),
                 )
 
                 Text(
@@ -1427,13 +1381,13 @@ private fun OcrOutputOverlay(
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White,
                     maxLines = 5,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
 
                 Text(
                     "Length: ${recognizedText.length} chars",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.6f)
+                    color = Color.White.copy(alpha = 0.6f),
                 )
             }
         }

@@ -18,7 +18,6 @@ import org.bytedeco.javacv.FrameGrabber
  * Supports camera capture on JVM-based desktop environments.
  */
 class DesktopCameraControllerBuilder : CameraControllerBuilder {
-
     private var grabber: FrameGrabber? = null
     private var horizontalFlip: Boolean = false
     private var flashMode: FlashMode = FlashMode.OFF
@@ -61,10 +60,8 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
         this.cameraLens = cameraLens
         return this
     }
-    
-    override fun setPreferredCameraDeviceType(deviceType: CameraDeviceType): CameraControllerBuilder {
-        return this
-    }
+
+    override fun setPreferredCameraDeviceType(deviceType: CameraDeviceType): CameraControllerBuilder = this
 
     override fun setImageFormat(imageFormat: ImageFormat): CameraControllerBuilder {
         this.imageFormat = imageFormat
@@ -92,13 +89,9 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
      * @param returnFilePath Ignored on desktop platform.
      * @return This builder instance for chaining.
      */
-    override fun setReturnFilePath(returnFilePath: Boolean): CameraControllerBuilder {
-        return this
-    }
+    override fun setReturnFilePath(returnFilePath: Boolean): CameraControllerBuilder = this
 
-    override fun setAspectRatio(aspectRatio: AspectRatio): CameraControllerBuilder {
-        return this
-    }
+    override fun setAspectRatio(aspectRatio: AspectRatio): CameraControllerBuilder = this
 
     override fun setDirectory(directory: Directory): CameraControllerBuilder {
         this.directory = directory
@@ -114,14 +107,15 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
         val format = imageFormat ?: throw InvalidConfigurationException("ImageFormat must be set.")
         val dir = directory ?: throw InvalidConfigurationException("Directory must be set.")
 
-        val cameraController = CameraController(
-            imageFormat = format,
-            directory = dir,
-            plugins = plugins,
-            horizontalFlip = horizontalFlip,
-            customGrabber = grabber,
-            targetResolution = targetResolution
-        )
+        val cameraController =
+            CameraController(
+                imageFormat = format,
+                directory = dir,
+                plugins = plugins,
+                horizontalFlip = horizontalFlip,
+                customGrabber = grabber,
+                targetResolution = targetResolution,
+            )
 
         return cameraController
     }

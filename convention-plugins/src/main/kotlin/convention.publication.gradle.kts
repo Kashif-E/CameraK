@@ -1,11 +1,10 @@
-//Publishing your Kotlin Multiplatform library to Maven Central
-//https://dev.to/kotlin/how-to-build-and-publish-a-kotlin-multiplatform-library-going-public-4a8k
+// Publishing your Kotlin Multiplatform library to Maven Central
+// https://dev.to/kotlin/how-to-build-and-publish-a-kotlin-multiplatform-library-going-public-4a8k
 
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.tasks.bundling.Jar
-import org.gradle.kotlin.dsl.`maven-publish`
 import org.gradle.kotlin.dsl.signing
-import java.util.*
+import java.util.Properties
 
 plugins {
     id("maven-publish")
@@ -22,11 +21,13 @@ ext["ossrhPassword"] = null
 // Grabbing secrets from local.properties file or from environment variables, which could be used on CI
 val secretPropsFile = project.rootProject.file("local.properties")
 if (secretPropsFile.exists()) {
-    secretPropsFile.reader().use {
-        Properties().apply { load(it) }
-    }.onEach { (name, value) ->
-        ext[name.toString()] = value
-    }
+    secretPropsFile
+        .reader()
+        .use {
+            Properties().apply { load(it) }
+        }.onEach { (name, value) ->
+            ext[name.toString()] = value
+        }
 } else {
     ext["signing.keyId"] = System.getenv("SIGNING_KEY_ID")
     ext["signing.password"] = System.getenv("SIGNING_PASSWORD")
@@ -96,7 +97,7 @@ signing {
     }
 }
 
-//https://github.com/gradle/gradle/issues/26132
+// https://github.com/gradle/gradle/issues/26132
 val signingTasks = tasks.withType<Sign>()
 tasks.withType<AbstractPublishToMaven>().configureEach {
     mustRunAfter(signingTasks)

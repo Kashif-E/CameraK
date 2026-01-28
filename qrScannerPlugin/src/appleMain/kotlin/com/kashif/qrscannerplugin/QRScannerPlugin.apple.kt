@@ -4,7 +4,6 @@ import com.kashif.cameraK.controller.CameraController
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import platform.AVFoundation.AVCaptureConnection
@@ -24,7 +23,6 @@ import platform.AVFoundation.AVMetadataObjectTypePDF417Code
 import platform.AVFoundation.AVMetadataObjectTypeQRCode
 import platform.AVFoundation.AVMetadataObjectTypeUPCECode
 import platform.darwin.NSObject
-
 
 /**
  * Represents a scanned code result from iOS camera metadata.
@@ -50,10 +48,7 @@ sealed class ScannedCode {
      * @param value The decoded barcode text content
      * @param type The barcode format type (e.g., "EAN_13", "CODE_128")
      */
-    data class Barcode(
-        override val value: String,
-        override val type: String
-    ) : ScannedCode()
+    data class Barcode(override val value: String, override val type: String) : ScannedCode()
 
     companion object {
         /**
@@ -95,13 +90,11 @@ sealed class ScannedCode {
  * @param controller The camera controller to enable scanning on
  * @param onQrScanner Callback invoked when a QR code is detected with the scanned text
  */
-actual fun startScanning(
-    controller: CameraController,
-    onQrScanner: (String) -> Unit
-) {
-    val codeAnalyzer = CodeAnalyzer(onCodeScanned = {
-        onQrScanner(it.value)
-    })
+actual fun startScanning(controller: CameraController, onQrScanner: (String) -> Unit) {
+    val codeAnalyzer =
+        CodeAnalyzer(onCodeScanned = {
+            onQrScanner(it.value)
+        })
     controller.setMetadataObjectsDelegate(codeAnalyzer)
 
     // Queue all configuration changes atomically (WWDC pattern)
@@ -119,8 +112,8 @@ actual fun startScanning(
                 AVMetadataObjectTypePDF417Code!!,
                 AVMetadataObjectTypeAztecCode!!,
                 AVMetadataObjectTypeDataMatrixCode!!,
-                AVMetadataObjectTypeUPCECode!!
-            )
+                AVMetadataObjectTypeUPCECode!!,
+            ),
         )
     }
 }
@@ -133,10 +126,9 @@ actual fun startScanning(
  *
  * @param onCodeScanned Callback invoked when a QR code or barcode is successfully detected
  */
-private class CodeAnalyzer(
-    private val onCodeScanned: (ScannedCode) -> Unit
-) : NSObject(), AVCaptureMetadataOutputObjectsDelegateProtocol {
-
+private class CodeAnalyzer(private val onCodeScanned: (ScannedCode) -> Unit) :
+    NSObject(),
+    AVCaptureMetadataOutputObjectsDelegateProtocol {
     private val isProcessing = atomic(false)
     private val scope = CoroutineScope(Dispatchers.Main)
     private val debounceMs = 500L
@@ -151,7 +143,7 @@ private class CodeAnalyzer(
     override fun captureOutput(
         captureOutput: AVCaptureOutput,
         didOutputMetadataObjects: List<*>,
-        fromConnection: AVCaptureConnection
+        fromConnection: AVCaptureConnection,
     ) {
         if (isProcessing.value) return
 

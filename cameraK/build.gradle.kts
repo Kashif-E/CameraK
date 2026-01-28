@@ -7,6 +7,7 @@ plugins {
     id("org.jetbrains.compose")
     alias(libs.plugins.compose.compiler)
     id("com.vanniktech.maven.publish") version "0.31.0"
+    alias(libs.plugins.dokka)
 }
 
 group = "com.kashif.camera_compose"
@@ -31,8 +32,8 @@ kotlin {
     }
 
     sourceSets {
-        val desktopMain by getting{
-            dependencies{
+        val desktopMain by getting {
+            dependencies {
                 api(libs.javacv.platform)
             }
         }
@@ -51,7 +52,6 @@ kotlin {
 
         commonTest.dependencies {
             api(kotlin("test"))
-
         }
 
         androidMain.dependencies {
@@ -64,16 +64,13 @@ kotlin {
             api(libs.androidx.activityCompose)
             api(libs.androidx.startup.runtime)
             api(libs.core)
-
         }
-
     }
 
-    //https://kotlinlang.org/docs/native_objc_interop.html#export_of_kdoc_comments_to_generated_objective_c_headers
+    // https://kotlinlang.org/docs/native_objc_interop.html#export_of_kdoc_comments_to_generated_objective_c_headers
 //    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
 //        compilations["main"].compilerOptions.options.freeCompilerArgs.add("_Xexport_kdoc")
 //    }
-
 }
 
 android {
@@ -108,10 +105,8 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "camerak",
-        version = "0.2.0"
+        version = "0.2.0",
     )
-
-
 
     pom {
         name.set("CameraK")
@@ -144,4 +139,70 @@ mavenPublishing {
 
     // Enable GPG signing for all publications
     signAllPublications()
+}
+
+tasks.withType<org.jetbrains.dokka.gradle.DokkaTask>().configureEach {
+    moduleName.set("CameraK")
+    moduleVersion.set("0.2.0")
+    outputDirectory.set(file("${layout.buildDirectory}/dokka/html"))
+    
+    pluginsMapConfiguration.set(mapOf(
+        "org.jetbrains.dokka.base.DokkaBase" to """{
+            "customStyleSheets": ["styles/custom.css"],
+            "customAssets": [],
+            "homepageLink": "https://github.com/kashif-e/CameraK",
+            "footerMessage": "© 2024 CameraK - Multiplatform Camera SDK",
+            "separateInheritedMembers": false,
+            "mergeImplicitExpectActualDeclarations": true,
+            "sourceSetDependencies": {},
+            "hideSourceSets": false
+        }"""
+    ))
+    
+    dokkaSourceSets {
+        configureEach {
+            includes.from("README.md")
+            skipDeprecated.set(false)
+            reportUndocumented.set(true)
+            noStdlibLink.set(false)
+            noJdkLink.set(false)
+            
+            sourceLink {
+                localDirectory.set(file("src"))
+                remoteUrl.set(uri("https://github.com/kashif-e/CameraK/tree/main/cameraK/src").toURL())
+                remoteLineSuffix.set("#L")
+            }
+        }
+    }
+}
+
+// Create task to copy and inject custom CSS after Dokka generation
+tasks.register("injectCustomCSS") {
+    dependsOn("dokkaGeneratePublicationHtml")
+    doLast {
+        val customCssSource = file("src/dokka/assets/styles/custom.css")
+        val customCssDest = file("${layout.buildDirectory}/dokka/html/styles/custom.css")
+        
+        // Copy custom CSS
+        if (customCssSource.exists()) {
+            customCssDest.parentFile.mkdirs()
+            customCssSource.copyTo(customCssDest, overwrite = true)
+            println("✓ Custom CSS copied to build output")
+        }
+        
+        // Inject custom CSS link into HTML files
+        fileTree("${layout.buildDirectory}/dokka/html") {
+            include("**/*.html")
+        }.forEach { htmlFile ->
+            val content = htmlFile.readText()
+            if (!content.contains("custom.css")) {
+                val updated = content.replace(
+                    "styles/font-jb-sans-auto.css\" rel=\"Stylesheet\">",
+                    "styles/font-jb-sans-auto.css\" rel=\"Stylesheet\">\n        <link href=\"styles/custom.css\" rel=\"Stylesheet\">"
+                )
+                htmlFile.writeText(updated)
+            }
+        }
+        println("✓ Custom CSS injected into HTML files")
+    }
 }

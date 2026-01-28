@@ -5,5 +5,5 @@ package com.kashif.cameraK.enums
  */
 enum class CameraLens {
     FRONT,
-    BACK
+    BACK,
 }
