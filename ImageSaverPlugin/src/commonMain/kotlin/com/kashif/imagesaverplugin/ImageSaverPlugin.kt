@@ -1,16 +1,22 @@
 package com.kashif.imagesaverplugin
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import coil3.PlatformContext
 import coil3.compose.LocalPlatformContext
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.plugins.CameraPlugin
+import com.kashif.cameraK.state.CameraKStateHolder
+import com.kashif.cameraK.state.CameraKPlugin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * Configuration for the ImageSaverPlugin.
@@ -20,6 +26,7 @@ import kotlinx.coroutines.launch
  * @param directory Specifies the directory where images will be saved when auto-saving.
  * @param customFolderName Optional custom folder name within the specified directory.
  */
+@Immutable
 data class ImageSaverConfig(
     val isAutoSave: Boolean = false,
     val prefix: String? = null,
@@ -29,33 +36,57 @@ data class ImageSaverConfig(
 )
 
 /**
- * Abstract plugin to save captured images.
+ * Abstract plugin for saving captured images to device storage.
  *
- * Provides methods to save images either manually or automatically based on configuration.
+ * Supports both legacy [CameraPlugin] and new [CameraKPlugin] interfaces.
+ * Provides automatic and manual image saving with configurable naming and directory options.
  *
- * @param config Configuration settings for the plugin.
+ * @param config Configuration settings for image saving behavior.
+ *
+ * @property config Immutable configuration for saving behavior.
+ *
+ * @example
+ * ```kotlin
+ * val plugin = rememberImageSaverPlugin(
+ *     config = ImageSaverConfig(
+ *         isAutoSave = true,
+ *         prefix = "MyApp",
+ *         directory = Directory.PICTURES,
+ *         customFolderName = "MyPhotos"
+ *     )
+ * )
+ *
+ * val cameraState by rememberCameraKState { stateHolder ->
+ *     plugin.onAttach(stateHolder)
+ * }
+ * ```
  */
+@Stable
 abstract class ImageSaverPlugin(
     val config: ImageSaverConfig
-) : CameraPlugin {
+) : CameraPlugin, CameraKPlugin {
+
+    private var stateHolder: CameraKStateHolder? = null
 
     /**
-     * Saves the captured image data to storage manually.
+     * Saves the captured image data to storage.
      *
      * @param byteArray The image data as a [ByteArray].
      * @param imageName Optional custom name for the image. If not provided, a default name is generated.
+     * @return The file path where the image was saved, or null if saving failed.
      */
     abstract suspend fun saveImage(byteArray: ByteArray, imageName: String? = null): String?
 
     /**
-     * Initializes the plugin. If auto-save is enabled, sets up listeners to save images automatically.
+     * Initializes the plugin with the camera controller (legacy API).
+     * If auto-save is enabled, sets up listeners to save images automatically.
      *
-     * @param cameraController The [CameraController] instance to attach listeners.
+     * @param cameraController The [CameraController] instance to attach listeners to.
      */
     override fun initialize(cameraController: com.kashif.cameraK.controller.CameraController) {
         if (config.isAutoSave) {
             cameraController.addImageCaptureListener { byteArray ->
-                 CoroutineScope(Dispatchers.IO).launch {
+                CoroutineScope(Dispatchers.IO).launch {
                     val imageName = config.prefix?.let { "CameraK" }
                     saveImage(byteArray, imageName)
                 }
@@ -63,14 +94,61 @@ abstract class ImageSaverPlugin(
         }
     }
 
+    /**
+     * Attaches the plugin to the state holder (new API).
+     * If auto-save is enabled, automatically saves images when camera becomes ready.
+     *
+     * @param stateHolder The [CameraKStateHolder] to attach to.
+     */
+    @OptIn(ExperimentalTime::class)
+    override fun onAttach(stateHolder: CameraKStateHolder) {
+        this.stateHolder = stateHolder
+
+        if (config.isAutoSave) {
+            stateHolder.pluginScope.launch {
+                val controller = stateHolder.getReadyCameraController()
+                controller?.addImageCaptureListener { byteArray ->
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val imageName = config.prefix?.let { "${it}_${Clock.System.now().toEpochMilliseconds()}" }
+                        saveImage(byteArray, imageName)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Detaches the plugin from the state holder and cleans up resources.
+     */
+    override fun onDetach() {
+        stateHolder = null
+    }
+
+    /**
+     * Retrieves the image byte array from a file path.
+     *
+     * @param path The file path to read.
+     * @return The image data as a [ByteArray].
+     */
     abstract fun getByteArrayFrom(path: String): ByteArray
 }
 
 /**
- * Factory function to create a platform-specific [ImageSaverPlugin].
+ * Creates a remembered [ImageSaverPlugin] instance with automatic lifecycle management.
  *
- * @param config Configuration settings for the plugin.
- * @return An instance of [ImageSaverPlugin].
+ * @param config Configuration settings for image saving.
+ * @param context Platform context for accessing device storage.
+ * @return An instance of platform-specific [ImageSaverPlugin].
+ *
+ * @example
+ * ```kotlin
+ * @Composable
+ * fun MyScreen() {
+ *     val imageSaver = rememberImageSaverPlugin(
+ *         config = ImageSaverConfig(isAutoSave = true)
+ *     )
+ * }
+ * ```
  */
 @Composable
 fun rememberImageSaverPlugin(
@@ -83,9 +161,14 @@ fun rememberImageSaverPlugin(
 }
 
 /**
- * Platform-specific implementation of the [rememberImageSaverPlugin] factory function.
+ * Platform-specific factory for creating [ImageSaverPlugin] instances.
+ *
+ * Must be implemented for each platform (Android, iOS, Desktop).
+ *
+ * @param context Platform context for storage operations.
+ * @param config Configuration settings for the plugin.
+ * @return An instance of [ImageSaverPlugin] for the current platform.
  */
-
 expect fun createPlatformImageSaverPlugin(
     context: PlatformContext,
     config: ImageSaverConfig

@@ -14,7 +14,8 @@ import com.kashif.cameraK.utils.InvalidConfigurationException
 import org.bytedeco.javacv.FrameGrabber
 
 /**
- * Desktop-specific implementation of [CameraControllerBuilder].
+ * Desktop-specific implementation of [CameraControllerBuilder] using JavaCV/FFmpeg.
+ * Supports camera capture on JVM-based desktop environments.
  */
 class DesktopCameraControllerBuilder : CameraControllerBuilder {
 
@@ -29,11 +30,23 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
     private val plugins = mutableListOf<CameraPlugin>()
     private var targetResolution: Pair<Int, Int>? = null
 
+    /**
+     * Sets the frame grabber for camera input.
+     *
+     * @param grabber The JavaCV FrameGrabber instance.
+     * @return This builder instance for chaining.
+     */
     fun setGrabber(grabber: FrameGrabber): CameraControllerBuilder {
         this.grabber = grabber
         return this
     }
 
+    /**
+     * Configures whether to flip frames horizontally.
+     *
+     * @param horizontalFlip True to flip frames horizontally.
+     * @return This builder instance for chaining.
+     */
     fun setHorizontalFlip(horizontalFlip: Boolean): CameraControllerBuilder {
         this.horizontalFlip = horizontalFlip
         return this
@@ -50,7 +63,6 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
     }
     
     override fun setPreferredCameraDeviceType(deviceType: CameraDeviceType): CameraControllerBuilder {
-        // Camera device type selection not supported on desktop (single camera)
         return this
     }
 
@@ -74,13 +86,17 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
         return this
     }
 
+    /**
+     * Desktop does not support file path return; always returns ByteArray.
+     *
+     * @param returnFilePath Ignored on desktop platform.
+     * @return This builder instance for chaining.
+     */
     override fun setReturnFilePath(returnFilePath: Boolean): CameraControllerBuilder {
-        // Note: File path return not yet supported on Desktop, always returns ByteArray
         return this
     }
 
     override fun setAspectRatio(aspectRatio: AspectRatio): CameraControllerBuilder {
-        // Note: Aspect ratio configuration not yet fully implemented on Desktop
         return this
     }
 

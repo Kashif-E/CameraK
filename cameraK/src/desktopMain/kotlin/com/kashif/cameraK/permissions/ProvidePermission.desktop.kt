@@ -4,32 +4,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 
 /**
- * Factory function to provide platform-specific [Permissions] implementation.
+ * Desktop-specific implementation of [Permissions].
+ * On desktop platforms, permissions are automatically granted (no permission system).
  */
 @Composable
 actual fun providePermissions(): Permissions {
-    //not needed
     return remember {
+        /**
+         * Desktop permissions provider - all permissions are automatically allowed.
+         */
         object : Permissions {
-            override fun hasCameraPermission(): Boolean {
-                return true
-            }
+            override fun hasCameraPermission(): Boolean = true
 
-            override fun hasStoragePermission(): Boolean {
-                return true
-            }
+            override fun hasStoragePermission(): Boolean = true
 
             @Composable
             override fun RequestCameraPermission(onGranted: () -> Unit, onDenied: () -> Unit) {
                 onGranted()
-
             }
 
             @Composable
             override fun RequestStoragePermission(onGranted: () -> Unit, onDenied: () -> Unit) {
                 onGranted()
             }
-
         }
     }
 }

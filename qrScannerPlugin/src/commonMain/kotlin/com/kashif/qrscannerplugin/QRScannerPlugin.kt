@@ -1,36 +1,122 @@
 package com.kashif.qrscannerplugin
 
 /**
- * A plugin for scanning QR codes using the camera.
+ * QR Scanner plugin for detecting QR codes in camera frames.
  *
- * @property onQrScanner A callback function that is invoked when a QR code is scanned.
+ * Supports both legacy [CameraPlugin] and new [CameraKPlugin] interfaces for backward compatibility.
  */
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.plugins.CameraPlugin
+import com.kashif.cameraK.state.CameraKEvent
+import com.kashif.cameraK.state.CameraKPlugin
+import com.kashif.cameraK.state.CameraKState
+import com.kashif.cameraK.state.CameraKStateHolder
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
+/**
+ * QR Scanner plugin that works with both old and new camera APIs.
+ *
+ * **New Compose-first API usage:**
+ * ```kotlin
+ * val scope = rememberCoroutineScope()
+ * val qrPlugin = remember { QRScannerPlugin(scope) }
+ * var detectedQR by remember { mutableStateOf<String?>(null) }
+ *
+ * val cameraState by rememberCameraKState { stateHolder ->
+ *     qrPlugin.attachToStateHolder(stateHolder)
+ * }
+ *
+ * LaunchedEffect(qrPlugin) {
+ *     qrPlugin.getQrCodeFlow().collect { qr ->
+ *         detectedQR = qr
+ *     }
+ * }
+ * ```
+ *
+ * **Legacy API usage:**
+ * ```kotlin
+ * val qrPlugin = rememberQRScannerPlugin()
+ *
+ * CameraPreview(
+ *     onCameraControllerReady = { controller ->
+ *         qrPlugin.initialize(controller)
+ *         qrPlugin.startScanning()
+ *     }
+ * )
+ * ```
+ *
+ * @property coroutineScope Scope for managing QR scanning operations and event emission.
+ */
+@Stable
 class QRScannerPlugin(
     private val coroutineScope: CoroutineScope
-) : CameraPlugin {
+) : CameraPlugin, CameraKPlugin {
     private var cameraController: CameraController? = null
+    private var stateHolder: CameraKStateHolder? = null
     private val qrCodeFlow = MutableSharedFlow<String>()
     private var isScanning = atomic(false)
+    private var collectorJob: kotlinx.coroutines.Job? = null
 
     /**
-     * Initializes the QRScannerPlugin with the given CameraController.
+     * Initializes the plugin with the camera controller (legacy API).
      *
-     * @param cameraController The CameraController to be used for scanning.
+     * @param cameraController The [CameraController] instance to use for QR scanning.
      */
     override fun initialize(cameraController: CameraController) {
-        println("QRScannerPlugin initialized")
+        println("QRScannerPlugin initialized (legacy API)")
         this.cameraController = cameraController
+    }
+
+    /**
+     * Attaches the plugin to the state holder (new API).
+     * Automatically starts scanning when camera becomes ready.
+     *
+     * @param stateHolder The [CameraKStateHolder] to attach to.
+     */
+    override fun onAttach(stateHolder: CameraKStateHolder) {
+        println("QRScannerPlugin attached (new API)")
+        this.stateHolder = stateHolder
+
+        collectorJob = stateHolder.pluginScope.launch {
+            stateHolder.cameraState
+                .filterIsInstance<CameraKState.Ready>()
+                .collect { readyState ->
+                    this@QRScannerPlugin.cameraController = readyState.controller
+                    startScanning()
+                }
+        }
+    }
+
+    /**
+     * Detaches the plugin from the state holder and cleans up resources.
+     */
+    override fun onDetach() {
+        println("QRScannerPlugin detached")
+        pauseScanning()
+        collectorJob?.cancel()
+        collectorJob = null
+        this.stateHolder = null
+        this.cameraController = null
+    }
+
+    /**
+     * Convenience method to attach this plugin to a state holder.
+     * Use this when manually managing plugin lifecycle.
+     *
+     * @param stateHolder The state holder to attach to.
+     */
+    fun attachToStateHolder(stateHolder: CameraKStateHolder) {
+        stateHolder.attachPlugin(this)
     }
 
     /**
@@ -41,14 +127,25 @@ class QRScannerPlugin(
     fun startScanning() {
         cameraController?.let { controller ->
             isScanning.value = true
-            startScanning(controller = controller) { qrCode ->
-                if (isScanning.value) {
-                    coroutineScope.launch {
-                        qrCodeFlow.emit(qrCode)
+            try {
+                startScanning(controller = controller) { qrCode ->
+                    if (isScanning.value) {
+                        coroutineScope.launch {
+                            qrCodeFlow.emit(qrCode)
+                            // Emit event to state holder if available (new API)
+                            stateHolder?.emitEvent(CameraKEvent.QRCodeScanned(qrCode))
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                println("QRScannerPlugin: Failed to start scanning: ${e.message}")
+                isScanning.value = false
+                // Camera might not be fully initialized yet - will retry on next opportunity
             }
-        } ?: throw IllegalStateException("CameraController is not initialized")
+        } ?: run {
+            println("QRScannerPlugin: CameraController is not initialized")
+            isScanning.value = false
+        }
     }
 
     /**

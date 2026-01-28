@@ -1,10 +1,12 @@
 package com.kashif.cameraK.permissions
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 
 /**
  * Interface for requesting permissions in a platform-agnostic way.
  */
+@Stable
 interface Permissions {
 
     /**

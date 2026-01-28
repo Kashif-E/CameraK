@@ -34,52 +34,40 @@ import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
 import platform.darwin.dispatch_queue_create
+import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+
+// Track the current video output to prevent duplicates and allow cleanup
+private var currentVideoOutput: AVCaptureVideoDataOutput? = null
+private var currentController: CameraController? = null
 
 @OptIn(ExperimentalForeignApi::class)
 actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String =
     suspendCoroutine { continuation ->
-        NSLog("Starting text extraction from bitmap")
-
-
         val imageData = bitmap.toByteArray()?.toNSData()
         if (imageData == null) {
-            NSLog("Failed to convert bitmap to NSData")
             continuation.resume("")
             return@suspendCoroutine
         }
-
-        NSLog("Created NSData from bitmap")
-
 
         val uiImage = UIImage.imageWithData(imageData)
         if (uiImage == null) {
-            NSLog("Failed to create UIImage from data")
             continuation.resume("")
             return@suspendCoroutine
         }
 
-        NSLog("Created UIImage successfully")
-
-
         val request = VNRecognizeTextRequest { request, error ->
             if (error != null) {
-                NSLog("Vision request error: ${error.localizedDescription}")
                 continuation.resume("")
                 return@VNRecognizeTextRequest
             }
-
-            NSLog("Vision request completed")
 
             val results = request?.results as? NSArray
             if (results == null) {
-                NSLog("No results from Vision request")
                 continuation.resume("")
                 return@VNRecognizeTextRequest
             }
-
-            NSLog("Found ${results.count} results")
 
             val recognizedText = buildString {
                 for (i in 0 until results.count.toInt()) {
@@ -87,13 +75,11 @@ actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String =
                         results.objectAtIndex(i.toULong()) as? VNRecognizedTextObservation
                     observation?.let { obs ->
                         val candidatesArray = obs.topCandidates(1u)
-                        NSLog("Processing candidate ${i + 1}, found ${candidatesArray.count()} candidates")
 
                         if (candidatesArray.isNotEmpty()) {
                             val text =
                                 (candidatesArray.first() as? NSObject)?.valueForKey("string") as? String
                             if (!text.isNullOrBlank()) {
-                                NSLog("Found text: $text")
                                 if (isNotEmpty()) append("\n")
                                 append(text)
                             }
@@ -102,7 +88,6 @@ actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String =
                 }
             }
 
-            NSLog("Final extracted text: $recognizedText")
             continuation.resume(recognizedText.trim())
         }
 
@@ -110,63 +95,70 @@ actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String =
         request.recognitionLevel = VNRequestTextRecognitionLevelAccurate
         request.usesLanguageCorrection = true
 
-        NSLog("Vision request configured, attempting to process image")
-
-
         try {
             val handler = VNImageRequestHandler(uiImage.CGImage!!, mapOf<Any?, String>())
-
-            NSLog("Created Vision request handler")
-
-
             handler.performRequests(listOf(request), null)
-            NSLog("Vision request submitted")
         } catch (e: Exception) {
-            NSLog("Error performing Vision request: ${e.message}")
             continuation.resume("")
         }
     }
 
+/**
+ * Delegate for handling video frame capture and processing.
+ * Processes frames asynchronously to extract text using Vision framework.
+ *
+ * @property onText Callback invoked when text is successfully extracted from a frame.
+ */
 @OptIn(ExperimentalForeignApi::class)
 class VideoDataDelegate(
     private val onText: (String) -> Unit
 ) : NSObject(), AVCaptureVideoDataOutputSampleBufferDelegateProtocol {
+    @Volatile
     private var isProcessingFrame = false
     private val processingQueue = dispatch_queue_create(
         "com.kashif.ocrPlugin.processing",
         null
     )
 
-
+    @Volatile
     private var lastProcessedTime: Double = 0.0
-    private val minimumProcessingInterval = 0.1
+    private val minimumProcessingInterval = 0.5 // Process max 2 frames per second
 
+    /**
+     * Processes a captured video frame to extract text.
+     *
+     * @param output The capture output that provided the sample buffer.
+     * @param didOutputSampleBuffer The captured video frame sample buffer.
+     * @param fromConnection The connection from which the sample buffer was received.
+     */
     override fun captureOutput(
         output: AVCaptureOutput,
         didOutputSampleBuffer: CMSampleBufferRef?,
         fromConnection: AVCaptureConnection
     ) {
         if (didOutputSampleBuffer == null) return
+        
+        // Skip if already processing
+        if (isProcessingFrame) return
 
         val currentTime = NSDate.date().timeIntervalSince1970()
         if (currentTime - lastProcessedTime < minimumProcessingInterval) {
             return
         }
-
+        
+        // Mark as processing before async work
+        isProcessingFrame = true
+        lastProcessedTime = currentTime
 
         CFRetain(didOutputSampleBuffer)
 
         dispatch_async(processingQueue) {
             processFrame(didOutputSampleBuffer)
-            lastProcessedTime = NSDate.date().timeIntervalSince1970()
         }
     }
 
     private fun processFrame(sampleBuffer: CMSampleBufferRef) {
         try {
-
-            isProcessingFrame = true
-
             val pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) ?: run {
                 cleanupAndRelease(sampleBuffer)
                 return
@@ -177,9 +169,12 @@ class VideoDataDelegate(
                 return
             }
 
+            /**
+             * Text recognition request using Vision framework.
+             * Configured for accurate recognition with language correction disabled.
+             */
             val request = VNRecognizeTextRequest { vnRequest, error ->
                 if (error != null) {
-                    NSLog("Text recognition error: ${error.localizedDescription}")
                     cleanupAndRelease(sampleBuffer)
                     return@VNRecognizeTextRequest
                 }
@@ -195,7 +190,6 @@ class VideoDataDelegate(
             val handler = ciImage.pixelBuffer?.let {
                 VNImageRequestHandler(it, emptyMap<Any?, String>())
             } ?: run {
-                NSLog("Failed to create image request handler")
                 cleanupAndRelease(sampleBuffer)
                 return
             }
@@ -203,7 +197,6 @@ class VideoDataDelegate(
             handler?.performRequests(listOf(request), null)
 
         } catch (e: Exception) {
-            NSLog("Error processing frame: ${e.message}")
             cleanupAndRelease(sampleBuffer)
         }
     }
@@ -214,6 +207,10 @@ class VideoDataDelegate(
             return
         }
 
+        /**
+         * Collects recognized text from Vision results.
+         * Filters candidates by confidence threshold (0.3) to avoid low-confidence noise.
+         */
         val recognizedStrings = mutableListOf<String>()
 
         for (i in 0 until resultsArray.count.toInt()) {
@@ -223,7 +220,6 @@ class VideoDataDelegate(
                 if (topCandidates.count > 0uL) {
                     val candidate = topCandidates.objectAtIndex(0uL) as? VNRecognizedText
                     val confidence = candidate?.confidence ?: 0.0f
-
 
                     if (confidence > 0.3f) {
                         candidate?.string?.let { text ->
@@ -247,45 +243,63 @@ class VideoDataDelegate(
         }
     }
 
+    /**
+     * Cleans up and releases the video frame sample buffer.
+     *
+     * @param sampleBuffer The sample buffer to release.
+     */
     private fun cleanupAndRelease(sampleBuffer: CMSampleBufferRef) {
         isProcessingFrame = false
         CFRelease(sampleBuffer)
     }
 }
+/**
+ * Enables continuous text recognition on the iOS camera controller.
+ *
+ * Uses configuration queue pattern (Apple WWDC pattern) to safely add video output.
+ * Processes camera frames asynchronously and emits detected text via callback.
+ * Does NOT call startSession() - session is started by main camera setup.
+ * 
+ * Tracks the video output to prevent duplicate setup and allow proper cleanup.
+ *
+ * @param cameraController The camera controller providing frames
+ * @param onText Callback invoked when text is detected with the extracted text
+ */
 @OptIn(ExperimentalForeignApi::class)
 actual fun startRecognition(
     cameraController: CameraController,
     onText: (String) -> Unit
 ) {
-    NSLog("Starting real-time camera text recognition")
-
-    val previewLayer = cameraController.getCameraPreviewLayer() ?: run {
-        NSLog("Failed to get camera preview layer")
+    // If same controller and already has output, skip setup
+    if (currentController === cameraController && currentVideoOutput != null) {
         return
+    }
+    
+    // If different controller, we need fresh setup
+    if (currentController !== cameraController) {
+        currentVideoOutput = null
+        currentController = cameraController
     }
 
     val videoDataOutput = AVCaptureVideoDataOutput().apply {
-
         setVideoSettings(
             mapOf(
                 kCVPixelBufferPixelFormatTypeKey to kCVPixelFormatType_32BGRA
             )
         )
-
-
         setAlwaysDiscardsLateVideoFrames(true)
-
-
         setSampleBufferDelegate(
             VideoDataDelegate(onText),
             dispatch_queue_create("com.kashif.ocrPlugin.videoQueue", null)
         )
     }
+    
+    // Store reference for tracking
+    currentVideoOutput = videoDataOutput
 
-    val captureSession = previewLayer.session
-    if (captureSession?.canAddOutput(videoDataOutput) == true) {
-        captureSession.addOutput(videoDataOutput)
-
+    // Queue configuration change atomically (prevents startRunning inside begin/commit crash)
+    cameraController.queueConfigurationChange {
+        cameraController.safeAddOutput(videoDataOutput)
 
         (videoDataOutput.connections.firstOrNull() as? AVCaptureConnection)?.let { connection ->
             if (connection.supportsVideoOrientation) {
@@ -297,13 +311,5 @@ actual fun startRecognition(
                 )
             }
         }
-
-        NSLog("Added video data output to capture session")
-    } else {
-        NSLog("Cannot add video data output to capture session")
-        return
     }
-
-    cameraController.startSession()
-    NSLog("Camera session started")
 }

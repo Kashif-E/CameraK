@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Plugin Initialization Timing (#52)**: Fixed plugins attempting to initialize before camera is ready
+  - Added null checks in `QRScannerPlugin.android.kt` to prevent crashes when `cameraProvider` is null
+  - Wrapped `OcrPlugin.onAttach()` in try-catch to gracefully handle initialization failures
+  - Made OCR plugin fail silently (with warning logs) if tessdata not found instead of crashing the app
+  - Added validation to ensure camera is fully bound before updating image analyzer
+
+- **Desktop Tesseract Path Resolution (#51)**: Fixed hardcoded tessdata path breaking on other machines
+  - Implemented dynamic path resolution checking multiple locations for tessdata files
+  - Added graceful degradation when tessdata is not found on desktop
+  - Desktop app now runs without OCR errors even when tessdata is unavailable
+
+- **Desktop QR Scanner Syntax Error (#50)**: Fixed duplicate `put()` statement in decode hints map
+  - Corrected malformed EnumMap initialization in QRScannerPlugin
+
+### Added
+- **API Toggle Feature**: Added UI toggle button to switch between new and old camera APIs
+  - New Compose-first `CameraKScreen` with reactive state management
+  - Legacy callback-based `CameraPreview` API available via toggle
+  - Both APIs work seamlessly with all plugins (ImageSaver, QRScanner, OCR)
+  - Toggle button in camera controls bottom sheet for easy switching
+
 - **iOS Image Orientation Issue (#44)**: Fixed images being saved in wrong orientation on iOS
   - Added device orientation detection at photo capture time by setting `videoOrientation` on the photo output connection
   - Photos captured in portrait mode now save as portrait, landscape photos save as landscape

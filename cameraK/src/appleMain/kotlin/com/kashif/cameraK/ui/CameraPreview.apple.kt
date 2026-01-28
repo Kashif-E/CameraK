@@ -4,6 +4,7 @@ package com.kashif.cameraK.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitViewController
@@ -37,28 +38,31 @@ actual fun expectCameraPreview(
         onCameraControllerReady(cameraController)
     }
 
-    DisposableEffect(Unit) {
-        val notificationCenter = NSNotificationCenter.defaultCenter
-        val observer = notificationCenter.addObserverForName(
-            UIDeviceOrientationDidChangeNotification,
-            null,
-            null
-        ) { _ ->
-            cameraController.getCameraPreviewLayer()?.connection?.videoOrientation =
-                cameraController.currentVideoOrientation()
+    // Key on controller to force recreation when it changes
+    key(cameraController) {
+        DisposableEffect(cameraController) {
+            val notificationCenter = NSNotificationCenter.defaultCenter
+            val observer = notificationCenter.addObserverForName(
+                UIDeviceOrientationDidChangeNotification,
+                null,
+                null
+            ) { _ ->
+                cameraController.getCameraPreviewLayer()?.connection?.videoOrientation =
+                    cameraController.currentVideoOrientation()
+            }
+
+            onDispose {
+                notificationCenter.removeObserver(observer)
+            }
         }
 
-        onDispose {
-            notificationCenter.removeObserver(observer)
-        }
+        UIKitViewController(
+            factory = { cameraController },
+            modifier = modifier,
+            update = { viewController ->
+                // Modifier is applied by the UIKitViewController wrapper
+                // Background color and other styling can be set via the modifier parameter
+            }
+        )
     }
-
-    UIKitViewController(
-        factory = { cameraController },
-        modifier = modifier,
-        update = { viewController ->
-            // Modifier is applied by the UIKitViewController wrapper
-            // Background color and other styling can be set via the modifier parameter
-        }
-    )
 }
