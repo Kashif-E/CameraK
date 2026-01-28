@@ -38,7 +38,7 @@ Add to your `libs.versions.toml`:
 
 ```toml
 [versions]
-camerak = "0.1.0"
+camerak = "0.2.0"
 
 [libraries]
 camerak = { module = "io.github.kashif-mehmood-km:camerak", version.ref = "camerak" }
@@ -379,7 +379,6 @@ scope.launch {
 | `PICTURES` | `/DCIM/` or `Pictures/` | `Photos` app |
 | `DOCUMENTS` | `Documents/` | `Files > Documents` |
 | `DOWNLOADS` | `Downloads/` | `Files > Downloads` |
-| `CACHE` | `Cache/` | Temporary |
 
 ### QR Scanner Plugin
 
@@ -429,11 +428,6 @@ LaunchedEffect(Unit) {
 }
 ```
 
-#### Performance Notes
-
-- Real-time scanning (10-30 fps depending on device)
-- ML Kit backed (Android), native Core Image (iOS)
-- Detects all standard QR code formats (EAN, Code128, DataMatrix, etc.)
 
 ### OCR Plugin
 
@@ -533,7 +527,6 @@ override fun onAttach(stateHolder: CameraKStateHolder) {
 }
 ```
 
-See [PLUGIN_MIGRATION_GUIDE.md](PLUGIN_MIGRATION_GUIDE.md) for comprehensive migration examples.
 
 
 ## API Reference

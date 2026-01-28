@@ -7,7 +7,7 @@ We aim to support the latest minor release. Security fixes are backported when f
 | Version | Supported |
 |---------|-----------|
 | 0.1.x   | ✅ Yes     |
-| <0.1.0  | ❌ No      |
+| <0.1.x  | ❌ No      |
 
 ## Reporting a Vulnerability
 
