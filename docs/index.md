@@ -14,32 +14,28 @@ dependencies {
 @Composable
 fun CameraScreen() {
     val permissions = providePermissions()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val cameraState by rememberCameraKState(permissions = permissions).cameraState.collectAsStateWithLifecycle()
     
-    when (cameraState) {
-        is CameraKState.Ready -> {
-            val controller = (cameraState as CameraKState.Ready).controller
-            
-            CameraPreviewComposable(
-                controller = controller,
-                modifier = Modifier.fillMaxSize()
-            )
-            
-            Button(onClick = { 
+    CameraKScreen(
+        cameraState = cameraState,
+        showPreview = true
+    ) { readyState ->
+        // Camera preview shown automatically
+        FloatingActionButton(
+            onClick = { 
                 scope.launch {
-                    val result = controller.takePictureToFile()
-                    // Photo saved!
+                    readyState.controller.takePictureToFile()
                 }
-            }) {
-                Text("Capture")
             }
+        ) {
+            Icon(Icons.Default.CameraAlt, "Capture")
         }
-        is CameraKState.Error -> Text("Error: ${cameraState.exception.message}")
-        CameraKState.Initializing -> CircularProgressIndicator()
     }
 }
 ```
+
+**That's it!** `CameraKScreen` handles all state management automatically.
 
 ## Features
 

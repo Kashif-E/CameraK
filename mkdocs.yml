@@ -72,6 +72,7 @@ nav:
   - API Reference:
     - CameraKStateHolder: api/state-holder.md
     - CameraController: api/controller.md
+    - CameraKScreen: api/camera-k-screen.md
   - Examples:
     - Android: examples/android.md
   - Troubleshooting: troubleshooting.md

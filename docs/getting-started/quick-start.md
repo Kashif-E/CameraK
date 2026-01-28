@@ -62,6 +62,54 @@ fun CameraScreen() {
 
 **That's it!** You now have a working camera app.
 
+## Alternative: Using `CameraKScreen`
+
+For even less boilerplate, use the `CameraKScreen` helper that handles state automatically:
+
+```kotlin
+@Composable
+fun SimpleCameraScreen() {
+    val permissions = providePermissions()
+    val scope = rememberCoroutineScope()
+    val cameraState by rememberCameraKState(permissions = permissions).cameraState.collectAsStateWithLifecycle()
+    
+    CameraKScreen(
+        cameraState = cameraState,
+        showPreview = true,
+        loadingContent = {
+            // Optional: Custom loading UI
+            CircularProgressIndicator()
+        },
+        errorContent = { error ->
+            // Optional: Custom error UI
+            Text("Camera Error: ${error.message}")
+        }
+    ) { readyState ->
+        // Camera preview is shown automatically
+        // Add your UI overlay here
+        FloatingActionButton(
+            onClick = {
+                scope.launch {
+                    readyState.controller.takePictureToFile()
+                }
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .wrapContentSize(Alignment.BottomCenter)
+                .padding(32.dp)
+        ) {
+            Icon(Icons.Default.CameraAlt, contentDescription = "Capture")
+        }
+    }
+}
+```
+
+**Benefits:**
+- ✅ Automatic state handling (no when expression needed)
+- ✅ Built-in loading and error screens
+- ✅ Camera preview shown automatically
+- ✅ Less boilerplate code
+
 ## What's Happening?
 
 ### 1. Permission Handling
@@ -287,6 +335,9 @@ See [Plugins Guide](../guides/plugins.md) for details.
 ## Next Steps
 
 - [Configuration](configuration.md) — Customize camera settings
+- [CameraKScreen API](../api/camera-k-screen.md) — Convenience wrapper with automatic state handling
+- [CameraKStateHolder API](../api/state-holder.md) — State management details
+- [CameraController API](../api/controller.md) — Low-level camera operations
 - [Camera Capture Guide](../guides/camera-capture.md) — Advanced capture techniques
 - [Flash and Torch](../guides/flash-and-torch.md) — Lighting control
 - [Zoom Control](../guides/zoom-control.md) — Pinch-to-zoom
