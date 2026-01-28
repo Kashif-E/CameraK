@@ -23,12 +23,12 @@ Add dependencies to your `build.gradle.kts`:
 ```kotlin
 dependencies {
     // Core library
-    implementation("io.github.kashif-mehmood-km:camerak:0.1.0")
+    implementation("io.github.kashif-mehmood-km:camerak:0.2.0")
     
     // Optional plugins
-    implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.1.0")
-    implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.1.0")
-    implementation("io.github.kashif-mehmood-km:ocr_plugin:0.1.0")
+    implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.2.0")
+    implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.2.0")
+    implementation("io.github.kashif-mehmood-km:ocr_plugin:0.2.0")
 }
 ```
 
@@ -509,7 +509,7 @@ class CustomTextPlugin : CameraKPlugin {
 If you have custom plugins using the deprecated `getController()` approach:
 
 ```kotlin
-// ❌ OLD (v0.1.0) - Callback based
+// ❌ OLD (v0.2.0) - Callback based
 override fun onAttach(stateHolder: CameraKStateHolder) {
     val controller = stateHolder.getController() // Deprecated
     startDetection(controller)
@@ -635,7 +635,7 @@ sealed class CameraEvent {
     data class LensChanged(val lens: CameraLens) : CameraEvent()
 }
 
-## Migration Guide: v0.1.0 → v0.2.0
+## Migration Guide: v0.2.0 → v0.2.0
 
 ### API Migration
 
@@ -650,7 +650,7 @@ The v0.2.0 release introduces a new Compose-first reactive API. The old callback
 Old callback-based approach:
 
 ```kotlin
-// ❌ v0.1.0 - Callback based
+// ❌ v0.2.0 - Callback based
 CameraPreview(
     cameraConfiguration = { /* ... */ },
     onCameraControllerReady = { controller ->
@@ -702,7 +702,7 @@ scope.launch {
 
 If you've created custom plugins using the old API:
 
-#### ❌ Old Pattern (v0.1.0)
+#### ❌ Old Pattern (v0.2.0)
 
 ```kotlin
 class MyPlugin : CameraKPlugin {
@@ -799,7 +799,7 @@ suspend fun takePictureToFile(): ImageCaptureResult
 
 ### Breaking Changes Summary
 
-| Feature | v0.1.0 | v0.2.0+ | Timeline |
+| Feature | v0.2.0 | v0.2.0+ | Timeline |
 |---------|--------|---------|----------|
 | Callback-based API | ✅ | ⚠️ Deprecated | v2.0.0 removal |
 | Reactive StateFlow API | ❌ | ✅ Recommended | Current |
