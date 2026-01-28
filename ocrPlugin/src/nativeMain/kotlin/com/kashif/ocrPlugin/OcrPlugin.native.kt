@@ -20,7 +20,6 @@ import platform.CoreVideo.kCVPixelBufferPixelFormatTypeKey
 import platform.CoreVideo.kCVPixelFormatType_32BGRA
 import platform.Foundation.NSArray
 import platform.Foundation.NSDate
-import platform.Foundation.NSLog
 import platform.Foundation.date
 import platform.Foundation.timeIntervalSince1970
 import platform.Foundation.valueForKey
@@ -43,21 +42,21 @@ private var currentVideoOutput: AVCaptureVideoDataOutput? = null
 private var currentController: CameraController? = null
 
 @OptIn(ExperimentalForeignApi::class)
-actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String =
-    suspendCoroutine { continuation ->
-        val imageData = bitmap.toByteArray()?.toNSData()
-        if (imageData == null) {
-            continuation.resume("")
-            return@suspendCoroutine
-        }
+actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String = suspendCoroutine { continuation ->
+    val imageData = bitmap.toByteArray()?.toNSData()
+    if (imageData == null) {
+        continuation.resume("")
+        return@suspendCoroutine
+    }
 
-        val uiImage = UIImage.imageWithData(imageData)
-        if (uiImage == null) {
-            continuation.resume("")
-            return@suspendCoroutine
-        }
+    val uiImage = UIImage.imageWithData(imageData)
+    if (uiImage == null) {
+        continuation.resume("")
+        return@suspendCoroutine
+    }
 
-        val request = VNRecognizeTextRequest { request, error ->
+    val request =
+        VNRecognizeTextRequest { request, error ->
             if (error != null) {
                 continuation.resume("")
                 return@VNRecognizeTextRequest
@@ -69,39 +68,39 @@ actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String =
                 return@VNRecognizeTextRequest
             }
 
-            val recognizedText = buildString {
-                for (i in 0 until results.count.toInt()) {
-                    val observation =
-                        results.objectAtIndex(i.toULong()) as? VNRecognizedTextObservation
-                    observation?.let { obs ->
-                        val candidatesArray = obs.topCandidates(1u)
+            val recognizedText =
+                buildString {
+                    for (i in 0 until results.count.toInt()) {
+                        val observation =
+                            results.objectAtIndex(i.toULong()) as? VNRecognizedTextObservation
+                        observation?.let { obs ->
+                            val candidatesArray = obs.topCandidates(1u)
 
-                        if (candidatesArray.isNotEmpty()) {
-                            val text =
-                                (candidatesArray.first() as? NSObject)?.valueForKey("string") as? String
-                            if (!text.isNullOrBlank()) {
-                                if (isNotEmpty()) append("\n")
-                                append(text)
+                            if (candidatesArray.isNotEmpty()) {
+                                val text =
+                                    (candidatesArray.first() as? NSObject)?.valueForKey("string") as? String
+                                if (!text.isNullOrBlank()) {
+                                    if (isNotEmpty()) append("\n")
+                                    append(text)
+                                }
                             }
                         }
                     }
                 }
-            }
 
             continuation.resume(recognizedText.trim())
         }
 
+    request.recognitionLevel = VNRequestTextRecognitionLevelAccurate
+    request.usesLanguageCorrection = true
 
-        request.recognitionLevel = VNRequestTextRecognitionLevelAccurate
-        request.usesLanguageCorrection = true
-
-        try {
-            val handler = VNImageRequestHandler(uiImage.CGImage!!, mapOf<Any?, String>())
-            handler.performRequests(listOf(request), null)
-        } catch (e: Exception) {
-            continuation.resume("")
-        }
+    try {
+        val handler = VNImageRequestHandler(uiImage.CGImage!!, mapOf<Any?, String>())
+        handler.performRequests(listOf(request), null)
+    } catch (e: Exception) {
+        continuation.resume("")
     }
+}
 
 /**
  * Delegate for handling video frame capture and processing.
@@ -110,15 +109,16 @@ actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String =
  * @property onText Callback invoked when text is successfully extracted from a frame.
  */
 @OptIn(ExperimentalForeignApi::class)
-class VideoDataDelegate(
-    private val onText: (String) -> Unit
-) : NSObject(), AVCaptureVideoDataOutputSampleBufferDelegateProtocol {
+class VideoDataDelegate(private val onText: (String) -> Unit) :
+    NSObject(),
+    AVCaptureVideoDataOutputSampleBufferDelegateProtocol {
     @Volatile
     private var isProcessingFrame = false
-    private val processingQueue = dispatch_queue_create(
-        "com.kashif.ocrPlugin.processing",
-        null
-    )
+    private val processingQueue =
+        dispatch_queue_create(
+            "com.kashif.ocrPlugin.processing",
+            null,
+        )
 
     @Volatile
     private var lastProcessedTime: Double = 0.0
@@ -134,10 +134,10 @@ class VideoDataDelegate(
     override fun captureOutput(
         output: AVCaptureOutput,
         didOutputSampleBuffer: CMSampleBufferRef?,
-        fromConnection: AVCaptureConnection
+        fromConnection: AVCaptureConnection,
     ) {
         if (didOutputSampleBuffer == null) return
-        
+
         // Skip if already processing
         if (isProcessingFrame) return
 
@@ -145,7 +145,7 @@ class VideoDataDelegate(
         if (currentTime - lastProcessedTime < minimumProcessingInterval) {
             return
         }
-        
+
         // Mark as processing before async work
         isProcessingFrame = true
         lastProcessedTime = currentTime
@@ -159,43 +159,46 @@ class VideoDataDelegate(
 
     private fun processFrame(sampleBuffer: CMSampleBufferRef) {
         try {
-            val pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) ?: run {
-                cleanupAndRelease(sampleBuffer)
-                return
-            }
+            val pixelBuffer =
+                CMSampleBufferGetImageBuffer(sampleBuffer) ?: run {
+                    cleanupAndRelease(sampleBuffer)
+                    return
+                }
 
-            val ciImage = CIImage.imageWithCVPixelBuffer(pixelBuffer) ?: run {
-                cleanupAndRelease(sampleBuffer)
-                return
-            }
+            val ciImage =
+                CIImage.imageWithCVPixelBuffer(pixelBuffer) ?: run {
+                    cleanupAndRelease(sampleBuffer)
+                    return
+                }
 
             /**
              * Text recognition request using Vision framework.
              * Configured for accurate recognition with language correction disabled.
              */
-            val request = VNRecognizeTextRequest { vnRequest, error ->
-                if (error != null) {
-                    cleanupAndRelease(sampleBuffer)
-                    return@VNRecognizeTextRequest
+            val request =
+                VNRecognizeTextRequest { vnRequest, error ->
+                    if (error != null) {
+                        cleanupAndRelease(sampleBuffer)
+                        return@VNRecognizeTextRequest
+                    }
+
+                    handleRecognitionResults(vnRequest?.results as? NSArray, sampleBuffer)
+                }.apply {
+                    recognitionLevel = VNRequestTextRecognitionLevelAccurate
+                    usesLanguageCorrection = false
+                    minimumTextHeight = 0.1f
+                    recognitionLanguages = listOf("en-US")
                 }
 
-                handleRecognitionResults(vnRequest?.results as? NSArray, sampleBuffer)
-            }.apply {
-                recognitionLevel = VNRequestTextRecognitionLevelAccurate
-                usesLanguageCorrection = false
-                minimumTextHeight = 0.1f
-                recognitionLanguages = listOf("en-US")
-            }
-
-            val handler = ciImage.pixelBuffer?.let {
-                VNImageRequestHandler(it, emptyMap<Any?, String>())
-            } ?: run {
-                cleanupAndRelease(sampleBuffer)
-                return
-            }
+            val handler =
+                ciImage.pixelBuffer?.let {
+                    VNImageRequestHandler(it, emptyMap<Any?, String>())
+                } ?: run {
+                    cleanupAndRelease(sampleBuffer)
+                    return
+                }
 
             handler?.performRequests(listOf(request), null)
-
         } catch (e: Exception) {
             cleanupAndRelease(sampleBuffer)
         }
@@ -253,47 +256,46 @@ class VideoDataDelegate(
         CFRelease(sampleBuffer)
     }
 }
+
 /**
  * Enables continuous text recognition on the iOS camera controller.
  *
  * Uses configuration queue pattern (Apple WWDC pattern) to safely add video output.
  * Processes camera frames asynchronously and emits detected text via callback.
  * Does NOT call startSession() - session is started by main camera setup.
- * 
+ *
  * Tracks the video output to prevent duplicate setup and allow proper cleanup.
  *
  * @param cameraController The camera controller providing frames
  * @param onText Callback invoked when text is detected with the extracted text
  */
 @OptIn(ExperimentalForeignApi::class)
-actual fun startRecognition(
-    cameraController: CameraController,
-    onText: (String) -> Unit
-) {
+actual fun startRecognition(cameraController: CameraController, onText: (String) -> Unit) {
     // If same controller and already has output, skip setup
     if (currentController === cameraController && currentVideoOutput != null) {
         return
     }
-    
+
     // If different controller, we need fresh setup
     if (currentController !== cameraController) {
         currentVideoOutput = null
         currentController = cameraController
     }
 
-    val videoDataOutput = AVCaptureVideoDataOutput().apply {
-        setVideoSettings(
-            mapOf(
-                kCVPixelBufferPixelFormatTypeKey to kCVPixelFormatType_32BGRA
+    val videoDataOutput =
+        AVCaptureVideoDataOutput().apply {
+            setVideoSettings(
+                mapOf(
+                    kCVPixelBufferPixelFormatTypeKey to kCVPixelFormatType_32BGRA,
+                ),
             )
-        )
-        setAlwaysDiscardsLateVideoFrames(true)
-        setSampleBufferDelegate(
-            VideoDataDelegate(onText),
-            dispatch_queue_create("com.kashif.ocrPlugin.videoQueue", null)
-        )
-    }
-    
+            setAlwaysDiscardsLateVideoFrames(true)
+            setSampleBufferDelegate(
+                VideoDataDelegate(onText),
+                dispatch_queue_create("com.kashif.ocrPlugin.videoQueue", null),
+            )
+        }
+
     // Store reference for tracking
     currentVideoOutput = videoDataOutput
 
@@ -307,7 +309,7 @@ actual fun startRecognition(
             }
             if (connection.supportsVideoStabilization) {
                 connection.setPreferredVideoStabilizationMode(
-                    AVCaptureVideoStabilizationModeStandard
+                    AVCaptureVideoStabilizationModeStandard,
                 )
             }
         }

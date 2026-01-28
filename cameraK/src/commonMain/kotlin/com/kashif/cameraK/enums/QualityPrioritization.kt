@@ -7,5 +7,5 @@ enum class QualityPrioritization {
     QUALITY,
     SPEED,
     BALANCED,
-    NONE
+    NONE,
 }

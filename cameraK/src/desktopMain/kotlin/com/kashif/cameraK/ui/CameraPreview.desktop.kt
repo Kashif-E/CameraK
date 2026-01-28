@@ -3,7 +3,13 @@ package com.kashif.cameraK.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -18,12 +24,14 @@ import kotlinx.coroutines.launch
 actual fun expectCameraPreview(
     modifier: Modifier,
     cameraConfiguration: CameraControllerBuilder.() -> Unit,
-    onCameraControllerReady: (CameraController) -> Unit
+    onCameraControllerReady: (CameraController) -> Unit,
 ) {
-    val cameraController = remember {
-        DesktopCameraControllerBuilder()
-            .apply(cameraConfiguration).build()
-    }
+    val cameraController =
+        remember {
+            DesktopCameraControllerBuilder()
+                .apply(cameraConfiguration)
+                .build()
+        }
 
     BoxWithConstraints(modifier = modifier) {
         val scope = rememberCoroutineScope()
@@ -36,11 +44,12 @@ actual fun expectCameraPreview(
             cameraController.initializeControllerPlugins()
             onCameraControllerReady(cameraController)
 
-            val frameJob = scope.launch(Dispatchers.Main) {
-                frameChannel.consumeAsFlow().collect { image ->
-                    img = image.toComposeImageBitmap()
+            val frameJob =
+                scope.launch(Dispatchers.Main) {
+                    frameChannel.consumeAsFlow().collect { image ->
+                        img = image.toComposeImageBitmap()
+                    }
                 }
-            }
 
             onDispose {
                 frameJob.cancel()

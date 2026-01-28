@@ -2,6 +2,7 @@ package com.kashif.qrscannerplugin
 
 import android.graphics.ImageFormat
 import android.util.Log
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.core.content.ContextCompat
@@ -10,9 +11,7 @@ import com.google.zxing.DecodeHintType
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
-import androidx.camera.core.ExperimentalGetImage
 import com.kashif.cameraK.controller.CameraController
-import kotlinx.atomicfu.AtomicBoolean
 import java.util.EnumMap
 
 /**
@@ -23,14 +22,17 @@ import java.util.EnumMap
 fun CameraController.enableQrCodeScanner(onQrScanner: (String) -> Unit) {
     Log.d("QRScanner", "Enabling QR code scanner")
     try {
-        imageAnalyzer = ImageAnalysis.Builder()
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build().apply {
-                setAnalyzer(
-                    ContextCompat.getMainExecutor(context),
-                    QRCodeAnalyzer(onQrScanner)
-                )
-            }
+        imageAnalyzer =
+            ImageAnalysis
+                .Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .apply {
+                    setAnalyzer(
+                        ContextCompat.getMainExecutor(context),
+                        QRCodeAnalyzer(onQrScanner),
+                    )
+                }
 
         updateImageAnalyzer()
     } catch (e: Exception) {
@@ -49,21 +51,22 @@ fun CameraController.enableQrCodeScanner(onQrScanner: (String) -> Unit) {
  * @param onQrScanner Callback invoked when a QR code is successfully decoded
  */
 private class QRCodeAnalyzer(private val onQrScanner: (String) -> Unit) : ImageAnalysis.Analyzer {
-    private val decodeHints = EnumMap<DecodeHintType, Any>(DecodeHintType::class.java).apply {
-        put(DecodeHintType.CHARACTER_SET, "UTF-8")
-        put(
-            DecodeHintType.POSSIBLE_FORMATS,
-            listOf(
-                com.google.zxing.BarcodeFormat.QR_CODE,
-                com.google.zxing.BarcodeFormat.EAN_13,
-                com.google.zxing.BarcodeFormat.EAN_8,
-                com.google.zxing.BarcodeFormat.CODE_128,
-                com.google.zxing.BarcodeFormat.CODE_39,
-                com.google.zxing.BarcodeFormat.UPC_A,
-                com.google.zxing.BarcodeFormat.UPC_E
+    private val decodeHints =
+        EnumMap<DecodeHintType, Any>(DecodeHintType::class.java).apply {
+            put(DecodeHintType.CHARACTER_SET, "UTF-8")
+            put(
+                DecodeHintType.POSSIBLE_FORMATS,
+                listOf(
+                    com.google.zxing.BarcodeFormat.QR_CODE,
+                    com.google.zxing.BarcodeFormat.EAN_13,
+                    com.google.zxing.BarcodeFormat.EAN_8,
+                    com.google.zxing.BarcodeFormat.CODE_128,
+                    com.google.zxing.BarcodeFormat.CODE_39,
+                    com.google.zxing.BarcodeFormat.UPC_A,
+                    com.google.zxing.BarcodeFormat.UPC_E,
+                ),
             )
-        )
-    }
+        }
     private val reader = MultiFormatReader().apply { setHints(decodeHints) }
     private var lastScannedCode: String? = null
     private var lastScanTime: Long = 0
@@ -84,7 +87,7 @@ private class QRCodeAnalyzer(private val onQrScanner: (String) -> Unit) : ImageA
             imageProxy.close()
             return
         }
-        
+
         if (image.format != ImageFormat.YUV_420_888) {
             Log.e("QRScanner", "Unsupported image format: ${image.format}")
             imageProxy.close()
@@ -116,10 +119,8 @@ private class QRCodeAnalyzer(private val onQrScanner: (String) -> Unit) : ImageA
         }
     }
 }
-actual fun startScanning(
-    controller: CameraController,
-    onQrScanner: (String) -> Unit
-) {
+
+actual fun startScanning(controller: CameraController, onQrScanner: (String) -> Unit) {
     Log.d("QRScanner", "Starting QR scanner")
     controller.enableQrCodeScanner(onQrScanner)
 }

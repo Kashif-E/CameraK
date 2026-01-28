@@ -3,7 +3,6 @@ package com.kashif.cameraK.ui
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -24,18 +23,18 @@ import com.kashif.cameraK.controller.CameraController
 actual fun expectCameraPreview(
     modifier: Modifier,
     cameraConfiguration: CameraControllerBuilder.() -> Unit,
-    onCameraControllerReady: (CameraController) -> Unit
+    onCameraControllerReady: (CameraController) -> Unit,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     val isCameraReady = remember { mutableStateOf(false) }
-    val cameraController = remember {
-        createAndroidCameraControllerBuilder(context, lifecycleOwner)
-            .apply(cameraConfiguration)
-            .build()
-    }
-
+    val cameraController =
+        remember {
+            createAndroidCameraControllerBuilder(context, lifecycleOwner)
+                .apply(cameraConfiguration)
+                .build()
+        }
 
     val previewView = remember { PreviewView(context) }
 
@@ -50,12 +49,8 @@ actual fun expectCameraPreview(
         }
     }
 
-
-
     AndroidView(
         factory = { previewView },
         modifier = modifier,
-
-        )
-
+    )
 }

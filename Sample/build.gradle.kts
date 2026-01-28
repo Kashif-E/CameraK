@@ -12,7 +12,7 @@ plugins {
 kotlin {
     jvmToolchain(11)
     androidTarget {
-        //https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-test.html
+        // https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-test.html
         instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
     }
 
@@ -20,7 +20,7 @@ kotlin {
     listOf(
         iosX64(),
         iosArm64(),
-        iosSimulatorArm64()
+        iosSimulatorArm64(),
     ).forEach {
         it.binaries.framework {
             baseName = "ComposeApp"
@@ -60,8 +60,6 @@ kotlin {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
         }
-
-
     }
 }
 
@@ -81,9 +79,8 @@ android {
     }
 }
 
-//https://developer.android.com/develop/ui/compose/testing#setup
+// https://developer.android.com/develop/ui/compose/testing#setup
 dependencies {
-
 }
 tasks.named("embedAndSignAppleFrameworkForXcode") {
     doFirst {
@@ -92,8 +89,6 @@ tasks.named("embedAndSignAppleFrameworkForXcode") {
         }
     }
 }
-
-
 
 compose.desktop {
     application {
@@ -116,7 +111,5 @@ compose.desktop {
                 }
             }
         }
-
-
     }
 }

@@ -14,13 +14,10 @@ import com.kashif.cameraK.controller.CameraController
  * Displays the camera feed using CameraX's PreviewView.
  */
 @Composable
-actual fun CameraPreviewView(
-    controller: CameraController,
-    modifier: Modifier
-) {
+actual fun CameraPreviewView(controller: CameraController, modifier: Modifier) {
     val context = LocalContext.current
     val previewView = remember { PreviewView(context) }
-    
+
     DisposableEffect(controller, previewView) {
         controller.bindCamera(previewView) {
             // Camera is already bound and started by the state holder
@@ -29,9 +26,9 @@ actual fun CameraPreviewView(
             // Cleanup is handled by the state holder
         }
     }
-    
+
     AndroidView(
         factory = { previewView },
-        modifier = modifier
+        modifier = modifier,
     )
 }

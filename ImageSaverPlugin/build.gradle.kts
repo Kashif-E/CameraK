@@ -6,6 +6,7 @@ plugins {
     id("org.jetbrains.compose")
     alias(libs.plugins.compose.compiler)
     id("com.vanniktech.maven.publish") version "0.31.0"
+    alias(libs.plugins.dokka)
 }
 
 group = "com.kashif.image_saver_plugin"
@@ -37,20 +38,16 @@ kotlin {
 
         commonTest.dependencies {
             implementation(kotlin("test"))
-
         }
 
         androidMain.dependencies {
-
         }
-
     }
 
-    //https://kotlinlang.org/docs/native_objc_interop.html#export_of_kdoc_comments_to_generated_objective_c_headers
+    // https://kotlinlang.org/docs/native_objc_interop.html#export_of_kdoc_comments_to_generated_objective_c_headers
 //    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
 //        compilations["main"].compilerOptions.options.freeCompilerArgs.add("_Xexport_kdoc")
 //    }
-
 }
 
 android {
@@ -78,10 +75,8 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "image_saver_plugin",
-        version = "0.2.0"
+        version = "0.2.0",
     )
-
-
 
     pom {
         name.set("ImageSaverPlugin")

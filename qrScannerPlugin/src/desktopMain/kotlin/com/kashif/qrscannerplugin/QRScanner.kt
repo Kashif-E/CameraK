@@ -17,13 +17,15 @@ import java.util.concurrent.locks.ReentrantLock
  * and frame rate throttling to optimize performance.
  */
 class QRScanner {
-    private val reader = MultiFormatReader().apply {
-        val hints = mapOf(
-            DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
-            DecodeHintType.TRY_HARDER to true
-        )
-        setHints(hints)
-    }
+    private val reader =
+        MultiFormatReader().apply {
+            val hints =
+                mapOf(
+                    DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
+                    DecodeHintType.TRY_HARDER to true,
+                )
+            setHints(hints)
+        }
     private val lock = ReentrantLock()
     private var lastProcessTime = 0L
     private val processInterval = 200L

@@ -10,6 +10,8 @@ coreVersion = "3.5.3"
 javase = "3.5.3"
 kotlin = "2.2.21"
 agp = "8.9.1"
+dokka = "2.0.0"
+spotless = "7.0.2"
 kotlinx-coroutines = "1.10.2"
 kermit = "2.0.8"
 
@@ -65,3 +67,5 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrains-kotlin-jvm" }
 android-application = { id = "com.android.application", version.ref = "agp" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

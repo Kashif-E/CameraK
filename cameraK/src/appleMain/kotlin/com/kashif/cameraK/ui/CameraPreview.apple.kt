@@ -1,6 +1,5 @@
 package com.kashif.cameraK.ui
 
-
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -25,14 +24,14 @@ import platform.UIKit.UIDeviceOrientationDidChangeNotification
 actual fun expectCameraPreview(
     modifier: Modifier,
     cameraConfiguration: CameraControllerBuilder.() -> Unit,
-    onCameraControllerReady: (CameraController) -> Unit
+    onCameraControllerReady: (CameraController) -> Unit,
 ) {
-
-    val cameraController = remember {
-        createIOSCameraControllerBuilder()
-            .apply(cameraConfiguration)
-            .build()
-    }
+    val cameraController =
+        remember {
+            createIOSCameraControllerBuilder()
+                .apply(cameraConfiguration)
+                .build()
+        }
 
     LaunchedEffect(cameraController) {
         onCameraControllerReady(cameraController)
@@ -42,14 +41,15 @@ actual fun expectCameraPreview(
     key(cameraController) {
         DisposableEffect(cameraController) {
             val notificationCenter = NSNotificationCenter.defaultCenter
-            val observer = notificationCenter.addObserverForName(
-                UIDeviceOrientationDidChangeNotification,
-                null,
-                null
-            ) { _ ->
-                cameraController.getCameraPreviewLayer()?.connection?.videoOrientation =
-                    cameraController.currentVideoOrientation()
-            }
+            val observer =
+                notificationCenter.addObserverForName(
+                    UIDeviceOrientationDidChangeNotification,
+                    null,
+                    null,
+                ) { _ ->
+                    cameraController.getCameraPreviewLayer()?.connection?.videoOrientation =
+                        cameraController.currentVideoOrientation()
+                }
 
             onDispose {
                 notificationCenter.removeObserver(observer)
@@ -62,7 +62,7 @@ actual fun expectCameraPreview(
             update = { viewController ->
                 // Modifier is applied by the UIKitViewController wrapper
                 // Background color and other styling can be set via the modifier parameter
-            }
+            },
         )
     }
 }

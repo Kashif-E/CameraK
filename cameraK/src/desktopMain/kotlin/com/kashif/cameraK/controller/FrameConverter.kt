@@ -10,10 +10,11 @@ import java.awt.image.BufferedImage
 class FrameConverter {
     private val converter = Java2DFrameConverter()
     private var cachedImage: BufferedImage? = null
-    private val graphicsConfig = GraphicsEnvironment
-        .getLocalGraphicsEnvironment()
-        .defaultScreenDevice
-        .defaultConfiguration
+    private val graphicsConfig =
+        GraphicsEnvironment
+            .getLocalGraphicsEnvironment()
+            .defaultScreenDevice
+            .defaultConfiguration
 
     private var horizontalFlip = false
 
@@ -34,12 +35,14 @@ class FrameConverter {
             // Create a compatible image for flipping
             if (cachedImage == null ||
                 cachedImage?.width != originalImage.width ||
-                cachedImage?.height != originalImage.height) {
-                cachedImage = graphicsConfig.createCompatibleImage(
-                    originalImage.width,
-                    originalImage.height,
-                    Transparency.TRANSLUCENT
-                )
+                cachedImage?.height != originalImage.height
+            ) {
+                cachedImage =
+                    graphicsConfig.createCompatibleImage(
+                        originalImage.width,
+                        originalImage.height,
+                        Transparency.TRANSLUCENT,
+                    )
             }
 
             val graphics = cachedImage!!.createGraphics()

@@ -16,20 +16,22 @@ import com.kashif.cameraK.plugins.CameraPlugin
  */
 interface CameraControllerBuilder {
     fun setFlashMode(flashMode: FlashMode): CameraControllerBuilder
+
     fun setCameraLens(cameraLens: CameraLens): CameraControllerBuilder
-    
+
     /**
      * Sets the camera device type (e.g., wide-angle, telephoto, ultra-wide).
-     * 
+     *
      * Note: Availability depends on device hardware. If the requested type is not available,
      * the platform will fall back to the default camera.
-     * 
+     *
      * @param deviceType The desired camera device type
      * @return The current instance of [CameraControllerBuilder]
      */
     fun setPreferredCameraDeviceType(deviceType: CameraDeviceType): CameraControllerBuilder
 
     fun setImageFormat(imageFormat: ImageFormat): CameraControllerBuilder
+
     fun setDirectory(directory: Directory): CameraControllerBuilder
 
     /**
@@ -47,6 +49,7 @@ interface CameraControllerBuilder {
      * @return A fully configured [CameraController] instance.
      */
     fun build(): CameraController
+
     fun setTorchMode(torchMode: TorchMode): CameraControllerBuilder
 
     /**
@@ -56,10 +59,10 @@ interface CameraControllerBuilder {
 
     /**
      * Configure whether takePicture() should return file path or ByteArray.
-     * 
+     *
      * When true: Returns ImageCaptureResult.SuccessWithFile (fastest - no processing)
      * When false: Returns ImageCaptureResult.Success with ByteArray (default)
-     * 
+     *
      * Note: File path option skips all processing for maximum performance.
      * The file will be in the configured directory.
      */

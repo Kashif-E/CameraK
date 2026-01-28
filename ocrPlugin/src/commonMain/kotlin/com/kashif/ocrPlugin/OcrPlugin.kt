@@ -13,35 +13,35 @@ import com.kashif.cameraK.state.CameraKState
 import com.kashif.cameraK.state.CameraKStateHolder
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Job
 
 /**
  * OCR plugin that works with both old and new camera APIs.
- * 
+ *
  * **New Compose-first API usage:**
  * ```kotlin
  * val scope = rememberCoroutineScope()
  * val ocrPlugin = remember { OcrPlugin(scope) }
  * var recognizedText by remember { mutableStateOf<String?>(null) }
- * 
+ *
  * val cameraState by rememberCameraKState { stateHolder ->
  *     ocrPlugin.attachToStateHolder(stateHolder)
  * }
- * 
+ *
  * LaunchedEffect(ocrPlugin) {
  *     ocrPlugin.ocrFlow.receive { text ->
  *         recognizedText = text
  *     }
  * }
  * ```
- * 
+ *
  * **Legacy API usage:**
  * ```kotlin
  * val ocrPlugin = rememberOcrPlugin()
- * 
+ *
  * CameraPreview(
  *     onCameraControllerReady = { controller ->
  *         ocrPlugin.initialize(controller)
@@ -51,7 +51,9 @@ import kotlinx.coroutines.Job
  * ```
  */
 @Stable
-class OcrPlugin(val coroutineScope: CoroutineScope) : CameraPlugin, CameraKPlugin {
+class OcrPlugin(val coroutineScope: CoroutineScope) :
+    CameraPlugin,
+    CameraKPlugin {
     private var cameraController: CameraController? = null
     private var stateHolder: CameraKStateHolder? = null
     val ocrFlow = Channel<String>()
@@ -78,19 +80,20 @@ class OcrPlugin(val coroutineScope: CoroutineScope) : CameraPlugin, CameraKPlugi
         println("OcrPlugin attached (new API)")
         this.stateHolder = stateHolder
 
-        collectorJob = stateHolder.pluginScope.launch {
-            stateHolder.cameraState
-                .filterIsInstance<CameraKState.Ready>()
-                .collect { readyState ->
-                    try {
-                        this@OcrPlugin.cameraController = readyState.controller
-                        startRecognition()
-                    } catch (e: Exception) {
-                       println("OcrPlugin: Failed to start recognition: ${e.message}")
-                        e.printStackTrace()
+        collectorJob =
+            stateHolder.pluginScope.launch {
+                stateHolder.cameraState
+                    .filterIsInstance<CameraKState.Ready>()
+                    .collect { readyState ->
+                        try {
+                            this@OcrPlugin.cameraController = readyState.controller
+                            startRecognition()
+                        } catch (e: Exception) {
+                            println("OcrPlugin: Failed to start recognition: ${e.message}")
+                            e.printStackTrace()
+                        }
                     }
-                }
-        }
+            }
     }
 
     /**
@@ -145,8 +148,6 @@ class OcrPlugin(val coroutineScope: CoroutineScope) : CameraPlugin, CameraKPlugi
     fun stopRecognition() {
         isRecognising.value = false
     }
-
-
 }
 
 expect suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String
@@ -154,10 +155,6 @@ expect suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String
 expect fun startRecognition(cameraController: CameraController, onText: (text: String) -> Unit)
 
 @Composable
-fun rememberOcrPlugin(
-    coroutineScope: CoroutineScope = rememberCoroutineScope()
-): OcrPlugin {
-    return remember {
-        OcrPlugin(coroutineScope)
-    }
+fun rememberOcrPlugin(coroutineScope: CoroutineScope = rememberCoroutineScope()): OcrPlugin = remember {
+    OcrPlugin(coroutineScope)
 }

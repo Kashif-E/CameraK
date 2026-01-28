@@ -1,9 +1,9 @@
 package com.kashif.imagesaverplugin
 
 import coil3.PlatformContext
+import com.kashif.cameraK.utils.fixOrientation
 import com.kashif.cameraK.utils.toByteArray
 import com.kashif.cameraK.utils.toNSData
-import com.kashif.cameraK.utils.fixOrientation
 import io.ktor.utils.io.errors.IOException
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
@@ -29,9 +29,8 @@ import platform.UIKit.UIImage
 class IOSImageSaverPlugin(
     config: ImageSaverConfig,
     private val onImageSaved: () -> Unit,
-    private val onImageSavedFailed: (String) -> Unit
+    private val onImageSavedFailed: (String) -> Unit,
 ) : ImageSaverPlugin(config) {
-
     override suspend fun saveImage(byteArray: ByteArray, imageName: String?): String? {
         return withContext(Dispatchers.Main) {
             try {
@@ -90,19 +89,20 @@ class IOSImageSaverPlugin(
         }
 
         val asset = fetchResult.firstObject as PHAsset
-        val options = PHImageRequestOptions().apply {
-            synchronous = true
-            deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat
-            networkAccessAllowed = false
-            version = PHImageRequestOptionsVersionCurrent
-        }
+        val options =
+            PHImageRequestOptions().apply {
+                synchronous = true
+                deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat
+                networkAccessAllowed = false
+                version = PHImageRequestOptionsVersionCurrent
+            }
 
         var imageData: NSData? = null
         val semaphore = NSCondition()
 
         PHImageManager.defaultManager().requestImageDataAndOrientationForAsset(
             asset,
-            options
+            options,
         ) { data, _, _, _ ->
             imageData = data
             semaphore.signal()
@@ -114,7 +114,6 @@ class IOSImageSaverPlugin(
             throw IOException("Failed to get image data from asset: $path")
         }
 
-
         return imageData?.toByteArray() ?: byteArrayOf()
     }
 
@@ -123,22 +122,21 @@ class IOSImageSaverPlugin(
      * Returns null if the asset cannot be found or written.
      */
     @OptIn(ExperimentalForeignApi::class)
-    fun getFilePathFromAsset(path: String): String? {
-        return try {
-            val data = getByteArrayFrom(path)
-            val tempDir = platform.Foundation.NSTemporaryDirectory()
-            val fileName = "IMG_${platform.Foundation.NSUUID().UUIDString}.jpg"
-            val fullPath = "$tempDir$fileName"
-            val success = platform.Foundation.NSFileManager.defaultManager.createFileAtPath(
+    fun getFilePathFromAsset(path: String): String? = try {
+        val data = getByteArrayFrom(path)
+        val tempDir = platform.Foundation.NSTemporaryDirectory()
+        val fileName = "IMG_${platform.Foundation.NSUUID().UUIDString}.jpg"
+        val fullPath = "$tempDir$fileName"
+        val success =
+            platform.Foundation.NSFileManager.defaultManager.createFileAtPath(
                 fullPath,
                 data.toNSData(),
-                null
+                null,
             )
-            if (success) fullPath else null
-        } catch (e: Exception) {
-            println("Failed to resolve asset to file: ${e.message}")
-            null
-        }
+        if (success) fullPath else null
+    } catch (e: Exception) {
+        println("Failed to resolve asset to file: ${e.message}")
+        null
     }
 }
 
@@ -167,7 +165,6 @@ class IOSImageSaverPlugin(
 //        }
 //    }
 
-
 /**
  * Factory function to create an iOS-specific [ImageSaverPlugin].
  *
@@ -175,15 +172,10 @@ class IOSImageSaverPlugin(
  * @return An instance of [IOSImageSaverPlugin].
  */
 
-actual fun createPlatformImageSaverPlugin(
-    context: PlatformContext, config: ImageSaverConfig
-): ImageSaverPlugin {
-
-    return IOSImageSaverPlugin(config = config, onImageSaved = {
-
+actual fun createPlatformImageSaverPlugin(context: PlatformContext, config: ImageSaverConfig): ImageSaverPlugin =
+    IOSImageSaverPlugin(config = config, onImageSaved = {
         println("Image saved successfully!")
     }, onImageSavedFailed = { errorMessage ->
 
         println("Failed to save image: $errorMessage")
     })
-}

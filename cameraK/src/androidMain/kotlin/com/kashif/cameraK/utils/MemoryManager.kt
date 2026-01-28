@@ -12,25 +12,19 @@ import kotlin.concurrent.withLock
  * Monitors memory pressure and optimizes memory usage for image capture operations
  */
 object MemoryManager {
-
     private const val MEMORY_PRESSURE_THRESHOLD = 0.8
-
 
     private val smallBufferLock = ReentrantLock()
     private val mediumBufferLock = ReentrantLock()
     private val largeBufferLock = ReentrantLock()
 
-
     private val memoryPressure = atomic(false)
 
-
     private var memoryUsage = atomic(0.0)
-
 
     private val smallBufferPool = mutableListOf<ByteArray>()
     private val mediumBufferPool = mutableListOf<ByteArray>()
     private val largeBufferPool = mutableListOf<ByteArray>()
-
 
     private var appContext: Context? = null
 
@@ -48,23 +42,23 @@ object MemoryManager {
      */
     fun updateMemoryStatus() {
         val context = appContext ?: return
-        
+
         val memoryInfo = ActivityManager.MemoryInfo()
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         activityManager.getMemoryInfo(memoryInfo)
-        
+
         val availableMemory = memoryInfo.availMem
-        val totalMemory = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-            memoryInfo.totalMem
-        } else {
-            Runtime.getRuntime().totalMemory()
-        }
-        
+        val totalMemory =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                memoryInfo.totalMem
+            } else {
+                Runtime.getRuntime().totalMemory()
+            }
+
         if (totalMemory > 0) {
             val usedMemory = totalMemory - availableMemory
             val usage = usedMemory.toDouble() / totalMemory.toDouble()
             memoryUsage.value = usage
-            
 
             if (usage > MEMORY_PRESSURE_THRESHOLD && !memoryPressure.value) {
                 memoryPressure.value = true
@@ -73,7 +67,6 @@ object MemoryManager {
                 memoryPressure.value = false
             }
         }
-        
 
         if (memoryInfo.lowMemory && !memoryPressure.value) {
             memoryPressure.value = true
@@ -97,22 +90,18 @@ object MemoryManager {
         smallBufferLock.withLock {
             smallBufferPool.clear()
         }
-        
+
         mediumBufferLock.withLock {
             mediumBufferPool.clear()
         }
-        
+
         largeBufferLock.withLock {
             largeBufferPool.clear()
         }
     }
 
-
     /**
      * Check if memory is under pressure
      */
-    fun isUnderMemoryPressure(): Boolean {
-        return memoryPressure.value
-    }
-
+    fun isUnderMemoryPressure(): Boolean = memoryPressure.value
 }

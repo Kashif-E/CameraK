@@ -22,6 +22,7 @@ interface Permissions {
      * @return True if granted or not required, false otherwise.
      */
     fun hasStoragePermission(): Boolean
+
     /**
      * Requests camera permission.
      *

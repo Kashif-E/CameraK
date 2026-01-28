@@ -1,0 +1,30 @@
+# EditorConfig for CameraK project
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+indent_size = 4
+indent_style = space
+max_line_length = 120
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+
+# Compose functions use PascalCase (e.g., @Composable fun MyScreen())
+# This is the standard Compose naming convention
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# Multiplatform projects use consistent naming (Controller.kt, etc.) across platforms
+# Filename rules are disabled to maintain project structure
+ktlint_standard_filename = disabled
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off

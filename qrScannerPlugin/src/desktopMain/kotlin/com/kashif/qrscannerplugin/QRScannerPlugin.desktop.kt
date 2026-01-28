@@ -13,10 +13,7 @@ import kotlinx.coroutines.withContext
  * @param controller The CameraController to be used for scanning.
  * @param onQrScanner A callback function that is invoked when a QR code is scanned.
  */
-actual fun startScanning(
-    controller: CameraController,
-    onQrScanner: (String) -> Unit
-) {
+actual fun startScanning(controller: CameraController, onQrScanner: (String) -> Unit) {
     val qrScanner = QRScanner()
     val scope = CoroutineScope(Dispatchers.Default)
 

@@ -1,6 +1,5 @@
 package com.kashif.cameraK.result
 
-
 /**
  * Sealed class representing the result of an image capture operation.
  */
@@ -20,9 +19,7 @@ sealed class ImageCaptureResult {
             return byteArray.contentEquals(other.byteArray)
         }
 
-        override fun hashCode(): Int {
-            return byteArray.contentHashCode()
-        }
+        override fun hashCode(): Int = byteArray.contentHashCode()
     }
 
     /**

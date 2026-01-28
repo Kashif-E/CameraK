@@ -6,5 +6,5 @@ package com.kashif.cameraK.enums
 enum class FlashMode {
     ON,
     OFF,
-    AUTO
+    AUTO,
 }
