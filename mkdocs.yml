@@ -8,7 +8,7 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
-  logo: assets/logo.svg
+  logo: assets/cameraklogo.png
   favicon: assets/favicon.ico
   language: en
   palette:
@@ -85,5 +85,8 @@ extra:
       link: https://github.com/kashif-e/CameraK
       name: GitHub
   version: 0.2.0
+
+extra_css:
+  - stylesheets/extra.css
 
 copyright: Copyright &copy; 2024 CameraK

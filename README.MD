@@ -1,5 +1,9 @@
 # CameraK
 
+<p align="center">
+  <img src="docs/assets/cameraklogo.png" alt="CameraK Logo" width="200" style="border-radius: 50%;"/>
+</p>
+
 A modern camera library for Compose Multiplatform supporting Android, iOS, and Desktop with a unified API.
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.kashif-mehmood-km/camerak?label=Maven%20Central&color=blue)](https://search.maven.org/search?q=g:io.github.kashif-mehmood-km)
