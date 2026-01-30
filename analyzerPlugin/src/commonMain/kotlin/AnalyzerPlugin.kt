@@ -32,12 +32,11 @@ class AnalyzerPlugin :CameraPlugin, CameraKPlugin {
 
     fun stopAnalyzer(){
         isAnalyzing.value = false
-        stopAnalyzer(cameraController!!)
     }
 
     /**
      * Attaches the plugin to the state holder (new API).
-     * Automatically starts OCR when camera becomes ready.
+     * Automatically starts Analyzer when camera becomes ready.
      *
      * @param stateHolder The [CameraKStateHolder] to attach to.
      */
@@ -85,8 +84,6 @@ class AnalyzerPlugin :CameraPlugin, CameraKPlugin {
 }
 
 expect fun startAnalyzer(cameraController: CameraController, onFrameAvailable: (ByteArray) -> Unit)
-expect fun stopAnalyzer(cameraController: CameraController)
-
 
 @Composable
 fun rememberAnalyzerPlugin(): AnalyzerPlugin {
