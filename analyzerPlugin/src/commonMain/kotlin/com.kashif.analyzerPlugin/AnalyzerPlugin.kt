@@ -1,3 +1,5 @@
+package com.kashif.analyzerPlugin
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.kashif.cameraK.controller.CameraController
@@ -6,6 +8,7 @@ import com.kashif.cameraK.state.CameraKPlugin
 import com.kashif.cameraK.state.CameraKState
 import com.kashif.cameraK.state.CameraKStateHolder
 import kotlinx.atomicfu.atomic
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
@@ -15,7 +18,7 @@ class AnalyzerPlugin :CameraPlugin, CameraKPlugin {
     private var stateHolder: CameraKStateHolder? = null
     val analyzerFlow = Channel<ByteArray>()
     private var isAnalyzing = atomic(false)
-    private var collectorJob: kotlinx.coroutines.Job? = null
+    private var collectorJob: Job? = null
 
     override fun initialize(cameraController: CameraController) {
         println("Analyzer initialized (legacy API)")
@@ -63,7 +66,7 @@ class AnalyzerPlugin :CameraPlugin, CameraKPlugin {
      * Detaches the plugin from the state holder and cleans up resources.
      */
     override fun onDetach() {
-        println("AnalyzerPlugin detached")
+        println("com.kashif.analyzerPlugin.AnalyzerPlugin detached")
         stopAnalyzer()
         collectorJob?.cancel()
         collectorJob = null
