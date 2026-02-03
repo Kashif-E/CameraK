@@ -1,3 +1,5 @@
+package com.kashif.analyzerPlugin
+
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.utils.toByteArray
 import kotlinx.cinterop.ExperimentalForeignApi

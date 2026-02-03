@@ -1,4 +1,7 @@
-import android.util.Log
+package com.kashif.analyzerPlugin
+
+import androidx.annotation.OptIn
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.core.content.ContextCompat
@@ -7,7 +10,7 @@ import com.kashif.cameraK.utils.toByteArray
 
 actual fun startAnalyzer(
     cameraController: CameraController,
-    onFrameAvailable: (ByteArray) -> Unit
+    onFrameAvailable: (ByteArray) -> Unit,
 ) {
     cameraController.enableAnalyzer(onFrameAvailable)
 }
@@ -22,7 +25,7 @@ internal fun CameraController.enableAnalyzer(
         .apply {
             setAnalyzer(
                 ContextCompat.getMainExecutor(context),
-                analyzer
+                analyzer,
             )
         }
 
@@ -33,6 +36,7 @@ internal fun CameraController.enableAnalyzer(
 internal class CameraAnalyzer(
     private val onFrameAvailable: (ByteArray) -> Unit,
 ) : ImageAnalysis.Analyzer {
+    @OptIn(ExperimentalGetImage::class)
     override fun analyze(image: ImageProxy) {
         val mediaImage = image.image
         if (mediaImage == null) {
