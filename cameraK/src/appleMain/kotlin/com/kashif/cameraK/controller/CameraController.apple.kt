@@ -119,6 +119,10 @@ actual class CameraController(
         customCameraController.safeAddOutput(output)
     }
 
+    override fun setNeedsUpdateProperties(context: UIFocusUpdateContext?) {
+        super.setNeedsUpdateProperties(context)
+    }
+
     internal fun currentVideoOrientation(): AVCaptureVideoOrientation {
         val orientation = UIDevice.currentDevice.orientation
         return when (orientation) {
