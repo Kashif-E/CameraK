@@ -3,10 +3,14 @@ package com.kashif.cameraK.utils
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
 import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.allocArrayOf
+import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.useContents
 import kotlinx.cinterop.usePinned
 import org.jetbrains.skia.Data
@@ -14,6 +18,7 @@ import org.jetbrains.skia.Image
 import platform.Foundation.NSData
 import platform.Foundation.create
 import platform.UIKit.UIImage
+import platform.UIKit.UIImageJPEGRepresentation
 import platform.posix.memcpy
 
 fun ImageBitmap.toByteArray(): ByteArray? {
@@ -87,4 +92,17 @@ fun UIImage.fixOrientation(): UIImage {
     platform.UIKit.UIGraphicsEndImageContext()
 
     return normalizedImage ?: this
+}
+
+@OptIn(ExperimentalForeignApi::class)
+fun UIImage.toByteArray(): ByteArray {
+    return run {
+        val imageData = UIImageJPEGRepresentation(this, 1.0)
+            ?: throw IllegalArgumentException("image data is null")
+        val bytes = imageData.bytes ?: throw IllegalArgumentException("image bytes is null")
+        val length = imageData.length
+
+        val data: CPointer<ByteVar> = bytes.reinterpret()
+        ByteArray(length.toInt()) { index -> data[index] }
+    }
 }

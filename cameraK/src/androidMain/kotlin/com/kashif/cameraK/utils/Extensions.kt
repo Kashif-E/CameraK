@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Bitmap
+import androidx.camera.core.ImageProxy
 import java.io.ByteArrayOutputStream
 
 fun Context.getActivityOrNull(): Activity? {
@@ -44,4 +45,23 @@ fun Bitmap.compressToByteArray(
     }
 
     return outputStream.toByteArray()
+}
+
+fun ImageProxy.toByteArray(): ByteArray {
+    val yPlane = planes[0]
+    val uPlane = planes[1]
+    val vPlane = planes[2]
+
+    val ySize = yPlane.buffer.remaining()
+    val uSize = uPlane.buffer.remaining()
+    val vSize = vPlane.buffer.remaining()
+
+    val nv21 = ByteArray(ySize + uSize + vSize)
+
+    yPlane.buffer.get(nv21, 0, ySize)
+
+    vPlane.buffer.get(nv21, ySize, vSize)
+    uPlane.buffer.get(nv21, ySize + vSize, uSize)
+
+    return nv21
 }
