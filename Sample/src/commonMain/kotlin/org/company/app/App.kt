@@ -408,7 +408,9 @@ fun EnhancedCameraScreen(
             // PinchToZoom
             .pointerInput(Unit) {
                 detectTransformGestures { _, _, zoomChange, _ ->
-                    setCameraZoom(zoomLevel * zoomChange)
+                    if (zoomChange != 1f) {
+                        setCameraZoom(zoomLevel * zoomChange)
+                    }
                 }
             },
     ) {
