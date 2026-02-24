@@ -105,7 +105,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "camerak",
-        version = "0.2.0",
+        version = "0.3",
     )
 
     pom {
@@ -143,7 +143,7 @@ mavenPublishing {
 
 tasks.withType<org.jetbrains.dokka.gradle.DokkaTask>().configureEach {
     moduleName.set("CameraK")
-    moduleVersion.set("0.2.0")
+    moduleVersion.set("0.3")
     outputDirectory.set(file("${layout.buildDirectory}/dokka/html"))
 
     pluginsMapConfiguration.set(

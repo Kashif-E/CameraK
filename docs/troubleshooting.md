@@ -22,7 +22,7 @@ repositories {
 
 **Solution:**
 1. Check internet connection
-2. Invalidate caches: `File` → `Invalidate Caches / Restart`
+2. Invalidate caches: `File` -> `Invalidate Caches / Restart`
 3. Clean build: `./gradlew clean build`
 
 ## Permission Issues
@@ -83,7 +83,8 @@ when (cameraState) {
         // Camera operational
     }
     is CameraKState.Error -> {
-        println("Error: ${(cameraState as CameraKState.Error).exception.message}")
+        val error = cameraState as CameraKState.Error
+        println("Error: ${error.message} (retryable: ${error.isRetryable})")
     }
 }
 ```
@@ -133,7 +134,7 @@ when (cameraState) {
 **Solution:** Add to manifest:
 
 ```xml
-<uses-permission 
+<uses-permission
     android:name="android.permission.WRITE_EXTERNAL_STORAGE"
     android:maxSdkVersion="28" />
 ```
@@ -147,9 +148,11 @@ when (cameraState) {
 2. Use valid directory:
 
 ```kotlin
-cameraConfiguration = {
-    setDirectory(Directory.PICTURES)  // or DCIM, DOWNLOADS, etc.
-}
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
+        directory = Directory.PICTURES  // or DCIM, DOCUMENTS
+    )
+)
 ```
 
 ### Poor Image Quality
@@ -159,11 +162,13 @@ cameraConfiguration = {
 **Solution:** Configure for quality:
 
 ```kotlin
-cameraConfiguration = {
-    setQualityPrioritization(QualityPrioritization.QUALITY)
-    setResolution(3840 to 2160)  // 4K
-    setImageFormat(ImageFormat.PNG)  // Lossless
-}
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
+        qualityPrioritization = QualityPrioritization.QUALITY,
+        targetResolution = 3840 to 2160,  // 4K
+        imageFormat = ImageFormat.PNG,  // Lossless
+    )
+)
 ```
 
 ## Flash/Torch Issues
@@ -175,7 +180,7 @@ cameraConfiguration = {
 **Solution:** Switch to rear camera:
 
 ```kotlin
-controller.setCameraLens(CameraLens.BACK)
+controller.toggleCameraLens()
 controller.setFlashMode(FlashMode.ON)
 ```
 
@@ -233,10 +238,10 @@ controller.setZoom(savedZoom.coerceIn(1f, controller.getMaxZoom()))
 **Solution:** Use recommended method:
 
 ```kotlin
-// ❌ Slow (deprecated)
+// Slow (deprecated)
 val result = controller.takePicture()
 
-// ✅ Fast (recommended)
+// Fast (recommended)
 val result = controller.takePictureToFile()
 ```
 
@@ -250,9 +255,11 @@ val result = controller.takePictureToFile()
 3. Use `takePictureToFile()` instead of `takePicture()`
 
 ```kotlin
-cameraConfiguration = {
-    setResolution(1920 to 1080)  // Lower resolution
-}
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
+        targetResolution = 1920 to 1080  // Lower resolution
+    )
+)
 ```
 
 ### High Memory Usage
@@ -288,15 +295,14 @@ cameraConfiguration = {
 
 **Cause:** Plugin added after camera already ready.
 
-**Solution:** Add plugins during initialization:
+**Solution:** Add plugins during initialization using `setupPlugins`:
 
 ```kotlin
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    plugins = listOf(
-        rememberQRScannerPlugin(),
-        rememberOcrPlugin()
-    )
+val cameraState by rememberCameraKState(
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(rememberQRScannerPlugin())
+        stateHolder.attachPlugin(rememberOcrPlugin())
+    },
 )
 ```
 
@@ -342,9 +348,11 @@ if (lens == null) {
 Check availability:
 
 ```kotlin
-cameraConfiguration = {
-    setCameraDeviceType(CameraDeviceType.ULTRA_WIDE)
-}
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
+        cameraDeviceType = CameraDeviceType.ULTRA_WIDE
+    )
+)
 // Falls back to DEFAULT if not available
 ```
 
@@ -414,7 +422,9 @@ Android 13 (Pixel 6)
 
 Preview shows black screen when using:
 ```kotlin
-val stateHolder = rememberCameraKState(...)
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(...)
+)
 ```
 
 Error: "Camera not available"
@@ -431,6 +441,6 @@ Expected: Camera preview displays
 
 ## Next Steps
 
-- [Quick Start](getting-started/quick-start.md) — Get started quickly
-- [Configuration](getting-started/configuration.md) — Customize behavior
-- [API Reference](api/state-holder.md) — Full API documentation
+- [Quick Start](getting-started/quick-start.md) -- Get started quickly
+- [Configuration](getting-started/configuration.md) -- Customize behavior
+- [API Reference](api/state-holder.md) -- Full API documentation

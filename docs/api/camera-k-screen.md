@@ -7,11 +7,11 @@ Convenience wrapper composable that simplifies camera state handling with automa
 `CameraKScreen` is a slot-based composable that handles camera state (Initializing/Ready/Error) automatically, showing appropriate UI for each state with sensible defaults.
 
 **Benefits:**
-- ✅ Automatic state handling (no when expression needed)
-- ✅ Built-in loading and error screens
-- ✅ Camera preview shown automatically (optional)
-- ✅ Slot-based API for custom content
-- ✅ Less boilerplate than manual state handling
+- Automatic state handling (no when expression needed)
+- Built-in loading and error screens
+- Camera preview shown automatically (optional)
+- Slot-based API for custom content
+- Less boilerplate than manual state handling
 
 ## Function Signature
 
@@ -35,10 +35,10 @@ fun CameraKScreen(
 cameraState: CameraKState
 ```
 
-Camera state from `rememberCameraKState().cameraState`. Can be one of:
-- `CameraKState.Initializing` — Camera starting
-- `CameraKState.Ready` — Camera operational
-- `CameraKState.Error` — Initialization failed
+Camera state from `rememberCameraKState()`. Can be one of:
+- `CameraKState.Initializing` -- Camera starting
+- `CameraKState.Ready` -- Camera operational
+- `CameraKState.Error` -- Initialization failed
 
 ### showPreview
 
@@ -46,10 +46,10 @@ Camera state from `rememberCameraKState().cameraState`. Can be one of:
 showPreview: Boolean = true
 ```
 
-Whether to automatically show camera preview when ready. 
+Whether to automatically show camera preview when ready.
 
-- `true` (default) — Preview shown automatically in background
-- `false` — No preview, useful for custom preview implementations
+- `true` (default) -- Preview shown automatically in background
+- `false` -- No preview, useful for custom preview implementations
 
 ### loadingContent
 
@@ -81,7 +81,7 @@ loadingContent = {
 errorContent: @Composable (CameraKState.Error) -> Unit = { DefaultErrorScreen(it) }
 ```
 
-Content shown on camera error. Receives `CameraKState.Error` with exception details.
+Content shown on camera error. Receives `CameraKState.Error` with exception, message, and isRetryable details.
 
 **Custom example:**
 
@@ -94,8 +94,10 @@ errorContent = { error ->
     ) {
         Icon(Icons.Default.Error, "Error", tint = Color.Red)
         Text("Camera Error: ${error.message}")
-        Button(onClick = { /* retry logic */ }) {
-            Text("Retry")
+        if (error.isRetryable) {
+            Button(onClick = { /* retry logic */ }) {
+                Text("Retry")
+            }
         }
     }
 }
@@ -108,8 +110,8 @@ content: @Composable (CameraKState.Ready) -> Unit
 ```
 
 Main content shown when camera is ready. Receives `CameraKState.Ready` with access to:
-- `readyState.controller` — Camera controller for operations
-- `readyState.uiState` — Observable UI state
+- `readyState.controller` -- Camera controller for operations
+- `readyState.uiState` -- UI state with zoom, flash, torch, lens, etc.
 
 **This is where you add your camera controls.**
 
@@ -118,10 +120,9 @@ Main content shown when camera is ready. Receives `CameraKState.Ready` with acce
 ```kotlin
 @Composable
 fun SimpleCameraApp() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val cameraState by rememberCameraKState(permissions = permissions).cameraState.collectAsStateWithLifecycle()
-    
+    val cameraState by rememberCameraKState()
+
     CameraKScreen(
         cameraState = cameraState
     ) { readyState ->
@@ -149,10 +150,9 @@ fun SimpleCameraApp() {
 ```kotlin
 @Composable
 fun CameraWithCustomScreens() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val cameraState by rememberCameraKState(permissions = permissions).cameraState.collectAsStateWithLifecycle()
-    
+    val cameraState by rememberCameraKState()
+
     CameraKScreen(
         cameraState = cameraState,
         loadingContent = {
@@ -221,9 +221,8 @@ Disable automatic preview for custom implementations:
 ```kotlin
 @Composable
 fun CustomPreviewCamera() {
-    val permissions = providePermissions()
-    val cameraState by rememberCameraKState(permissions = permissions).cameraState.collectAsStateWithLifecycle()
-    
+    val cameraState by rememberCameraKState()
+
     CameraKScreen(
         cameraState = cameraState,
         showPreview = false  // Disable automatic preview
@@ -232,7 +231,7 @@ fun CustomPreviewCamera() {
         Box(modifier = Modifier.fillMaxSize()) {
             // Custom camera preview with filters/effects
             CustomCameraPreviewWithFilters(controller = readyState.controller)
-            
+
             // Controls overlay
             CameraControls(
                 controller = readyState.controller,
@@ -248,50 +247,22 @@ fun CustomPreviewCamera() {
 ```kotlin
 @Composable
 fun CameraWithPlugins() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(
-        permissions = permissions,
-        plugins = listOf(
-            rememberQRScannerPlugin(),
-            rememberOcrPlugin()
-        )
+    val cameraState by rememberCameraKState(
+        setupPlugins = { stateHolder ->
+            stateHolder.attachPlugin(QRScannerPlugin())
+            stateHolder.attachPlugin(OcrPlugin())
+        }
     )
-    
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle(initial = emptyList())
-    val recognizedText by stateHolder.recognizedTextFlow.collectAsStateWithLifecycle(initial = "")
-    
+
+    // Listen for plugin events
+    LaunchedEffect(cameraState) {
+        val ready = cameraState as? CameraKState.Ready ?: return@LaunchedEffect
+        // Plugin results arrive via CameraKEvent through the events SharedFlow
+    }
+
     CameraKScreen(cameraState = cameraState) { readyState ->
         Box(modifier = Modifier.fillMaxSize()) {
-            // QR code display
-            if (qrCodes.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "QR: ${qrCodes.last()}",
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            }
-            
-            // OCR text display
-            if (recognizedText.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "OCR: $recognizedText",
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            }
-            
             // Capture button
             FloatingActionButton(
                 onClick = {
@@ -317,21 +288,19 @@ Full-featured camera with all controls:
 ```kotlin
 @Composable
 fun FullFeaturedCamera() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(
-        permissions = permissions,
-        cameraConfiguration = {
-            setCameraLens(CameraLens.BACK)
-            setFlashMode(FlashMode.AUTO)
-            setAspectRatio(AspectRatio.RATIO_16_9)
-        }
+    val cameraState by rememberCameraKState(
+        config = CameraConfiguration(
+            cameraLens = CameraLens.BACK,
+            flashMode = FlashMode.AUTO,
+            aspectRatio = AspectRatio.RATIO_16_9
+        )
     )
-    
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    val uiState by stateHolder.uiState.collectAsStateWithLifecycle()
-    
+
     CameraKScreen(cameraState = cameraState) { readyState ->
+        val controller = readyState.controller
+        val uiState = readyState.uiState
+
         Box(modifier = Modifier.fillMaxSize()) {
             // Top controls
             Row(
@@ -341,23 +310,24 @@ fun FullFeaturedCamera() {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Flash toggle
-                IconButton(onClick = { readyState.controller.toggleFlashMode() }) {
+                IconButton(onClick = { controller.toggleFlashMode() }) {
                     Icon(
                         when (uiState.flashMode) {
                             FlashMode.ON -> Icons.Default.FlashOn
                             FlashMode.OFF -> Icons.Default.FlashOff
                             FlashMode.AUTO -> Icons.Default.FlashAuto
+                            else -> Icons.Default.FlashOff
                         },
                         "Flash"
                     )
                 }
-                
+
                 // Camera switch
-                IconButton(onClick = { readyState.controller.toggleCameraLens() }) {
+                IconButton(onClick = { controller.toggleCameraLens() }) {
                     Icon(Icons.Default.Cameraswitch, "Switch Camera")
                 }
             }
-            
+
             // Zoom indicator
             if (uiState.zoomLevel > 1.0f) {
                 Text(
@@ -370,7 +340,7 @@ fun FullFeaturedCamera() {
                     color = Color.White
                 )
             }
-            
+
             // Pinch to zoom
             val maxZoom = uiState.maxZoom
             Box(
@@ -379,16 +349,16 @@ fun FullFeaturedCamera() {
                     .pointerInput(Unit) {
                         detectTransformGestures { _, _, zoom, _ ->
                             val newZoom = (uiState.zoomLevel * zoom).coerceIn(1f, maxZoom)
-                            readyState.controller.setZoom(newZoom)
+                            controller.setZoom(newZoom)
                         }
                     }
             )
-            
+
             // Capture button
             FloatingActionButton(
                 onClick = {
                     scope.launch {
-                        when (val result = readyState.controller.takePictureToFile()) {
+                        when (val result = controller.takePictureToFile()) {
                             is ImageCaptureResult.SuccessWithFile -> {
                                 // Show success toast
                             }
@@ -423,15 +393,15 @@ fun FullFeaturedCamera() {
 ```kotlin
 @Composable
 fun ManualApproach() {
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    
+    val cameraState by rememberCameraKState()
+
     when (cameraState) {
         CameraKState.Initializing -> {
             CircularProgressIndicator()
         }
         is CameraKState.Ready -> {
-            val controller = (cameraState as CameraKState.Ready).controller
-            CameraPreviewComposable(controller = controller)
+            val ready = cameraState as CameraKState.Ready
+            CameraPreviewView(controller = ready.controller)
             // Your UI here
         }
         is CameraKState.Error -> {
@@ -446,8 +416,8 @@ fun ManualApproach() {
 ```kotlin
 @Composable
 fun WithCameraKScreen() {
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    
+    val cameraState by rememberCameraKState()
+
     CameraKScreen(cameraState = cameraState) { readyState ->
         // Your UI here - loading/error/preview handled automatically
     }
@@ -477,6 +447,6 @@ Shows:
 
 ## See Also
 
-- [CameraKStateHolder](state-holder.md) — State management
-- [CameraController](controller.md) — Camera operations
-- [Quick Start](../getting-started/quick-start.md) — Usage examples
+- [CameraKStateHolder](state-holder.md) -- State management
+- [CameraController](controller.md) -- Camera operations
+- [Quick Start](../getting-started/quick-start.md) -- Usage examples

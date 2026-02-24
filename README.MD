@@ -13,12 +13,12 @@ A modern camera library for Compose Multiplatform supporting Android, iOS, and D
 
 ## Features
 
-- 📱 **Cross-Platform**: Android, iOS, and JVM Desktop
-- 📸 **Compose-First**: Native Compose Multiplatform API  
-- 🎯 **Flexible Configuration**: Aspect ratios, zoom, flash control
-- 🔌 **Plugin System**: Modular QR/barcode scanning, OCR, image saving
-- ⚡ **Optimized Capture**: Direct file saving with `takePictureToFile()`
-- 📷 **Advanced Control**: Camera selection (ultra-wide, telephoto on iOS)
+- **Cross-Platform**: Android, iOS, and JVM Desktop
+- **Compose-First**: Native Compose Multiplatform API
+- **Flexible Configuration**: Aspect ratios, zoom, flash control
+- **Plugin System**: Modular QR/barcode scanning, OCR, image saving
+- **Optimized Capture**: Direct file saving with `takePictureToFile()`
+- **Advanced Control**: Camera selection (ultra-wide, telephoto on iOS)
 
 ## Installation
 
@@ -28,7 +28,7 @@ Add dependencies to your `build.gradle.kts`:
 dependencies {
     // Core library
     implementation("io.github.kashif-mehmood-km:camerak:0.2.0")
-    
+
     // Optional plugins
     implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.2.0")
     implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.2.0")
@@ -87,40 +87,40 @@ The library now uses reactive state management with StateFlow for a seamless Com
 ```kotlin
 @Composable
 fun CameraScreen() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    
-    // Create camera state holder - all configuration and plugins handled here
-    val stateHolder = rememberCameraKState(
-        permissions = permissions,
-        cameraConfiguration = {
-            setCameraLens(CameraLens.BACK)
-            setFlashMode(FlashMode.OFF)
-            setAspectRatio(AspectRatio.RATIO_16_9)
+
+    // Create plugins
+    val imageSaverPlugin = rememberImageSaverPlugin(config = ImageSaverConfig(isAutoSave = true))
+    val qrScannerPlugin = rememberQRScannerPlugin()
+    val ocrPlugin = rememberOcrPlugin()
+
+    // Create camera state - all configuration and plugins handled here
+    val cameraState by rememberCameraKState(
+        config = CameraConfiguration(
+            cameraLens = CameraLens.BACK,
+            flashMode = FlashMode.OFF,
+            aspectRatio = AspectRatio.RATIO_16_9,
+        ),
+        setupPlugins = { stateHolder ->
+            stateHolder.attachPlugin(imageSaverPlugin)
+            stateHolder.attachPlugin(qrScannerPlugin)
+            stateHolder.attachPlugin(ocrPlugin)
         },
-        plugins = listOf(
-            rememberImageSaverPlugin(config = ImageSaverConfig(isAutoSave = true)),
-            rememberQRScannerPlugin(),
-            rememberOcrPlugin()
-        )
     )
-    
-    // Observe camera state reactively
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle(initial = emptyList())
-    val recognizedText by stateHolder.recognizedTextFlow.collectAsStateWithLifecycle(initial = "")
-    
+
     // Render based on state
     when (cameraState) {
         is CameraKState.Initializing -> CircularProgressIndicator()
         is CameraKState.Ready -> {
-            val controller = (cameraState as CameraKState.Ready).controller
-            
-            CameraPreviewComposable(
+            val readyState = cameraState as CameraKState.Ready
+            val controller = readyState.controller
+            val uiState = readyState.uiState
+
+            CameraPreviewView(
+                controller = controller,
                 modifier = Modifier.fillMaxSize(),
-                controller = controller
             )
-            
+
             // UI elements overlay the camera
             Button(
                 onClick = {
@@ -139,19 +139,10 @@ fun CameraScreen() {
             ) {
                 Text("Capture Photo")
             }
-            
-            // Display QR codes
-            if (qrCodes.isNotEmpty()) {
-                Text("QR: ${qrCodes.last()}", modifier = Modifier.align(Alignment.TopStart))
-            }
-            
-            // Display OCR results
-            if (recognizedText.isNotEmpty()) {
-                Text("Text: $recognizedText", modifier = Modifier.align(Alignment.TopEnd))
-            }
         }
         is CameraKState.Error -> {
-            Text("Camera Error: ${(cameraState as CameraKState.Error).exception.message}")
+            val error = cameraState as CameraKState.Error
+            Text("Camera Error: ${error.message}")
         }
     }
 }
@@ -165,35 +156,28 @@ Creates a reactive camera state holder that manages all camera operations, plugi
 
 ```kotlin
 @Composable
-fun rememberCameraKState(
-    permissions: PermissionController,
-    cameraConfiguration: CameraConfiguration.() -> Unit = {},
-    plugins: List<CameraKPlugin> = emptyList(),
-    onStateChange: (CameraKState) -> Unit = {}
-): CameraKStateHolder
+expect fun rememberCameraKState(
+    config: CameraConfiguration = CameraConfiguration(),
+    setupPlugins: suspend (CameraKStateHolder) -> Unit = {},
+): State<CameraKState>
 ```
 
-**Returns**: `CameraKStateHolder` with:
-- `cameraState: StateFlow<CameraKState>` - Observable camera lifecycle state
-- `qrCodeFlow: StateFlow<List<String>>` - Scanned QR codes (auto-populated by plugin)
-- `recognizedTextFlow: StateFlow<String>` - OCR results (auto-populated by plugin)
-- `eventsFlow: StateFlow<CameraEvent>` - Camera events (focus, zoom, etc.)
-- `pluginScope: CoroutineScope` - For plugin lifecycle management
+**Returns**: `State<CameraKState>` with the following state variants:
 
 #### Camera State Variants
 
 ```kotlin
 sealed class CameraKState {
     data object Initializing : CameraKState()
-    data class Ready(val controller: CameraController) : CameraKState()
-    data class Error(val exception: Exception) : CameraKState()
+    data class Ready(val controller: CameraController, val uiState: CameraUIState) : CameraKState()
+    data class Error(val exception: Exception, val message: String, val isRetryable: Boolean = true) : CameraKState()
 }
 ```
 
 **State Lifecycle:**
-1. `Initializing` → Camera starting, permissions requested, hardware initializing
-2. `Ready` → Camera operational, all plugins auto-activated, ready for capture
-3. `Error` → Initialization failed, camera unavailable, permissions denied
+1. `Initializing` - Camera starting, permissions requested, hardware initializing
+2. `Ready` - Camera operational, all plugins auto-activated, ready for capture. Provides `controller` and `uiState`.
+3. `Error` - Initialization failed, camera unavailable, permissions denied. Includes `message` and `isRetryable` flag.
 
 ## Platform Support
 
@@ -205,78 +189,85 @@ sealed class CameraKState {
 
 ## Configuration
 
-### Camera Configuration DSL
+### Camera Configuration
 
-Configure camera behavior in the `rememberCameraKState()` call:
+Configure camera behavior via the `CameraConfiguration` data class passed to `rememberCameraKState()`:
 
 ```kotlin
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    cameraConfiguration = {
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
         // Camera selection
-        setCameraLens(CameraLens.BACK)  // FRONT or BACK
-        
+        cameraLens = CameraLens.BACK,           // FRONT or BACK
+
         // Visual settings
-        setAspectRatio(AspectRatio.RATIO_16_9)  // 4:3, 16:9, 9:16, 1:1
-        setResolution(1920 to 1080)  // Optional specific resolution
-        
+        aspectRatio = AspectRatio.RATIO_16_9,   // 4:3, 16:9, 9:16, 1:1
+        targetResolution = 1920 to 1080,        // Optional specific resolution
+
         // Flash control
-        setFlashMode(FlashMode.AUTO)  // ON, OFF, AUTO
-        
+        flashMode = FlashMode.AUTO,             // ON, OFF, AUTO
+
+        // Torch control
+        torchMode = TorchMode.OFF,              // ON, OFF, AUTO
+
         // Image output
-        setImageFormat(ImageFormat.JPEG)  // JPEG or PNG
-        setDirectory(Directory.PICTURES)  // DCIM, DOCUMENTS, etc.
-        
+        imageFormat = ImageFormat.JPEG,          // JPEG or PNG
+        directory = Directory.PICTURES,         // PICTURES, DCIM, DOCUMENTS
+        returnFilePath = true,
+
+        // Quality
+        qualityPrioritization = QualityPrioritization.BALANCED,
+
         // iOS only: Advanced camera device types
-        setCameraDeviceType(CameraDeviceType.ULTRA_WIDE)
-        // Options: DEFAULT, ULTRA_WIDE, TELEPHOTO, DUAL_CAMERA, TRIPLE_CAMERA
+        cameraDeviceType = CameraDeviceType.DEFAULT,
+        // Options: DEFAULT, WIDE_ANGLE, ULTRA_WIDE, TELEPHOTO, MACRO
+    ),
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(imageSaverPlugin)
+        stateHolder.attachPlugin(qrScannerPlugin)
+        stateHolder.attachPlugin(ocrPlugin)
     },
-    plugins = listOf(
-        rememberImageSaverPlugin(),
-        rememberQRScannerPlugin(),
-        rememberOcrPlugin()
-    )
 )
 ```
 
 ### Complete Configuration Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `setCameraLens()` | `CameraLens` | `BACK` | Front or back camera |
-| `setAspectRatio()` | `AspectRatio` | `RATIO_16_9` | 4:3, 16:9, 9:16, or 1:1 |
-| `setResolution()` | `Pair<Int, Int>` | Device default | Specific width × height |
-| `setFlashMode()` | `FlashMode` | `AUTO` | ON, OFF, or AUTO |
-| `setImageFormat()` | `ImageFormat` | `JPEG` | JPEG or PNG |
-| `setDirectory()` | `Directory` | `PICTURES` | DCIM, DOCUMENTS, DOWNLOADS, CACHE |
-| `setCameraDeviceType()` | `CameraDeviceType` | `DEFAULT` | iOS: DEFAULT, ULTRA_WIDE, TELEPHOTO, etc. |
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `cameraLens` | `CameraLens` | `BACK` | Front or back camera |
+| `aspectRatio` | `AspectRatio` | `RATIO_16_9` | 4:3, 16:9, 9:16, or 1:1 |
+| `targetResolution` | `Pair<Int, Int>?` | `null` | Specific width x height |
+| `flashMode` | `FlashMode` | `OFF` | ON, OFF, or AUTO |
+| `torchMode` | `TorchMode` | `OFF` | ON, OFF, or AUTO |
+| `imageFormat` | `ImageFormat` | `JPEG` | JPEG or PNG |
+| `directory` | `Directory` | `PICTURES` | PICTURES, DCIM, or DOCUMENTS |
+| `returnFilePath` | `Boolean` | `true` | Whether to return file path in capture result |
+| `qualityPrioritization` | `QualityPrioritization` | `BALANCED` | Capture quality vs speed tradeoff |
+| `cameraDeviceType` | `CameraDeviceType` | `DEFAULT` | iOS: DEFAULT, WIDE_ANGLE, ULTRA_WIDE, TELEPHOTO, MACRO |
 
 ### Camera Runtime Control
 
 Access runtime camera control via the `CameraController`:
 
 ```kotlin
-// Get controller from Ready state
-val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
 when (cameraState) {
     is CameraKState.Ready -> {
         val controller = (cameraState as CameraKState.Ready).controller
-        
+
         // Zoom
         controller.setZoom(2.5f)
         val maxZoom = controller.getMaxZoom()
         val currentZoom = controller.getZoom()
-        
+
         // Flash
         controller.setFlashMode(FlashMode.ON)
-        controller.toggleFlashMode()  // Cycles: OFF → ON → AUTO
+        controller.toggleFlashMode()  // Cycles: OFF -> ON -> AUTO
         val mode = controller.getFlashMode()
-        
+
         // Torch (continuous light)
+        controller.setTorchMode(TorchMode.ON)
         controller.toggleTorchMode()
-        
+
         // Camera lens
-        controller.setCameraLens(CameraLens.FRONT)
         controller.toggleCameraLens()  // Switches between FRONT/BACK
     }
 }
@@ -304,10 +295,10 @@ ImageFormat.PNG   // Lossless compression, larger files, transparency support
 
 ### Plugin System Overview
 
-CameraK uses an auto-activating plugin system. Plugins are attached via `rememberCameraKState()` and automatically activate when the camera reaches the `Ready` state. This eliminates manual lifecycle management and provides clean reactive patterns.
+CameraK uses an auto-activating plugin system. Plugins are attached via the `setupPlugins` lambda in `rememberCameraKState()` and automatically activate when the camera reaches the `Ready` state. This eliminates manual lifecycle management and provides clean reactive patterns.
 
 **How Plugins Work:**
-1. Plugin created and attached via `plugins = listOf(...)` in `rememberCameraKState()`
+1. Plugin created and attached via `setupPlugins` lambda calling `stateHolder.attachPlugin(...)` in `rememberCameraKState()`
 2. State holder calls `plugin.onAttach(stateHolder)` when mounting
 3. Plugin observes `stateHolder.cameraState` and auto-activates when `Ready`
 4. Plugin processes camera frames or handles capture events
@@ -340,17 +331,23 @@ val imageSaverPlugin = rememberImageSaverPlugin(
 )
 
 // Add to camera state
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    plugins = listOf(imageSaverPlugin)
+val cameraState by rememberCameraKState(
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(imageSaverPlugin)
+    },
 )
 
 // Capture automatically saves
-scope.launch {
-    when (val result = stateHolder.controller?.takePictureToFile()) {
-        is ImageCaptureResult.SuccessWithFile -> {
-            // Already auto-saved by plugin
-            println("File saved: ${result.filePath}")
+when (cameraState) {
+    is CameraKState.Ready -> {
+        val controller = (cameraState as CameraKState.Ready).controller
+        scope.launch {
+            when (val result = controller.takePictureToFile()) {
+                is ImageCaptureResult.SuccessWithFile -> {
+                    // Already auto-saved by plugin
+                    println("File saved: ${result.filePath}")
+                }
+            }
         }
     }
 }
@@ -364,13 +361,18 @@ val imageSaverPlugin = rememberImageSaverPlugin(
 )
 
 // Manual save
-scope.launch {
-    when (val result = stateHolder.controller?.takePicture()) {
-        is ImageCaptureResult.Success -> {
-            imageSaverPlugin.saveImage(
-                byteArray = result.byteArray,
-                imageName = "Photo_${System.currentTimeMillis()}"
-            )
+when (cameraState) {
+    is CameraKState.Ready -> {
+        val controller = (cameraState as CameraKState.Ready).controller
+        scope.launch {
+            when (val result = controller.takePicture()) {
+                is ImageCaptureResult.Success -> {
+                    imageSaverPlugin.saveImage(
+                        byteArray = result.byteArray,
+                        imageName = "Photo_${System.currentTimeMillis()}"
+                    )
+                }
+            }
         }
     }
 }
@@ -381,27 +383,35 @@ scope.launch {
 | Directory | Android Path | iOS Path |
 |-----------|--------------|----------|
 | `PICTURES` | `/DCIM/` or `Pictures/` | `Photos` app |
+| `DCIM` | `DCIM/` | `Photos` app |
 | `DOCUMENTS` | `Documents/` | `Files > Documents` |
-| `DOWNLOADS` | `Downloads/` | `Files > Downloads` |
 
 ### QR Scanner Plugin
 
-Real-time QR code detection from camera frames. Results automatically streamed via `qrCodeFlow`.
+Real-time QR code detection from camera frames. Results are delivered through `CameraKEvent.QRCodeScanned` events via the `events` SharedFlow on `CameraKStateHolder`.
 
 #### Setup
 
 ```kotlin
 val qrScannerPlugin = rememberQRScannerPlugin()
 
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    plugins = listOf(qrScannerPlugin)
+val cameraState by rememberCameraKState(
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(qrScannerPlugin)
+    },
 )
 
-// Observe QR codes
-val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle(initial = emptyList())
-
-Text("Last QR: ${qrCodes.lastOrNull() ?: "Scanning..."}")
+// Observe QR code events
+LaunchedEffect(Unit) {
+    stateHolder.events.collect { event ->
+        when (event) {
+            is CameraKEvent.QRCodeScanned -> {
+                println("QR Code: ${event.qrCode}")
+            }
+            else -> {}
+        }
+    }
+}
 ```
 
 #### Control Scanning
@@ -416,17 +426,18 @@ qrScannerPlugin.pauseScanning()
 // Resume scanning
 qrScannerPlugin.resumeScanning()
 
-// Get scan results
+// Get scan results via events
 LaunchedEffect(Unit) {
-    stateHolder.qrCodeFlow
+    stateHolder.events
+        .filterIsInstance<CameraKEvent.QRCodeScanned>()
         .distinctUntilChanged()
-        .collectLatest { qrCode ->
-            println("QR Code: $qrCode")
+        .collectLatest { event ->
+            println("QR Code: ${event.qrCode}")
             qrScannerPlugin.pauseScanning()
-            
+
             // Process result...
             delay(2000)
-            
+
             qrScannerPlugin.resumeScanning()
         }
 }
@@ -435,29 +446,34 @@ LaunchedEffect(Unit) {
 
 ### OCR Plugin
 
-Optical Character Recognition - detects and extracts text from camera frames. Results automatically streamed via `recognizedTextFlow`.
+Optical Character Recognition - detects and extracts text from camera frames. Results are delivered through `CameraKEvent.TextRecognized` events via the `events` SharedFlow on `CameraKStateHolder`.
 
 #### Setup
 
 ```kotlin
 val ocrPlugin = rememberOcrPlugin()
 
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    plugins = listOf(ocrPlugin)
+val cameraState by rememberCameraKState(
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(ocrPlugin)
+    },
 )
 
-// Observe recognized text
-val recognizedText by stateHolder.recognizedTextFlow.collectAsStateWithLifecycle(initial = "")
-
-Text("Detected text: $recognizedText", modifier = Modifier.align(Alignment.TopStart))
+// Observe recognized text events
+LaunchedEffect(Unit) {
+    stateHolder.events
+        .filterIsInstance<CameraKEvent.TextRecognized>()
+        .collect { event ->
+            println("Detected text: ${event.text}")
+        }
+}
 ```
 
 #### Manual Recognition
 
 ```kotlin
 scope.launch {
-    when (val result = stateHolder.controller?.takePicture()) {
+    when (val result = controller.takePicture()) {
         is ImageCaptureResult.Success -> {
             val text = ocrPlugin.recognizeText(result.byteArray)
             println("Text: $text")
@@ -497,11 +513,11 @@ class CustomTextPlugin : CameraKPlugin {
                 }
         }
     }
-    
+
     override fun onDetach() {
         // Cleanup: cancel jobs, close resources
     }
-    
+
     private suspend fun startTextDetection(controller: CameraController) {
         // Your detection logic here
     }
@@ -513,13 +529,13 @@ class CustomTextPlugin : CameraKPlugin {
 If you have custom plugins using the deprecated `getController()` approach:
 
 ```kotlin
-// ❌ OLD (v0.2.0) - Callback based
+// OLD (v0.2.0) - Callback based
 override fun onAttach(stateHolder: CameraKStateHolder) {
     val controller = stateHolder.getController() // Deprecated
     startDetection(controller)
 }
 
-// ✅ NEW (v0.2.0+) - Reactive state based
+// NEW (v0.2.0+) - Reactive state based
 override fun onAttach(stateHolder: CameraKStateHolder) {
     stateHolder.pluginScope.launch {
         stateHolder.cameraState
@@ -540,20 +556,31 @@ override fun onAttach(stateHolder: CameraKStateHolder) {
 Main entry point for all camera operations. Created via `rememberCameraKState()`:
 
 ```kotlin
-interface CameraKStateHolder {
+class CameraKStateHolder {
     // State flows - observe for reactivity
     val cameraState: StateFlow<CameraKState>      // Initializing/Ready/Error
-    val qrCodeFlow: StateFlow<List<String>>       // Auto-populated by QRScannerPlugin
-    val recognizedTextFlow: StateFlow<String>     // Auto-populated by OcrPlugin
-    val eventsFlow: StateFlow<CameraEvent>        // Camera events (focus, zoom, etc.)
-    
+    val uiState: StateFlow<CameraUIState>         // Zoom, flash, torch, lens, format
+    val events: SharedFlow<CameraKEvent>          // Camera events (capture, QR, OCR, etc.)
+
     // Plugin management
     fun attachPlugin(plugin: CameraKPlugin)
     fun detachPlugin(plugin: CameraKPlugin)
     val pluginScope: CoroutineScope               // For plugin lifecycle operations
-    
+
+    // Camera control
+    suspend fun captureImage()
+    fun setZoom(zoom: Float)
+    fun toggleFlashMode()
+    fun setFlashMode(mode: FlashMode)
+    fun toggleTorchMode()
+    fun setTorchMode(mode: TorchMode)
+    fun toggleCameraLens()
+    fun initialize()
+    fun shutdown()
+
     // Utilities
     suspend fun getReadyCameraController(): CameraController?  // Wait until camera ready
+    fun getController(): CameraController?
 }
 ```
 
@@ -562,36 +589,38 @@ interface CameraKStateHolder {
 Low-level camera operations returned in `CameraKState.Ready`:
 
 ```kotlin
-interface CameraController {
+expect class CameraController {
     // Capture operations
     suspend fun takePictureToFile(): ImageCaptureResult        // Recommended - direct file save
     @Deprecated("Use takePictureToFile()")
     suspend fun takePicture(): ImageCaptureResult              // Legacy - returns ByteArray
-    
+
     // Zoom control
     fun setZoom(zoom: Float)
     fun getZoom(): Float
     fun getMaxZoom(): Float
-    
+
     // Flash control
     fun setFlashMode(mode: FlashMode)
     fun getFlashMode(): FlashMode?
     fun toggleFlashMode()
-    
+
     // Torch control
+    fun setTorchMode(mode: TorchMode)
+    fun getTorchMode(): TorchMode?
     fun toggleTorchMode()
-    
+
     // Camera selection
-    fun setCameraLens(lens: CameraLens)
+    fun getCameraLens(): CameraLens?
     fun toggleCameraLens()
-    
+
     // Session management
     fun startSession()
     fun stopSession()
-    
+    fun cleanup()
+
     // Event listeners
     fun addImageCaptureListener(listener: (ByteArray) -> Unit)
-    fun removeImageCaptureListener(listener: (ByteArray) -> Unit)
 }
 ```
 
@@ -606,7 +635,7 @@ interface CameraKPlugin {
      * Use this to observe [CameraKStateHolder.cameraState] and auto-activate.
      */
     fun onAttach(stateHolder: CameraKStateHolder)
-    
+
     /**
      * Called when plugin detached or component destroyed.
      * Cancel all jobs and cleanup resources here.
@@ -627,19 +656,22 @@ sealed class ImageCaptureResult {
 }
 ```
 
-### CameraEvent
+### CameraKEvent
 
 Events emitted during camera operation:
 
 ```kotlin
-sealed class CameraEvent {
-    data class FocusChanged(val x: Float, val y: Float) : CameraEvent()
-    data class ZoomChanged(val level: Float) : CameraEvent()
-    data class FlashModeChanged(val mode: FlashMode) : CameraEvent()
-    data class LensChanged(val lens: CameraLens) : CameraEvent()
+sealed class CameraKEvent {
+    data object None : CameraKEvent()
+    data class ImageCaptured(val result: ImageCaptureResult) : CameraKEvent()
+    data class CaptureFailed(val exception: Exception) : CameraKEvent()
+    data class QRCodeScanned(val qrCode: String) : CameraKEvent()
+    data class TextRecognized(val text: String) : CameraKEvent()
+    data class PermissionDenied(val permission: String) : CameraKEvent()
 }
+```
 
-## Migration Guide: v0.2.0 → v0.2.0
+## Migration Guide: v0.2.0 -> v0.2.0
 
 ### API Migration
 
@@ -654,7 +686,7 @@ The v0.2.0 release introduces a new Compose-first reactive API. The old callback
 Old callback-based approach:
 
 ```kotlin
-// ❌ v0.2.0 - Callback based
+// OLD - Callback based
 CameraPreview(
     cameraConfiguration = { /* ... */ },
     onCameraControllerReady = { controller ->
@@ -666,20 +698,22 @@ CameraPreview(
 New reactive approach:
 
 ```kotlin
-// ✅ v0.2.0+ - Reactive StateFlow based
+// NEW - Reactive StateFlow based
 @Composable
 fun CameraScreen() {
-    val stateHolder = rememberCameraKState(
-        permissions = providePermissions(),
-        cameraConfiguration = { /* ... */ }
+    val cameraState by rememberCameraKState(
+        config = CameraConfiguration(
+            cameraLens = CameraLens.BACK,
+            flashMode = FlashMode.OFF,
+        ),
     )
-    
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    
+
     when (cameraState) {
         is CameraKState.Ready -> {
-            val controller = (cameraState as CameraKState.Ready).controller
-            // Use controller here
+            val readyState = cameraState as CameraKState.Ready
+            val controller = readyState.controller
+            val uiState = readyState.uiState
+            // Use controller and uiState here
         }
     }
 }
@@ -706,7 +740,7 @@ scope.launch {
 
 If you've created custom plugins using the old API:
 
-#### ❌ Old Pattern (v0.2.0)
+#### Old Pattern (v0.2.0)
 
 ```kotlin
 class MyPlugin : CameraKPlugin {
@@ -718,14 +752,14 @@ class MyPlugin : CameraKPlugin {
 }
 ```
 
-#### ✅ New Pattern (v0.2.0+)
+#### New Pattern (v0.2.0+)
 
 Option A - Stream observation (reactive):
 
 ```kotlin
 class MyPlugin : CameraKPlugin {
     private var job: Job? = null
-    
+
     override fun onAttach(stateHolder: CameraKStateHolder) {
         job = stateHolder.pluginScope.launch {
             stateHolder.cameraState
@@ -735,7 +769,7 @@ class MyPlugin : CameraKPlugin {
                 }
         }
     }
-    
+
     override fun onDetach() {
         job?.cancel()
     }
@@ -754,7 +788,7 @@ class MyPlugin : CameraKPlugin {
             }
         }
     }
-    
+
     override fun onDetach() {
         // Cleanup if needed
     }
@@ -766,7 +800,7 @@ class MyPlugin : CameraKPlugin {
 The old `getController()` method is deprecated:
 
 ```kotlin
-// ⚠️ Warning level (v0.2.0)
+// Warning level (v0.2.0)
 @Deprecated(
     "Use cameraState.filterIsInstance<Ready>() instead. " +
     "Will be removed in v2.0.0",
@@ -777,10 +811,10 @@ The old `getController()` method is deprecated:
 )
 fun getController(): CameraController?
 
-// ⛔ Error level (v1.0.0)
+// Error level (v1.0.0)
 // Same method but with DeprecationLevel.ERROR
 
-// ❌ Removed (v2.0.0)
+// Removed (v2.0.0)
 // Method no longer exists
 ```
 
@@ -789,29 +823,29 @@ fun getController(): CameraController?
 The `takePicture()` method is deprecated in favor of `takePictureToFile()`:
 
 ```kotlin
-// ❌ Deprecated - Manual file handling required
+// Deprecated - Manual file handling required
 @Deprecated("Use takePictureToFile() instead")
 suspend fun takePicture(): ImageCaptureResult
 
-// ✅ Recommended - Direct file save, 2-3x faster
+// Recommended - Direct file save, 2-3x faster
 suspend fun takePictureToFile(): ImageCaptureResult
 ```
 
 **Performance Benefit:**
-- `takePicture()`: ByteArray in memory → manual file write (slower, ~2-3 seconds)
+- `takePicture()`: ByteArray in memory -> manual file write (slower, ~2-3 seconds)
 - `takePictureToFile()`: Direct file save (faster, ~0.5-1 second)
 
 ### Breaking Changes Summary
 
 | Feature | v0.2.0 | v0.2.0+ | Timeline |
 |---------|--------|---------|----------|
-| Callback-based API | ✅ | ⚠️ Deprecated | v2.0.0 removal |
-| Reactive StateFlow API | ❌ | ✅ Recommended | Current |
-| `getController()` | ✅ | ⚠️ Deprecated | v2.0.0 removal |
-| `takePicture()` | ✅ | ⚠️ Deprecated | v2.0.0 removal |
-| `takePictureToFile()` | ❌ | ✅ Recommended | Current |
-| Plugin auto-activation | ❌ | ✅ Built-in | Current |
-| `rememberCameraKState()` | ❌ | ✅ New | Current |
+| Callback-based API | Supported | Deprecated | v2.0.0 removal |
+| Reactive StateFlow API | N/A | Recommended | Current |
+| `getController()` | Supported | Deprecated | v2.0.0 removal |
+| `takePicture()` | Supported | Deprecated | v2.0.0 removal |
+| `takePictureToFile()` | N/A | Recommended | Current |
+| Plugin auto-activation | N/A | Built-in | Current |
+| `rememberCameraKState()` | N/A | New | Current |
 
 ### Need More Help?
 
@@ -821,10 +855,10 @@ See [PLUGIN_MIGRATION_GUIDE.md](PLUGIN_MIGRATION_GUIDE.md) for comprehensive cus
 
 ### v1.0 Migration
 
-#### `takePicture()` → `takePictureToFile()`
+#### `takePicture()` -> `takePictureToFile()`
 
 ```kotlin
-// ❌ Deprecated (slower, will be removed in v2.0)
+// Deprecated (slower, will be removed in v2.0)
 when (val result = controller.takePicture()) {
     is ImageCaptureResult.Success -> {
         val byteArray = result.byteArray
@@ -832,23 +866,13 @@ when (val result = controller.takePicture()) {
     }
 }
 
-// ✅ Recommended (2-3x faster)
+// Recommended (2-3x faster)
 when (val result = controller.takePictureToFile()) {
     is ImageCaptureResult.SuccessWithFile -> {
         val filePath = result.filePath
         // File already saved
     }
 }
-```
-
-#### iOS: `rememberIOSPermissions()` → `providePermissions()`
-
-```kotlin
-// ❌ Deprecated (iOS-only)
-val permissions = rememberIOSPermissions()
-
-// ✅ Recommended (cross-platform)
-val permissions = providePermissions()
 ```
 
 
@@ -863,13 +887,13 @@ val permissions = providePermissions()
 **Solution**: Always observe `cameraState` and wait for `Ready`:
 
 ```kotlin
-// ❌ Wrong - immediate access
+// Wrong - immediate access
 override fun onAttach(stateHolder: CameraKStateHolder) {
     val controller = stateHolder.getController()  // Might be null!
     startDetection(controller)
 }
 
-// ✅ Correct - wait for Ready state
+// Correct - wait for Ready state
 override fun onAttach(stateHolder: CameraKStateHolder) {
     stateHolder.pluginScope.launch {
         stateHolder.cameraState
@@ -885,20 +909,21 @@ override fun onAttach(stateHolder: CameraKStateHolder) {
 
 **Problem**: Plugins attached but not starting operations.
 
-**Solution**: Ensure you're using `rememberCameraKState()`:
+**Solution**: Ensure you're using `rememberCameraKState()` with `setupPlugins`:
 
 ```kotlin
-// ❌ Wrong - old callback API
+// Wrong - old callback API
 CameraPreview(
     onCameraControllerReady = { controller ->
         // Auto-activation not supported
     }
 )
 
-// ✅ Correct - new reactive API
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    plugins = listOf(myPlugin)  // Auto-activates when Ready
+// Correct - new reactive API
+val cameraState by rememberCameraKState(
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(myPlugin)  // Auto-activates when Ready
+    },
 )
 ```
 
@@ -911,7 +936,7 @@ val stateHolder = rememberCameraKState(
 ```kotlin
 class MyPlugin : CameraKPlugin {
     private var job: Job? = null
-    
+
     override fun onAttach(stateHolder: CameraKStateHolder) {
         job = stateHolder.pluginScope.launch {
             // Collector will auto-cancel on DisposableEffect cleanup
@@ -920,7 +945,7 @@ class MyPlugin : CameraKPlugin {
                 .collect { ready -> startDetection(ready.controller) }
         }
     }
-    
+
     override fun onDetach() {
         job?.cancel()  // Explicit cleanup
     }
@@ -931,28 +956,25 @@ class MyPlugin : CameraKPlugin {
 
 **Problem**: Scanning active but no codes detected.
 
-**Solution**: Verify plugin is attached and check permissions:
+**Solution**: Verify plugin is attached and check that events are being collected:
 
 ```kotlin
 val qrPlugin = rememberQRScannerPlugin()
 
-LaunchedEffect(Unit) {
-    if (!permissions.hasCameraPermission()) {
-        permissions.RequestCameraPermission(
-            onGranted = { /* Try again */ },
-            onDenied = { /* Handle */ }
-        )
-    }
-}
-
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    plugins = listOf(qrPlugin)
+val cameraState by rememberCameraKState(
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(qrPlugin)
+    },
 )
 
-// Verify codes coming through
-val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle(initial = emptyList())
-Text("Codes detected: ${qrCodes.size}")
+// Verify codes coming through via events
+LaunchedEffect(Unit) {
+    stateHolder.events
+        .filterIsInstance<CameraKEvent.QRCodeScanned>()
+        .collect { event ->
+            println("QR Code detected: ${event.qrCode}")
+        }
+}
 ```
 
 #### OCR producing poor results
@@ -962,7 +984,7 @@ Text("Codes detected: ${qrCodes.size}")
 **Solution**: Use high-resolution images for recognition:
 
 ```kotlin
-// ✅ Better accuracy - from captured image
+// Better accuracy - from captured image
 scope.launch {
     when (val result = controller.takePictureToFile()) {
         is ImageCaptureResult.SuccessWithFile -> {
@@ -973,8 +995,8 @@ scope.launch {
     }
 }
 
-// ⚠️ Lower accuracy - real-time stream
-// ocrPlugin.recognizedTextFlow auto-updated from stream
+// Lower accuracy - real-time stream
+// Text recognized events auto-delivered via stateHolder.events
 ```
 
 #### Compilation errors with plugins
@@ -996,14 +1018,14 @@ dependencies {
 
 **Problem**: UI frame rate drops when camera active.
 
-**Solution**: Use `collectAsStateWithLifecycle()` instead of `collectAsState()`:
+**Solution**: Use `collectAsStateWithLifecycle()` for StateFlow and lifecycle-aware collection for SharedFlow:
 
 ```kotlin
-// ❌ Causes recomposition on every frame
-val qrCodes by stateHolder.qrCodeFlow.collectAsState()  // Dangerous!
+// Causes recomposition issues
+val state by stateHolder.cameraState.collectAsState()  // Not lifecycle-aware
 
-// ✅ Lifecycle-aware, fewer recompositions
-val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle()
+// Lifecycle-aware, fewer recompositions
+val state by stateHolder.cameraState.collectAsStateWithLifecycle()
 ```
 
 ### Debug Logging
@@ -1013,7 +1035,7 @@ Enable debug logging to diagnose issues:
 ```kotlin
 // In your initialization code
 if (BuildConfig.DEBUG) {
-    stateHolder.eventsFlow.collectLatest { event ->
+    stateHolder.events.collectLatest { event ->
         Log.d("CameraK", "Event: $event")
     }
 }

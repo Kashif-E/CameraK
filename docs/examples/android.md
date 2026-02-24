@@ -49,25 +49,25 @@ dependencies {
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Camera feature -->
-    <uses-feature 
-        android:name="android.hardware.camera" 
+    <uses-feature
+        android:name="android.hardware.camera"
         android:required="true" />
-    
+
     <!-- Camera permission -->
     <uses-permission android:name="android.permission.CAMERA" />
-    
+
     <!-- Storage permission (Android 9 and below) -->
-    <uses-permission 
+    <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
-    
+
     <application
         android:name=".MyApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/Theme.App">
-        
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -76,73 +76,64 @@ dependencies {
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        
+
     </application>
 </manifest>
 ```
 
 ## Step 3: Request Permissions
 
-### Using Accompanist Permissions
+CameraK includes a built-in, cross-platform permission API. No third-party libraries needed.
 
-Add dependency:
-
-```kotlin
-dependencies {
-    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
-}
-```
-
-Request permissions in Compose:
+### Using CameraK's Permission API
 
 ```kotlin
 @Composable
 fun CameraScreenWithPermissions() {
-    val cameraPermissionState = rememberPermissionState(
-        android.Manifest.permission.CAMERA
-    )
-    
-    LaunchedEffect(Unit) {
-        if (!cameraPermissionState.status.isGranted) {
-            cameraPermissionState.launchPermissionRequest()
-        }
+    val permissions = providePermissions()
+    var cameraGranted by remember { mutableStateOf(permissions.hasCameraPermission()) }
+    var storageGranted by remember { mutableStateOf(permissions.hasStoragePermission()) }
+
+    if (!cameraGranted) {
+        permissions.RequestCameraPermission(
+            onGranted = { cameraGranted = true },
+            onDenied = { /* Show rationale or denied UI */ }
+        )
     }
-    
-    when {
-        cameraPermissionState.status.isGranted -> {
-            CameraScreen()  // Your camera UI
-        }
-        cameraPermissionState.status.shouldShowRationale -> {
-            PermissionRationaleDialog(
-                onRequestPermission = { cameraPermissionState.launchPermissionRequest() }
-            )
-        }
-        else -> {
-            PermissionDeniedScreen()
-        }
+
+    if (!storageGranted) {
+        permissions.RequestStoragePermission(
+            onGranted = { storageGranted = true },
+            onDenied = { /* Show rationale or denied UI */ }
+        )
+    }
+
+    if (cameraGranted && storageGranted) {
+        CameraScreen()
     }
 }
 ```
 
-### Using CameraK's Built-in Permission Provider
+### Camera Screen
+
+Once permissions are granted, use `rememberCameraKState()`:
 
 ```kotlin
 @Composable
 fun CameraScreen() {
-    val permissions = providePermissions()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    
-    // Camera automatically requests permissions
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    
+    val cameraState by rememberCameraKState()
+
     when (cameraState) {
         is CameraKState.Ready -> {
-            // Camera ready - permissions granted
-            CameraPreviewComposable(...)
+            val ready = cameraState as CameraKState.Ready
+            CameraPreviewView(
+                controller = ready.controller,
+                modifier = Modifier.fillMaxSize()
+            )
         }
         is CameraKState.Error -> {
-            // Check if error is permission-related
-            Text("Camera error: ${(cameraState as CameraKState.Error).exception.message}")
+            val error = cameraState as CameraKState.Error
+            Text("Camera error: ${error.message}")
         }
         CameraKState.Initializing -> {
             CircularProgressIndicator()
@@ -156,32 +147,29 @@ fun CameraScreen() {
 ```kotlin
 @Composable
 fun AndroidCameraScreen() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(
-        permissions = permissions,
-        cameraConfiguration = {
-            setCameraLens(CameraLens.BACK)
-            setFlashMode(FlashMode.AUTO)
-            setAspectRatio(AspectRatio.RATIO_16_9)
-            setImageFormat(ImageFormat.JPEG)
-            setDirectory(Directory.PICTURES)
-        }
+    val cameraState by rememberCameraKState(
+        config = CameraConfiguration(
+            cameraLens = CameraLens.BACK,
+            flashMode = FlashMode.AUTO,
+            aspectRatio = AspectRatio.RATIO_16_9,
+            imageFormat = ImageFormat.JPEG,
+            directory = Directory.PICTURES,
+        )
     )
-    
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
         when (cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
+                val ready = cameraState as CameraKState.Ready
+                val controller = ready.controller
+
                 // Camera preview
-                CameraPreviewComposable(
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Capture button
                 FloatingActionButton(
                     onClick = {
@@ -211,14 +199,15 @@ fun AndroidCameraScreen() {
                     Icon(Icons.Default.CameraAlt, contentDescription = "Capture")
                 }
             }
-            
+
             is CameraKState.Error -> {
+                val error = cameraState as CameraKState.Error
                 Text(
-                    text = "Camera Error: ${(cameraState as CameraKState.Error).exception.message}",
+                    text = "Camera Error: ${error.message}",
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
-            
+
             CameraKState.Initializing -> {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
@@ -247,11 +236,9 @@ If using ProGuard/R8, add rules:
 
 On Android, photos are saved to:
 
-- `Directory.PICTURES` → `/storage/emulated/0/Pictures/`
-- `Directory.DCIM` → `/storage/emulated/0/DCIM/`
-- `Directory.DOWNLOADS` → `/storage/emulated/0/Download/`
-- `Directory.DOCUMENTS` → `/data/data/your.package/files/Documents/`
-- `Directory.CACHE` → `/data/data/your.package/cache/`
+- `Directory.PICTURES` -> `/storage/emulated/0/Pictures/`
+- `Directory.DCIM` -> `/storage/emulated/0/DCIM/`
+- `Directory.DOCUMENTS` -> `/data/data/your.package/files/Documents/`
 
 ## Testing
 
@@ -288,42 +275,41 @@ Test on real device for:
 
 **Cause:** Storage full.
 
-**Solution:** Clear device storage or use `Directory.CACHE` for temporary files.
+**Solution:** Clear device storage or reduce image resolution.
 
 ### CameraX Initialization Error
 
 **Cause:** CameraX version conflict.
 
-**Solution:** CameraK includes CameraX automatically - don't add manual CameraX dependencies.
+**Solution:** CameraK includes CameraX automatically -- don't add manual CameraX dependencies.
 
 ## Platform-Specific Features
 
 ### Android-Only Features
 
-- **Image Analysis** — Process frames in real-time
-- **CameraX Integration** — Built on Android's CameraX
-- **Scoped Storage** — Android 10+ privacy-safe storage
+- **Image Analysis** -- Process frames in real-time
+- **CameraX Integration** -- Built on Android's CameraX
+- **Scoped Storage** -- Android 10+ privacy-safe storage
 
 ### Configuration Example
 
 ```kotlin
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    cameraConfiguration = {
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
         // Android supports all features
-        setCameraLens(CameraLens.BACK)
-        setAspectRatio(AspectRatio.RATIO_16_9)
-        setResolution(1920 to 1080)
-        setFlashMode(FlashMode.AUTO)
-        setImageFormat(ImageFormat.JPEG)
-        setDirectory(Directory.PICTURES)
-        setQualityPrioritization(QualityPrioritization.BALANCED)
-    }
+        cameraLens = CameraLens.BACK,
+        aspectRatio = AspectRatio.RATIO_16_9,
+        targetResolution = 1920 to 1080,
+        flashMode = FlashMode.AUTO,
+        imageFormat = ImageFormat.JPEG,
+        directory = Directory.PICTURES,
+        qualityPrioritization = QualityPrioritization.BALANCED,
+    )
 )
 ```
 
 ## Next Steps
 
-- [Quick Start](../getting-started/quick-start.md) — Build your first camera app
-- [Configuration](../getting-started/configuration.md) — Customize settings
-- [Camera Capture](../guides/camera-capture.md) — Advanced capture techniques
+- [Quick Start](../getting-started/quick-start.md) -- Build your first camera app
+- [Configuration](../getting-started/configuration.md) -- Customize settings
+- [Camera Capture](../guides/camera-capture.md) -- Advanced capture techniques

@@ -2,16 +2,15 @@
 
 Configure camera behavior, output format, and platform-specific features.
 
-## Configuration DSL
+## Configuration Data Class
 
 Pass configuration during initialization:
 
 ```kotlin
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    cameraConfiguration = {
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
         // Your configuration here
-    }
+    )
 )
 ```
 
@@ -20,21 +19,19 @@ val stateHolder = rememberCameraKState(
 ### Set Initial Camera Lens
 
 ```kotlin
-cameraConfiguration = {
-    setCameraLens(CameraLens.BACK)  // or CameraLens.FRONT
-}
+config = CameraConfiguration(
+    cameraLens = CameraLens.BACK  // or CameraLens.FRONT
+)
 ```
 
 **Options:**
-- `CameraLens.BACK` — Rear-facing camera (default)
-- `CameraLens.FRONT` — Front-facing camera
+- `CameraLens.BACK` -- Rear-facing camera (default)
+- `CameraLens.FRONT` -- Front-facing camera
 
 **Switch at runtime:**
 
 ```kotlin
 controller.toggleCameraLens()
-// or
-controller.setCameraLens(CameraLens.FRONT)
 ```
 
 ### iOS: Advanced Camera Types
@@ -42,16 +39,17 @@ controller.setCameraLens(CameraLens.FRONT)
 On iOS devices with multiple cameras, select specific lenses:
 
 ```kotlin
-cameraConfiguration = {
-    setCameraDeviceType(CameraDeviceType.ULTRA_WIDE)
-}
+config = CameraConfiguration(
+    cameraDeviceType = CameraDeviceType.ULTRA_WIDE
+)
 ```
 
 **Options:**
-- `CameraDeviceType.DEFAULT` — Standard wide-angle (default)
-- `CameraDeviceType.ULTRA_WIDE` — Ultra-wide lens (0.5x zoom)
-- `CameraDeviceType.TELEPHOTO` — Telephoto lens (2x-3x zoom)
-- `CameraDeviceType.WIDE_ANGLE` — Wide-angle lens
+- `CameraDeviceType.DEFAULT` -- Standard wide-angle (default)
+- `CameraDeviceType.ULTRA_WIDE` -- Ultra-wide lens (0.5x zoom)
+- `CameraDeviceType.TELEPHOTO` -- Telephoto lens (2x-3x zoom)
+- `CameraDeviceType.WIDE_ANGLE` -- Wide-angle lens
+- `CameraDeviceType.MACRO` -- Macro lens
 
 **Availability:** Depends on device hardware (iPhone 11 Pro+, iPhone 13+, etc.)
 
@@ -60,27 +58,27 @@ cameraConfiguration = {
 Set the capture aspect ratio:
 
 ```kotlin
-cameraConfiguration = {
-    setAspectRatio(AspectRatio.RATIO_16_9)
-}
+config = CameraConfiguration(
+    aspectRatio = AspectRatio.RATIO_16_9
+)
 ```
 
 **Options:**
 
 | Aspect Ratio | Use Case | Resolution Example |
 |--------------|----------|-------------------|
-| `RATIO_4_3` | Traditional photos | 2048×1536 |
-| `RATIO_16_9` | Widescreen (default) | 1920×1080 |
-| `RATIO_9_16` | Vertical stories | 1080×1920 |
-| `RATIO_1_1` | Square photos | 1080×1080 |
+| `RATIO_4_3` | Traditional photos | 2048x1536 |
+| `RATIO_16_9` | Widescreen (default) | 1920x1080 |
+| `RATIO_9_16` | Vertical stories | 1080x1920 |
+| `RATIO_1_1` | Square photos | 1080x1080 |
 
 **Example:**
 
 ```kotlin
 // Instagram story mode
-cameraConfiguration = {
-    setAspectRatio(AspectRatio.RATIO_9_16)
-}
+config = CameraConfiguration(
+    aspectRatio = AspectRatio.RATIO_9_16
+)
 ```
 
 ## Resolution
@@ -88,15 +86,15 @@ cameraConfiguration = {
 Optionally set specific resolution:
 
 ```kotlin
-cameraConfiguration = {
-    setResolution(1920 to 1080)  // width × height
-}
+config = CameraConfiguration(
+    targetResolution = 1920 to 1080  // width x height
+)
 ```
 
 **Common resolutions:**
-- `1920 to 1080` — Full HD
-- `1280 to 720` — HD
-- `3840 to 2160` — 4K (if supported)
+- `1920 to 1080` -- Full HD
+- `1280 to 720` -- HD
+- `3840 to 2160` -- 4K (if supported)
 
 **Note:** If device doesn't support exact resolution, closest match is used.
 
@@ -105,21 +103,21 @@ cameraConfiguration = {
 Control flash behavior:
 
 ```kotlin
-cameraConfiguration = {
-    setFlashMode(FlashMode.AUTO)
-}
+config = CameraConfiguration(
+    flashMode = FlashMode.AUTO
+)
 ```
 
 **Options:**
-- `FlashMode.OFF` — Flash disabled
-- `FlashMode.ON` — Flash always fires
-- `FlashMode.AUTO` — Flash fires in low light (default)
+- `FlashMode.OFF` -- Flash disabled
+- `FlashMode.ON` -- Flash always fires
+- `FlashMode.AUTO` -- Flash fires in low light (default)
 
 **Runtime control:**
 
 ```kotlin
 controller.setFlashMode(FlashMode.ON)
-controller.toggleFlashMode()  // Cycles: OFF → ON → AUTO
+controller.toggleFlashMode()  // Cycles: OFF -> ON -> AUTO
 
 val currentMode = controller.getFlashMode()  // returns FlashMode?
 ```
@@ -129,9 +127,9 @@ val currentMode = controller.getFlashMode()  // returns FlashMode?
 Set output format:
 
 ```kotlin
-cameraConfiguration = {
-    setImageFormat(ImageFormat.JPEG)
-}
+config = CameraConfiguration(
+    imageFormat = ImageFormat.JPEG
+)
 ```
 
 **Options:**
@@ -145,9 +143,9 @@ cameraConfiguration = {
 
 ```kotlin
 // High-quality archival photos
-cameraConfiguration = {
-    setImageFormat(ImageFormat.PNG)
-}
+config = CameraConfiguration(
+    imageFormat = ImageFormat.PNG
+)
 ```
 
 ## Save Directory
@@ -155,9 +153,9 @@ cameraConfiguration = {
 Choose where captured images are saved:
 
 ```kotlin
-cameraConfiguration = {
-    setDirectory(Directory.PICTURES)
-}
+config = CameraConfiguration(
+    directory = Directory.PICTURES
+)
 ```
 
 **Options:**
@@ -167,16 +165,14 @@ cameraConfiguration = {
 | `PICTURES` | `Environment.DIRECTORY_PICTURES` | Photo Library (default) |
 | `DCIM` | `Environment.DIRECTORY_DCIM` | Photo Library |
 | `DOCUMENTS` | `getExternalFilesDir(DOCUMENTS)` | Documents folder |
-| `DOWNLOADS` | `Environment.DIRECTORY_DOWNLOADS` | Downloads folder |
-| `CACHE` | `cacheDir` | Temporary cache |
 
 **Example:**
 
 ```kotlin
-// Save to downloads for easy access
-cameraConfiguration = {
-    setDirectory(Directory.DOWNLOADS)
-}
+// Save to DCIM folder
+config = CameraConfiguration(
+    directory = Directory.DCIM
+)
 ```
 
 ## Quality Prioritization
@@ -184,15 +180,15 @@ cameraConfiguration = {
 Balance between capture speed and image quality:
 
 ```kotlin
-cameraConfiguration = {
-    setQualityPrioritization(QualityPrioritization.BALANCED)
-}
+config = CameraConfiguration(
+    qualityPrioritization = QualityPrioritization.BALANCED
+)
 ```
 
 **Options:**
-- `QualityPrioritization.QUALITY` — Best quality, slower capture
-- `QualityPrioritization.BALANCED` — Good balance (default)
-- `QualityPrioritization.SPEED` — Fast capture, lower quality
+- `QualityPrioritization.QUALITY` -- Best quality, slower capture
+- `QualityPrioritization.BALANCED` -- Good balance (default)
+- `QualityPrioritization.SPEED` -- Fast capture, lower quality
 
 **Use cases:**
 - `QUALITY`: Professional photography, print media
@@ -204,42 +200,39 @@ cameraConfiguration = {
 ```kotlin
 @Composable
 fun ProfessionalCameraScreen() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    
-    val stateHolder = rememberCameraKState(
-        permissions = permissions,
-        cameraConfiguration = {
+
+    val cameraState by rememberCameraKState(
+        config = CameraConfiguration(
             // Camera hardware
-            setCameraLens(CameraLens.BACK)
-            setCameraDeviceType(CameraDeviceType.TELEPHOTO)  // iOS only
-            
+            cameraLens = CameraLens.BACK,
+            cameraDeviceType = CameraDeviceType.TELEPHOTO,  // iOS only
+
             // Image properties
-            setAspectRatio(AspectRatio.RATIO_4_3)
-            setResolution(3840 to 2160)  // 4K
-            setImageFormat(ImageFormat.PNG)
-            
+            aspectRatio = AspectRatio.RATIO_4_3,
+            targetResolution = 3840 to 2160,  // 4K
+            imageFormat = ImageFormat.PNG,
+
             // Quality settings
-            setQualityPrioritization(QualityPrioritization.QUALITY)
-            
+            qualityPrioritization = QualityPrioritization.QUALITY,
+
             // Flash and storage
-            setFlashMode(FlashMode.AUTO)
-            setDirectory(Directory.PICTURES)
-        }
+            flashMode = FlashMode.AUTO,
+            directory = Directory.PICTURES,
+        )
     )
-    
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
         when (cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val ready = cameraState as CameraKState.Ready
+                val controller = ready.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 FloatingActionButton(
                     onClick = {
                         scope.launch {
@@ -260,11 +253,12 @@ fun ProfessionalCameraScreen() {
                     Icon(Icons.Default.CameraAlt, "Capture")
                 }
             }
-            
+
             is CameraKState.Error -> {
-                Text("Camera error")
+                val error = cameraState as CameraKState.Error
+                Text("Camera error: ${error.message}")
             }
-            
+
             CameraKState.Initializing -> {
                 CircularProgressIndicator()
             }
@@ -289,7 +283,7 @@ val currentZoom = controller.getZoom()  // returns 2.5
 
 ```kotlin
 controller.setFlashMode(FlashMode.ON)
-controller.toggleFlashMode()  // OFF → ON → AUTO → OFF
+controller.toggleFlashMode()  // OFF -> ON -> AUTO -> OFF
 ```
 
 ### Torch (Flashlight)
@@ -301,8 +295,7 @@ controller.toggleTorchMode()  // Toggle continuous light
 ### Camera Lens
 
 ```kotlin
-controller.setCameraLens(CameraLens.FRONT)
-controller.toggleCameraLens()  // BACK ↔ FRONT
+controller.toggleCameraLens()  // BACK <-> FRONT
 ```
 
 ## Platform-Specific Notes
@@ -327,19 +320,20 @@ controller.toggleCameraLens()  // BACK ↔ FRONT
 
 ## Configuration Reference
 
-| Method | Parameter Type | Default | Platforms |
+| Property | Type | Default | Platforms |
 |--------|----------------|---------|-----------|
-| `setCameraLens()` | `CameraLens` | `BACK` | All |
-| `setCameraDeviceType()` | `CameraDeviceType` | `DEFAULT` | iOS only |
-| `setAspectRatio()` | `AspectRatio` | `RATIO_16_9` | All |
-| `setResolution()` | `Pair<Int, Int>` | Device default | All |
-| `setFlashMode()` | `FlashMode` | `AUTO` | Android, iOS |
-| `setImageFormat()` | `ImageFormat` | `JPEG` | All |
-| `setDirectory()` | `Directory` | `PICTURES` | All |
-| `setQualityPrioritization()` | `QualityPrioritization` | `BALANCED` | All |
+| `cameraLens` | `CameraLens` | `BACK` | All |
+| `cameraDeviceType` | `CameraDeviceType` | `DEFAULT` | iOS only |
+| `aspectRatio` | `AspectRatio` | `RATIO_16_9` | All |
+| `targetResolution` | `Pair<Int, Int>` | Device default | All |
+| `flashMode` | `FlashMode` | `AUTO` | Android, iOS |
+| `imageFormat` | `ImageFormat` | `JPEG` | All |
+| `directory` | `Directory` | `PICTURES` | All |
+| `qualityPrioritization` | `QualityPrioritization` | `BALANCED` | All |
+| `torchMode` | `TorchMode` | `OFF` | Android, iOS |
 
 ## Next Steps
 
-- [Camera Capture](../guides/camera-capture.md) — Capture photos and handle results
-- [Zoom Control](../guides/zoom-control.md) — Implement pinch-to-zoom
-- [Flash and Torch](../guides/flash-and-torch.md) — Control lighting
+- [Camera Capture](../guides/camera-capture.md) -- Capture photos and handle results
+- [Zoom Control](../guides/zoom-control.md) -- Implement pinch-to-zoom
+- [Flash and Torch](../guides/flash-and-torch.md) -- Control lighting

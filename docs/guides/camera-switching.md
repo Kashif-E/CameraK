@@ -7,14 +7,17 @@ Switch between front and back cameras.
 Switch between front and back cameras:
 
 ```kotlin
-controller.toggleCameraLens()  // BACK ↔ FRONT
+controller.toggleCameraLens()  // BACK <-> FRONT
 ```
 
-## Set Specific Camera
+## Set Initial Camera
+
+The initial camera lens is set via `CameraConfiguration`. At runtime, use `toggleCameraLens()` to switch:
 
 ```kotlin
-controller.setCameraLens(CameraLens.FRONT)  // Front camera
-controller.setCameraLens(CameraLens.BACK)   // Back camera
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(cameraLens = CameraLens.FRONT)  // Start with selfie camera
+)
 ```
 
 ## Get Current Camera
@@ -33,21 +36,19 @@ when (currentLens) {
 ```kotlin
 @Composable
 fun CameraWithSwitching() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Camera switch button
                 IconButton(
                     onClick = { controller.toggleCameraLens() },
@@ -62,7 +63,7 @@ fun CameraWithSwitching() {
                         tint = Color.White
                     )
                 }
-                
+
                 // Capture button
                 FloatingActionButton(
                     onClick = {
@@ -77,23 +78,12 @@ fun CameraWithSwitching() {
                     Icon(Icons.Default.CameraAlt, "Capture")
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
 }
-```
-
-## Configuration: Set Initial Camera
-
-```kotlin
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    cameraConfiguration = {
-        setCameraLens(CameraLens.FRONT)  // Start with selfie camera
-    }
-)
 ```
 
 ## Smooth Camera Switch
@@ -103,22 +93,20 @@ Add loading indicator during switch:
 ```kotlin
 @Composable
 fun CameraWithSmoothSwitch() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var isSwitching by remember { mutableStateOf(false) }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Switch button
                 IconButton(
                     onClick = {
@@ -151,8 +139,8 @@ fun CameraWithSmoothSwitch() {
                     }
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -185,14 +173,14 @@ fun switchCameraPreserveSettings(controller: CameraController) {
     // Save current settings
     val savedFlashMode = controller.getFlashMode()
     val savedZoom = controller.getZoom()
-    
+
     // Switch camera
     controller.toggleCameraLens()
-    
+
     // Wait for switch to complete
     scope.launch {
         delay(200)
-        
+
         // Restore settings (if supported on new camera)
         savedFlashMode?.let { controller.setFlashMode(it) }
         controller.setZoom(savedZoom.coerceIn(1f, controller.getMaxZoom()))
@@ -205,14 +193,15 @@ fun switchCameraPreserveSettings(controller: CameraController) {
 Most front cameras don't have flash:
 
 ```kotlin
-fun switchToFront(controller: CameraController) {
-    controller.setCameraLens(CameraLens.FRONT)
-    controller.setFlashMode(FlashMode.OFF)  // Disable flash
-}
-
-fun switchToBack(controller: CameraController) {
-    controller.setCameraLens(CameraLens.BACK)
-    controller.setFlashMode(FlashMode.AUTO)  // Re-enable flash
+fun switchAndAdjustFlash(controller: CameraController) {
+    controller.toggleCameraLens()
+    // After switching, check the current lens and adjust flash
+    val currentLens = controller.getCameraLens()
+    if (currentLens == CameraLens.FRONT) {
+        controller.setFlashMode(FlashMode.OFF)  // Disable flash for front camera
+    } else {
+        controller.setFlashMode(FlashMode.AUTO)  // Re-enable flash for back camera
+    }
 }
 ```
 
@@ -223,25 +212,23 @@ Show which camera is active:
 ```kotlin
 @Composable
 fun AnimatedCameraSwitch() {
-    val permissions = providePermissions()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var isFrontCamera by remember { mutableStateOf(false) }
     val rotation by animateFloatAsState(
         targetValue = if (isFrontCamera) 180f else 0f,
         animationSpec = tween(durationMillis = 300)
     )
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 IconButton(
                     onClick = {
                         controller.toggleCameraLens()
@@ -260,8 +247,8 @@ fun AnimatedCameraSwitch() {
                     )
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }

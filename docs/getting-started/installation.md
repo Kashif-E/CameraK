@@ -132,13 +132,11 @@ Create a simple test to verify:
 ```kotlin
 @Composable
 fun TestCameraScreen() {
-    val permissions = providePermissions()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    
-    when (cameraState) {
-        is CameraKState.Ready -> Text("✅ CameraK is ready!")
-        is CameraKState.Error -> Text("❌ Error: ${cameraState.exception.message}")
+    val cameraState by rememberCameraKState()
+
+    when (val state = cameraState) {
+        is CameraKState.Ready -> Text("CameraK is ready!")
+        is CameraKState.Error -> Text("Error: ${state.message}")
         CameraKState.Initializing -> CircularProgressIndicator()
     }
 }

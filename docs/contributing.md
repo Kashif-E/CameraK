@@ -4,11 +4,11 @@ Thank you for your interest in contributing to CameraK! This document provides g
 
 ## Ways to Contribute
 
-- 🐛 **Report Bugs** — Found an issue? Let us know
-- 💡 **Suggest Features** — Have an idea? Share it
-- 📖 **Improve Documentation** — Fix typos, add examples, clarify
-- 🔧 **Submit Pull Requests** — Fix bugs, add features
-- 💬 **Help Others** — Answer questions in Discussions
+- **Report Bugs** -- Found an issue? Let us know
+- **Suggest Features** -- Have an idea? Share it
+- **Improve Documentation** -- Fix typos, add examples, clarify
+- **Submit Pull Requests** -- Fix bugs, add features
+- **Help Others** -- Answer questions in Discussions
 
 ## Reporting Issues
 
@@ -34,7 +34,7 @@ Before creating an issue, please:
 Camera preview shows black screen when using RATIO_1_1 aspect ratio.
 
 **Steps to Reproduce:**
-1. Configure camera with `setAspectRatio(AspectRatio.RATIO_1_1)`
+1. Configure camera with `aspectRatio = AspectRatio.RATIO_1_1`
 2. Launch camera screen
 3. Preview displays as black screen
 
@@ -43,11 +43,10 @@ Camera preview shows black screen when using RATIO_1_1 aspect ratio.
 
 **Code:**
 ```kotlin
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    cameraConfiguration = {
-        setAspectRatio(AspectRatio.RATIO_1_1)
-    }
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
+        aspectRatio = AspectRatio.RATIO_1_1
+    )
 )
 ```
 
@@ -114,16 +113,16 @@ Follow [Kotlin coding conventions](https://kotlinlang.org/docs/coding-convention
 **Critical: Follow SDK naming rules**
 
 - Methods: `[Verb][Object]` pattern
-  - ✅ `captureImage()`, `setZoom()`, `getFlashMode()`
-  - ❌ `imageCapturer()`, `zoomSet()`, `flashModeGet()`
+  - `captureImage()`, `setZoom()`, `getFlashMode()`
+  - Not: `imageCapturer()`, `zoomSet()`, `flashModeGet()`
 
 - Classes: Singular nouns
-  - ✅ `CameraController`, `ImageCaptureResult`
-  - ❌ `Controllers`, `ImageCaptureResults`
+  - `CameraController`, `ImageCaptureResult`
+  - Not: `Controllers`, `ImageCaptureResults`
 
 - Packages: Domain-based
-  - ✅ `com.kashif.cameraK.controller`
-  - ❌ `com.kashif.cameraK.utils`
+  - `com.kashif.cameraK.controller`
+  - Not: `com.kashif.cameraK.utils`
 
 ### Documentation
 
@@ -179,7 +178,7 @@ Add tests for new features:
 fun `takePictureToFile returns success with file path`() = runTest {
     val controller = createTestController()
     val result = controller.takePictureToFile()
-    
+
     assertTrue(result is ImageCaptureResult.SuccessWithFile)
     assertNotNull((result as ImageCaptureResult.SuccessWithFile).filePath)
 }
@@ -223,7 +222,7 @@ git push origin feature/your-feature-name
 Create pull request on GitHub with:
 
 - **Title**: Clear, concise description
-- **Description**: 
+- **Description**:
   - What changed
   - Why (reference issue if applicable)
   - How to test
@@ -280,7 +279,7 @@ class CameraKStateHolder(
 
 ```kotlin
 @Composable
-fun rememberCameraKState(...): CameraKStateHolder
+fun rememberCameraKState(...): State<CameraKState>
 ```
 
 ## Breaking Changes
@@ -305,16 +304,16 @@ suspend fun takePicture(): ImageCaptureResult
 
 Update documentation in `docs/`:
 
-- `getting-started/` — Installation, quick start, configuration
-- `guides/` — Feature-specific guides
-- `api/` — API reference
-- `examples/` — Platform-specific examples
+- `getting-started/` -- Installation, quick start, configuration
+- `guides/` -- Feature-specific guides
+- `api/` -- API reference
+- `examples/` -- Platform-specific examples
 
 Use Stripe-style documentation:
 - Clear, concise examples
 - Real, working code
 - Copy-paste ready
-- Progressive disclosure (simple → advanced)
+- Progressive disclosure (simple -> advanced)
 
 ## Community Guidelines
 
@@ -337,4 +336,4 @@ Contributors are recognized in:
 
 ## Thank You!
 
-Your contributions make CameraK better for everyone. We appreciate your time and effort! 🙏
+Your contributions make CameraK better for everyone. We appreciate your time and effort!

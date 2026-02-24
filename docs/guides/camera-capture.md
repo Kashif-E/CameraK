@@ -7,15 +7,13 @@ Capture photos with type-safe result handling.
 ```kotlin
 @Composable
 fun CaptureExample() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    
-    when (cameraState) {
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
+
+    when (val state = cameraState) {
         is CameraKState.Ready -> {
-            val controller = (cameraState as CameraKState.Ready).controller
-            
+            val controller = state.controller
+
             Button(onClick = {
                 scope.launch {
                     when (val result = controller.takePictureToFile()) {
@@ -31,6 +29,8 @@ fun CaptureExample() {
                 Text("Capture Photo")
             }
         }
+        is CameraKState.Error -> Text("Camera error: ${state.message}")
+        CameraKState.Initializing -> CircularProgressIndicator()
     }
 }
 ```
@@ -48,9 +48,9 @@ suspend fun takePictureToFile(): ImageCaptureResult
 - `ImageCaptureResult.Error(exception: Exception)`
 
 **Benefits:**
-- ⚡ **2-3 seconds faster** than `takePicture()`
-- 💾 **No ByteArray conversion** — direct disk write
-- 🧠 **Lower memory usage** — no decode/encode cycles
+- 2-3 seconds faster than `takePicture()`
+- No ByteArray conversion — direct disk write
+- Lower memory usage — no decode/encode cycles
 
 **Example with error handling:**
 
@@ -62,7 +62,7 @@ scope.launch {
                 val file = File(result.filePath)
                 println("Photo saved: ${file.absolutePath}")
                 println("File size: ${file.length()} bytes")
-                
+
                 // Load into image viewer
                 loadImage(result.filePath)
             }
@@ -149,23 +149,21 @@ Show loading state during capture:
 ```kotlin
 @Composable
 fun CaptureWithFeedback() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var isCapturing by remember { mutableStateOf(false) }
     var lastCapturedPath by remember { mutableStateOf<String?>(null) }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Capture button with loading
                 FloatingActionButton(
                     onClick = {
@@ -195,7 +193,7 @@ fun CaptureWithFeedback() {
                         Icon(Icons.Default.CameraAlt, "Capture")
                     }
                 }
-                
+
                 // Show thumbnail of last capture
                 lastCapturedPath?.let { path ->
                     AsyncImage(
@@ -209,8 +207,8 @@ fun CaptureWithFeedback() {
                     )
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -224,10 +222,10 @@ Capture multiple photos quickly:
 ```kotlin
 fun captureBurst(controller: CameraController, count: Int) {
     val scope = CoroutineScope(Dispatchers.Default)
-    
+
     scope.launch {
         val results = mutableListOf<String>()
-        
+
         repeat(count) { index ->
             when (val result = controller.takePictureToFile()) {
                 is ImageCaptureResult.SuccessWithFile -> {
@@ -239,11 +237,11 @@ fun captureBurst(controller: CameraController, count: Int) {
                     return@launch
                 }
             }
-            
+
             // Small delay between captures
             delay(100)
         }
-        
+
         println("Burst complete: ${results.size} photos")
     }
 }
@@ -263,13 +261,13 @@ Button(onClick = {
     scope.launch {
         // Enable flash
         controller.setFlashMode(FlashMode.ON)
-        
+
         // Capture with flash
         val result = controller.takePictureToFile()
-        
+
         // Disable flash
         controller.setFlashMode(FlashMode.OFF)
-        
+
         when (result) {
             is ImageCaptureResult.SuccessWithFile -> {
                 println("Flash photo: ${result.filePath}")
@@ -290,20 +288,17 @@ By default, images save to the configured directory. To customize:
 
 ```kotlin
 // Configure save directory
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    cameraConfiguration = {
-        setDirectory(Directory.DOWNLOADS)  // Save to Downloads
-    }
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
+        directory = Directory.DCIM  // Save to Camera roll
+    )
 )
 ```
 
 **Options:**
 - `Directory.PICTURES` — User pictures (default)
 - `Directory.DCIM` — Camera roll
-- `Directory.DOWNLOADS` — Downloads folder
 - `Directory.DOCUMENTS` — Documents
-- `Directory.CACHE` — Temporary cache
 
 **File naming:**
 Files are automatically named with timestamp:
@@ -393,7 +388,7 @@ scope.launch {
 ## Performance Tips
 
 1. **Use `takePictureToFile()`** — 2-3x faster than `takePicture()`
-2. **Lower resolution** — Set `setResolution(1920 to 1080)` for faster capture
+2. **Lower resolution** — Set `targetResolution` in `CameraConfiguration` for faster capture
 3. **JPEG format** — Faster than PNG
 4. **Quality prioritization** — Use `QualityPrioritization.SPEED` for rapid capture
 5. **Avoid burst on low-end devices** — Limit to 3-5 photos

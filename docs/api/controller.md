@@ -5,7 +5,7 @@ Low-level camera operations. Available when camera state is `Ready`.
 ## Accessing Controller
 
 ```kotlin
-val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+val cameraState by rememberCameraKState()
 
 when (cameraState) {
     is CameraKState.Ready -> {
@@ -19,7 +19,7 @@ when (cameraState) {
 
 ### takePictureToFile()
 
-**Recommended** — Captures image directly to file.
+**Recommended** -- Captures image directly to file.
 
 ```kotlin
 suspend fun takePictureToFile(): ImageCaptureResult
@@ -51,7 +51,7 @@ scope.launch {
 
 ### takePicture()
 
-**Deprecated** — Returns image as ByteArray.
+**Deprecated** -- Returns image as ByteArray.
 
 ```kotlin
 @Deprecated("Use takePictureToFile()")
@@ -73,7 +73,7 @@ fun setZoom(zoomRatio: Float)
 Sets zoom level between 1.0 and maxZoom.
 
 **Parameters:**
-- `zoomRatio` — Zoom level (1.0 = no zoom)
+- `zoomRatio` -- Zoom level (1.0 = no zoom)
 
 **Example:**
 
@@ -120,9 +120,9 @@ fun setFlashMode(mode: FlashMode)
 Sets flash mode.
 
 **Parameters:**
-- `FlashMode.ON` — Always fire flash
-- `FlashMode.OFF` — Flash disabled
-- `FlashMode.AUTO` — Flash in low light
+- `FlashMode.ON` -- Always fire flash
+- `FlashMode.OFF` -- Flash disabled
+- `FlashMode.AUTO` -- Flash in low light
 
 **Example:**
 
@@ -156,7 +156,7 @@ when (flashMode) {
 fun toggleFlashMode()
 ```
 
-Cycles through: OFF → ON → AUTO → OFF
+Cycles through: OFF -> ON -> AUTO -> OFF
 
 **Example:**
 
@@ -177,8 +177,8 @@ fun setTorchMode(mode: TorchMode)
 Sets torch (flashlight) mode.
 
 **Parameters:**
-- `TorchMode.ON` — Torch enabled
-- `TorchMode.OFF` — Torch disabled
+- `TorchMode.ON` -- Torch enabled
+- `TorchMode.OFF` -- Torch disabled
 
 **Example:**
 
@@ -200,7 +200,7 @@ Returns current torch mode or `null` if not available.
 fun toggleTorchMode()
 ```
 
-Toggles torch ON ↔ OFF.
+Toggles torch ON / OFF.
 
 **Example:**
 
@@ -215,24 +215,6 @@ IconButton(onClick = { controller.toggleTorchMode() }) {
 ```
 
 ## Camera Lens
-
-### setCameraLens()
-
-```kotlin
-fun setCameraLens(lens: CameraLens)
-```
-
-Sets camera to front or back.
-
-**Parameters:**
-- `CameraLens.FRONT` — Front camera
-- `CameraLens.BACK` — Back camera
-
-**Example:**
-
-```kotlin
-controller.setCameraLens(CameraLens.FRONT)
-```
 
 ### getCameraLens()
 
@@ -257,32 +239,6 @@ IconButton(onClick = { controller.toggleCameraLens() }) {
     Icon(Icons.Default.Cameraswitch, "Switch Camera")
 }
 ```
-
-## Configuration Getters
-
-### getImageFormat()
-
-```kotlin
-fun getImageFormat(): ImageFormat
-```
-
-Returns configured image format (JPEG or PNG).
-
-### getQualityPrioritization()
-
-```kotlin
-fun getQualityPrioritization(): QualityPrioritization
-```
-
-Returns quality prioritization setting.
-
-### getPreferredCameraDeviceType()
-
-```kotlin
-fun getPreferredCameraDeviceType(): CameraDeviceType
-```
-
-Returns iOS camera device type (ULTRA_WIDE, TELEPHOTO, etc.)
 
 ## Session Management
 
@@ -330,13 +286,15 @@ controller.addImageCaptureListener { imageData ->
 }
 ```
 
-### removeImageCaptureListener()
+## Other Methods
+
+### initializeControllerPlugins()
 
 ```kotlin
-fun removeImageCaptureListener(listener: (ByteArray) -> Unit)
+fun initializeControllerPlugins()
 ```
 
-Removes image capture listener.
+Initializes controller-level plugins. Called automatically during setup.
 
 ## Cleanup
 
@@ -363,19 +321,18 @@ DisposableEffect(Unit) {
 ```kotlin
 @Composable
 fun CompleteControllerExample() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    
+    val cameraState by rememberCameraKState()
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
+                val controller = state.controller
+                val uiState = state.uiState
                 val maxZoom = remember { controller.getMaxZoom() }
                 var currentZoom by remember { mutableStateOf(1.0f) }
-                
-                CameraPreviewComposable(
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier
                         .fillMaxSize()
@@ -386,7 +343,7 @@ fun CompleteControllerExample() {
                             }
                         }
                 )
-                
+
                 // Top controls
                 Row(
                     modifier = Modifier
@@ -406,12 +363,12 @@ fun CompleteControllerExample() {
                             "Flash"
                         )
                     }
-                    
+
                     // Camera switch
                     IconButton(onClick = { controller.toggleCameraLens() }) {
                         Icon(Icons.Default.Cameraswitch, "Switch")
                     }
-                    
+
                     // Torch toggle
                     IconButton(onClick = { controller.toggleTorchMode() }) {
                         Icon(
@@ -422,7 +379,7 @@ fun CompleteControllerExample() {
                         )
                     }
                 }
-                
+
                 // Zoom indicator
                 Text(
                     text = "${String.format("%.1f", currentZoom)}x",
@@ -431,7 +388,7 @@ fun CompleteControllerExample() {
                         .padding(16.dp),
                     color = Color.White
                 )
-                
+
                 // Capture button
                 FloatingActionButton(
                     onClick = {
@@ -453,8 +410,22 @@ fun CompleteControllerExample() {
                     Icon(Icons.Default.CameraAlt, "Capture")
                 }
             }
-            
-            is CameraKState.Error -> Text("Error")
+
+            is CameraKState.Error -> {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Camera error: ${state.message}")
+                    if (state.isRetryable) {
+                        Button(onClick = { /* retry */ }) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            }
+
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -465,14 +436,14 @@ fun CompleteControllerExample() {
 
 | Method | Android | iOS | Desktop |
 |--------|---------|-----|---------|
-| `takePictureToFile()` | ✅ | ✅ | ✅ |
-| `setZoom()` | ✅ | ✅ | Limited |
-| `setFlashMode()` | ✅ (rear) | ✅ (rear) | ❌ |
-| `setTorchMode()` | ✅ (rear) | ✅ (rear) | ❌ |
-| `toggleCameraLens()` | ✅ | ✅ | Limited |
+| `takePictureToFile()` | Yes | Yes | Yes |
+| `setZoom()` | Yes | Yes | Limited |
+| `setFlashMode()` | Yes (rear) | Yes (rear) | No |
+| `setTorchMode()` | Yes (rear) | Yes (rear) | No |
+| `toggleCameraLens()` | Yes | Yes | Limited |
 
 ## See Also
 
-- [CameraKStateHolder](state-holder.md) — State management
-- [Configuration](../getting-started/configuration.md) — Initial configuration
-- [Camera Capture Guide](../guides/camera-capture.md) — Capture examples
+- [CameraKStateHolder](state-holder.md) -- State management
+- [Configuration](../getting-started/configuration.md) -- Initial configuration
+- [Camera Capture Guide](../guides/camera-capture.md) -- Capture examples

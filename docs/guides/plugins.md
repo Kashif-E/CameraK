@@ -13,16 +13,16 @@ Plugins extend camera functionality without modifying core camera code. They aut
 
 ## Using Plugins
 
-Add plugins during initialization:
+Add plugins during initialization via `setupPlugins`:
 
 ```kotlin
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    plugins = listOf(
-        rememberQRScannerPlugin(),
-        rememberOcrPlugin(),
-        rememberImageSaverPlugin()
-    )
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(),
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(rememberQRScannerPlugin())
+        stateHolder.attachPlugin(rememberOcrPlugin())
+        stateHolder.attachPlugin(rememberImageSaverPlugin())
+    }
 )
 ```
 
@@ -43,29 +43,39 @@ dependencies {
 ```kotlin
 @Composable
 fun QRScannerScreen() {
-    val permissions = providePermissions()
-    val stateHolder = rememberCameraKState(
-        permissions = permissions,
-        plugins = listOf(
-            rememberQRScannerPlugin()
-        )
+    val qrScannerPlugin = rememberQRScannerPlugin()
+    var lastQrCode by remember { mutableStateOf<String?>(null) }
+
+    val cameraState by rememberCameraKState(
+        config = CameraConfiguration(),
+        setupPlugins = { stateHolder ->
+            stateHolder.attachPlugin(qrScannerPlugin)
+            // Collect QR code events
+            stateHolder.pluginScope.launch {
+                stateHolder.events.collect { event ->
+                    when (event) {
+                        is CameraKEvent.QRCodeScanned -> {
+                            lastQrCode = event.qrCode
+                        }
+                        else -> {}
+                    }
+                }
+            }
+        }
     )
-    
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle(initial = emptyList())
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Display scanned QR codes
-                if (qrCodes.isNotEmpty()) {
+                lastQrCode?.let { qrCode ->
                     Card(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -74,13 +84,13 @@ fun QRScannerScreen() {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("QR Code Detected", style = MaterialTheme.typography.titleMedium)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(qrCodes.last(), style = MaterialTheme.typography.bodyMedium)
+                            Text(qrCode, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -89,7 +99,7 @@ fun QRScannerScreen() {
 
 **Features:**
 - Scans QR codes and barcodes automatically
-- Results exposed via `qrCodeFlow`
+- Results delivered via `CameraKEvent.QRCodeScanned` events
 - No manual frame processing needed
 
 ## OCR Plugin
@@ -107,27 +117,37 @@ dependencies {
 ```kotlin
 @Composable
 fun OCRScannerScreen() {
-    val permissions = providePermissions()
-    val stateHolder = rememberCameraKState(
-        permissions = permissions,
-        plugins = listOf(
-            rememberOcrPlugin()
-        )
+    val ocrPlugin = rememberOcrPlugin()
+    var recognizedText by remember { mutableStateOf("") }
+
+    val cameraState by rememberCameraKState(
+        config = CameraConfiguration(),
+        setupPlugins = { stateHolder ->
+            stateHolder.attachPlugin(ocrPlugin)
+            // Collect OCR events
+            stateHolder.pluginScope.launch {
+                stateHolder.events.collect { event ->
+                    when (event) {
+                        is CameraKEvent.TextRecognized -> {
+                            recognizedText = event.text
+                        }
+                        else -> {}
+                    }
+                }
+            }
+        }
     )
-    
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    val recognizedText by stateHolder.recognizedTextFlow.collectAsStateWithLifecycle(initial = "")
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Display recognized text
                 if (recognizedText.isNotEmpty()) {
                     Card(
@@ -143,8 +163,8 @@ fun OCRScannerScreen() {
                     }
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -153,7 +173,7 @@ fun OCRScannerScreen() {
 
 **Features:**
 - Recognizes text in real-time
-- Results exposed via `recognizedTextFlow`
+- Results delivered via `CameraKEvent.TextRecognized` events
 - Supports multiple languages
 
 ## Image Saver Plugin
@@ -169,16 +189,18 @@ dependencies {
 ### Usage
 
 ```kotlin
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    plugins = listOf(
-        rememberImageSaverPlugin(
-            config = ImageSaverConfig(
-                isAutoSave = true,  // Auto-save every capture
-                directory = Directory.PICTURES
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(),
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(
+            rememberImageSaverPlugin(
+                config = ImageSaverConfig(
+                    isAutoSave = true,  // Auto-save every capture
+                    directory = Directory.PICTURES
+                )
             )
         )
-    )
+    }
 )
 ```
 
@@ -194,45 +216,57 @@ Use multiple plugins simultaneously:
 ```kotlin
 @Composable
 fun MultiPluginCamera() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(
-        permissions = permissions,
-        plugins = listOf(
-            rememberQRScannerPlugin(),
-            rememberOcrPlugin(),
-            rememberImageSaverPlugin(config = ImageSaverConfig(isAutoSave = true))
-        )
+    val qrScannerPlugin = rememberQRScannerPlugin()
+    val ocrPlugin = rememberOcrPlugin()
+    val imageSaverPlugin = rememberImageSaverPlugin(config = ImageSaverConfig(isAutoSave = true))
+
+    var lastQrCode by remember { mutableStateOf<String?>(null) }
+    var recognizedText by remember { mutableStateOf("") }
+
+    val cameraState by rememberCameraKState(
+        config = CameraConfiguration(),
+        setupPlugins = { stateHolder ->
+            stateHolder.attachPlugin(qrScannerPlugin)
+            stateHolder.attachPlugin(ocrPlugin)
+            stateHolder.attachPlugin(imageSaverPlugin)
+            // Collect events from plugins
+            stateHolder.pluginScope.launch {
+                stateHolder.events.collect { event ->
+                    when (event) {
+                        is CameraKEvent.QRCodeScanned -> lastQrCode = event.qrCode
+                        is CameraKEvent.TextRecognized -> recognizedText = event.text
+                        else -> {}
+                    }
+                }
+            }
+        }
     )
-    
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
-    val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle(initial = emptyList())
-    val recognizedText by stateHolder.recognizedTextFlow.collectAsStateWithLifecycle(initial = "")
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(16.dp)
                 ) {
                     // QR codes
-                    if (qrCodes.isNotEmpty()) {
+                    lastQrCode?.let { qrCode ->
                         Card {
-                            Text("QR: ${qrCodes.last()}", modifier = Modifier.padding(8.dp))
+                            Text("QR: $qrCode", modifier = Modifier.padding(8.dp))
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     // OCR text
                     if (recognizedText.isNotEmpty()) {
                         Card {
@@ -240,7 +274,7 @@ fun MultiPluginCamera() {
                         }
                     }
                 }
-                
+
                 // Capture button (auto-saved by plugin)
                 FloatingActionButton(
                     onClick = {
@@ -255,8 +289,8 @@ fun MultiPluginCamera() {
                     Icon(Icons.Default.CameraAlt, "Capture")
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -280,8 +314,6 @@ Create your own plugins by implementing `CameraKPlugin`:
 
 ```kotlin
 class CustomPlugin : CameraKPlugin {
-    override val pluginName = "CustomPlugin"
-    
     override fun onAttach(stateHolder: CameraKStateHolder) {
         // Initialize plugin
         stateHolder.pluginScope.launch {
@@ -289,7 +321,7 @@ class CustomPlugin : CameraKPlugin {
             stateHolder.cameraState
                 .filterIsInstance<CameraKState.Ready>()
                 .first()
-            
+
             // Get controller and start processing
             val controller = stateHolder.getReadyCameraController() ?: return@launch
             controller.addImageCaptureListener { imageData ->
@@ -298,11 +330,11 @@ class CustomPlugin : CameraKPlugin {
             }
         }
     }
-    
+
     override fun onDetach() {
         // Cleanup resources
     }
-    
+
     private fun processImage(imageData: ByteArray) {
         // Custom processing logic
     }
@@ -321,8 +353,6 @@ fun rememberCustomPlugin(): CustomPlugin {
 
 ```kotlin
 interface CameraKPlugin {
-    val pluginName: String
-    
     fun onAttach(stateHolder: CameraKStateHolder)
     fun onDetach()
 }
@@ -332,14 +362,23 @@ interface CameraKPlugin {
 
 ```kotlin
 class CameraKStateHolder {
+    // Attach a plugin
+    fun attachPlugin(plugin: CameraKPlugin)
+
+    // Detach a plugin
+    fun detachPlugin(plugin: CameraKPlugin)
+
     // Wait for camera ready and get controller
     suspend fun getReadyCameraController(): CameraController?
-    
+
     // Scope for plugin operations (auto-cancelled on cleanup)
     val pluginScope: CoroutineScope
-    
+
     // Observe camera state
     val cameraState: StateFlow<CameraKState>
+
+    // Observe events (QR scans, OCR results, captures, etc.)
+    val events: SharedFlow<CameraKEvent>
 }
 ```
 
@@ -348,7 +387,7 @@ class CameraKStateHolder {
 1. **Limit plugins** — Each plugin adds processing overhead
 2. **Throttle frame processing** — Don't process every frame
 3. **Use background threads** — Keep processing off main thread
-4. **Cleanup properly** — Unregister listeners in `onDetach`
+4. **Cleanup properly** — Release resources in `onDetach`
 
 ## Common Issues
 
@@ -356,19 +395,13 @@ class CameraKStateHolder {
 
 **Cause:** Plugin added after camera already ready.
 
-**Solution:** Add plugins during `rememberCameraKState` initialization.
+**Solution:** Add plugins during `rememberCameraKState` initialization via `setupPlugins`.
 
 ### Multiple QR/OCR Results
 
 **Cause:** Plugins scan continuously.
 
-**Solution:** Debounce results or take first result only:
-
-```kotlin
-val qrCodes by stateHolder.qrCodeFlow
-    .debounce(500)  // Wait 500ms between results
-    .collectAsStateWithLifecycle(initial = emptyList())
-```
+**Solution:** Debounce results or take first result only in your event collection logic.
 
 ### Performance Degradation
 

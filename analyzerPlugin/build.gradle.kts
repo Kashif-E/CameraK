@@ -88,7 +88,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "analyzer_plugin",
-        version = "0.0.2"
+        version = "0.3"
     )
 
 

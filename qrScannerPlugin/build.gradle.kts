@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "com.kashif.qr_scanner_plugin"
-version = "0.2.0"
+version = "0.3"
 
 kotlin {
     jvmToolchain(11)

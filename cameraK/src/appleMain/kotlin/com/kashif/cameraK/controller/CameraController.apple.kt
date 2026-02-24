@@ -41,6 +41,7 @@ import platform.Photos.PHAssetChangeRequest
 import platform.Photos.PHPhotoLibrary
 import platform.UIKit.UIDevice
 import platform.UIKit.UIDeviceOrientation
+import platform.UIKit.UIFocusUpdateContext
 import platform.UIKit.UIImagePNGRepresentation
 import platform.UIKit.UIViewController
 import platform.darwin.DISPATCH_QUEUE_PRIORITY_HIGH
@@ -117,10 +118,6 @@ actual class CameraController(
      */
     fun safeAddOutput(output: AVCaptureOutput) {
         customCameraController.safeAddOutput(output)
-    }
-
-    override fun setNeedsUpdateProperties(context: UIFocusUpdateContext?) {
-        super.setNeedsUpdateProperties(context)
     }
 
     internal fun currentVideoOrientation(): AVCaptureVideoOrientation {

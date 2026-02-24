@@ -1,6 +1,6 @@
 # CameraK Documentation
 
-**Modern camera SDK for Kotlin Multiplatform** — Android, iOS, and Desktop with a unified API.
+**Modern camera SDK for Kotlin Multiplatform** -- Android, iOS, and Desktop with a unified API.
 
 ## Get Started in 60 Seconds
 
@@ -13,17 +13,16 @@ dependencies {
 ```kotlin
 @Composable
 fun CameraScreen() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val cameraState by rememberCameraKState(permissions = permissions).cameraState.collectAsStateWithLifecycle()
-    
+    val cameraState by rememberCameraKState()
+
     CameraKScreen(
         cameraState = cameraState,
         showPreview = true
     ) { readyState ->
         // Camera preview shown automatically
         FloatingActionButton(
-            onClick = { 
+            onClick = {
                 scope.launch {
                     readyState.controller.takePictureToFile()
                 }
@@ -49,10 +48,10 @@ fun CameraScreen() {
 
 Start with installation and configuration:
 
-- [Installation](getting-started/installation.md) — Add CameraK to your project
-- [Quick Start](getting-started/quick-start.md) — Build your first camera app in 5 minutes
-- [Configuration](getting-started/configuration.md) — Customize camera behavior
-- [Android Example](examples/android.md) — Android-specific setup
+- [Installation](getting-started/installation.md) -- Add CameraK to your project
+- [Quick Start](getting-started/quick-start.md) -- Build your first camera app in 5 minutes
+- [Configuration](getting-started/configuration.md) -- Customize camera behavior
+- [Android Example](examples/android.md) -- Android-specific setup
 
 ## Core Concepts
 
@@ -63,19 +62,19 @@ CameraK uses reactive state management via `CameraKStateHolder`:
 ```kotlin
 sealed class CameraKState {
     object Initializing : CameraKState()
-    data class Ready(val controller: CameraController) : CameraKState()
-    data class Error(val exception: Exception) : CameraKState()
+    data class Ready(val controller: CameraController, val uiState: CameraUIState) : CameraKState()
+    data class Error(val exception: Exception, val message: String, val isRetryable: Boolean) : CameraKState()
 }
 ```
 
-State flows automatically: `Initializing` → `Ready` → capture photos.
+State flows automatically: `Initializing` -> `Ready` -> capture photos.
 
 ### Camera Controller
 
 Low-level camera operations exposed when state is `Ready`:
 
 ```kotlin
-interface CameraController {
+expect class CameraController {
     suspend fun takePictureToFile(): ImageCaptureResult
     fun setZoom(zoom: Float)
     fun setFlashMode(mode: FlashMode)
@@ -88,16 +87,15 @@ interface CameraController {
 Extend camera functionality modularly:
 
 ```kotlin
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    plugins = listOf(
-        rememberQRScannerPlugin(),
-        rememberOcrPlugin()
-    )
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
+        cameraLens = CameraLens.BACK,
+    ),
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(rememberQRScannerPlugin())
+        stateHolder.attachPlugin(rememberOcrPlugin())
+    },
 )
-
-// QR codes available automatically
-val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle()
 ```
 
 ## Quick Links
@@ -119,7 +117,7 @@ val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle()
 - [CameraController](api/controller.md)
 
 **Plugins**
-- [Plugin System](guides/plugins.md) — Using and creating plugins
+- [Plugin System](guides/plugins.md) -- Using and creating plugins
 
 ## Platform Requirements
 
@@ -137,4 +135,4 @@ val qrCodes by stateHolder.qrCodeFlow.collectAsStateWithLifecycle()
 
 ## License
 
-Apache 2.0 — [View License](license.md)
+Apache 2.0 -- [View License](license.md)

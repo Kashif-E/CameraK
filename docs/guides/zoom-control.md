@@ -22,19 +22,17 @@ val maxZoom = controller.getMaxZoom()  // e.g., 10.0
 ```kotlin
 @Composable
 fun CameraWithPinchZoom() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var currentZoom by remember { mutableStateOf(1.0f) }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
+                val controller = state.controller
                 val maxZoom = remember { controller.getMaxZoom() }
-                
-                CameraPreviewComposable(
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier
                         .fillMaxSize()
@@ -47,7 +45,7 @@ fun CameraWithPinchZoom() {
                             }
                         }
                 )
-                
+
                 // Zoom indicator
                 Text(
                     text = "${String.format("%.1f", currentZoom)}x",
@@ -59,7 +57,7 @@ fun CameraWithPinchZoom() {
                     color = Color.White,
                     fontSize = 16.sp
                 )
-                
+
                 // Capture button
                 FloatingActionButton(
                     onClick = {
@@ -74,8 +72,8 @@ fun CameraWithPinchZoom() {
                     Icon(Icons.Default.CameraAlt, "Capture")
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -89,23 +87,21 @@ Alternative to pinch gesture:
 ```kotlin
 @Composable
 fun CameraWithZoomSlider() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var zoomLevel by remember { mutableStateOf(1.0f) }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
+                val controller = state.controller
                 val maxZoom = remember { controller.getMaxZoom() }
-                
-                CameraPreviewComposable(
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Zoom slider
                 Column(
                     modifier = Modifier
@@ -120,9 +116,9 @@ fun CameraWithZoomSlider() {
                         fontSize = 14.sp,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     Slider(
                         value = zoomLevel,
                         onValueChange = { newZoom ->
@@ -138,7 +134,7 @@ fun CameraWithZoomSlider() {
                             }
                     )
                 }
-                
+
                 // Capture button
                 FloatingActionButton(
                     onClick = {
@@ -153,8 +149,8 @@ fun CameraWithZoomSlider() {
                     Icon(Icons.Default.CameraAlt, "Capture")
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -168,23 +164,21 @@ Preset zoom levels:
 ```kotlin
 @Composable
 fun CameraWithQuickZoom() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var currentZoom by remember { mutableStateOf(1.0f) }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
+                val controller = state.controller
                 val maxZoom = remember { controller.getMaxZoom() }
-                
-                CameraPreviewComposable(
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Quick zoom buttons
                 Row(
                     modifier = Modifier
@@ -202,7 +196,7 @@ fun CameraWithQuickZoom() {
                                     controller.setZoom(zoom)
                                 },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (currentZoom == zoom) 
+                                    containerColor = if (currentZoom == zoom)
                                         Color.White else Color.Gray
                                 )
                             ) {
@@ -214,7 +208,7 @@ fun CameraWithQuickZoom() {
                         }
                     }
                 }
-                
+
                 // Capture button
                 FloatingActionButton(
                     onClick = {
@@ -229,8 +223,8 @@ fun CameraWithQuickZoom() {
                     Icon(Icons.Default.CameraAlt, "Capture")
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -244,28 +238,26 @@ Animate zoom changes:
 ```kotlin
 @Composable
 fun CameraWithSmoothZoom() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var targetZoom by remember { mutableStateOf(1.0f) }
     val animatedZoom by animateFloatAsState(
         targetValue = targetZoom,
         animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
     )
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
+                val controller = state.controller
                 val maxZoom = remember { controller.getMaxZoom() }
-                
+
                 // Apply animated zoom
                 LaunchedEffect(animatedZoom) {
                     controller.setZoom(animatedZoom)
                 }
-                
-                CameraPreviewComposable(
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier
                         .fillMaxSize()
@@ -276,7 +268,7 @@ fun CameraWithSmoothZoom() {
                             }
                         }
                 )
-                
+
                 // Zoom indicator with animation
                 Text(
                     text = "${String.format("%.1f", animatedZoom)}x",
@@ -288,8 +280,8 @@ fun CameraWithSmoothZoom() {
                     color = Color.White
                 )
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -303,18 +295,16 @@ Zoom in/out on double tap:
 ```kotlin
 @Composable
 fun CameraWithDoubleTapZoom() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var isZoomedIn by remember { mutableStateOf(false) }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier
                         .fillMaxSize()
@@ -328,7 +318,7 @@ fun CameraWithDoubleTapZoom() {
                             )
                         }
                 )
-                
+
                 // Hint
                 if (controller.getZoom() == 1.0f) {
                     Text(
@@ -342,8 +332,8 @@ fun CameraWithDoubleTapZoom() {
                     )
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -374,11 +364,10 @@ On iOS, combine hardware camera switching with digital zoom:
 
 ```kotlin
 // Configure for telephoto (2x optical)
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    cameraConfiguration = {
-        setCameraDeviceType(CameraDeviceType.TELEPHOTO)
-    }
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
+        cameraDeviceType = CameraDeviceType.TELEPHOTO
+    )
 )
 
 // Then apply digital zoom on top

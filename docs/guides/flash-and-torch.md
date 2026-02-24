@@ -19,7 +19,7 @@ controller.setFlashMode(FlashMode.ON)
 
 ### Toggle Flash Mode
 
-Cycle through modes: OFF → ON → AUTO → OFF
+Cycle through modes: OFF -> ON -> AUTO -> OFF
 
 ```kotlin
 controller.toggleFlashMode()
@@ -42,22 +42,20 @@ when (currentMode) {
 ```kotlin
 @Composable
 fun CameraWithFlash() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var flashMode by remember { mutableStateOf(FlashMode.OFF) }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Flash toggle button
                 IconButton(
                     onClick = {
@@ -79,7 +77,7 @@ fun CameraWithFlash() {
                         tint = Color.White
                     )
                 }
-                
+
                 // Capture button
                 FloatingActionButton(
                     onClick = {
@@ -94,8 +92,8 @@ fun CameraWithFlash() {
                     Icon(Icons.Default.CameraAlt, "Capture")
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -109,7 +107,7 @@ Torch provides continuous light (flashlight mode).
 ### Toggle Torch
 
 ```kotlin
-controller.toggleTorchMode()  // ON ↔ OFF
+controller.toggleTorchMode()  // ON <-> OFF
 ```
 
 ### Set Torch Mode
@@ -138,21 +136,19 @@ when (torchState) {
 ```kotlin
 @Composable
 fun CameraWithTorch() {
-    val permissions = providePermissions()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var isTorchOn by remember { mutableStateOf(false) }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Torch toggle
                 IconButton(
                     onClick = {
@@ -169,15 +165,15 @@ fun CameraWithTorch() {
                         )
                 ) {
                     Icon(
-                        imageVector = if (isTorchOn) Icons.Default.FlashlightOn 
+                        imageVector = if (isTorchOn) Icons.Default.FlashlightOn
                                       else Icons.Default.FlashlightOff,
                         contentDescription = if (isTorchOn) "Turn off torch" else "Turn on torch",
                         tint = if (isTorchOn) Color.Black else Color.White
                     )
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -204,23 +200,21 @@ fun CameraWithTorch() {
 ```kotlin
 @Composable
 fun CameraWithLighting() {
-    val permissions = providePermissions()
     val scope = rememberCoroutineScope()
-    val stateHolder = rememberCameraKState(permissions = permissions)
-    val cameraState by stateHolder.cameraState.collectAsStateWithLifecycle()
+    val cameraState by rememberCameraKState(config = CameraConfiguration())
     var flashMode by remember { mutableStateOf(FlashMode.AUTO) }
     var isTorchOn by remember { mutableStateOf(false) }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
-        when (cameraState) {
+        when (val state = cameraState) {
             is CameraKState.Ready -> {
-                val controller = (cameraState as CameraKState.Ready).controller
-                
-                CameraPreviewComposable(
+                val controller = state.controller
+
+                CameraPreviewView(
                     controller = controller,
                     modifier = Modifier.fillMaxSize()
                 )
-                
+
                 // Controls at top
                 Row(
                     modifier = Modifier
@@ -245,7 +239,7 @@ fun CameraWithLighting() {
                             tint = Color.White
                         )
                     }
-                    
+
                     // Torch toggle
                     IconButton(onClick = {
                         controller.toggleTorchMode()
@@ -259,7 +253,7 @@ fun CameraWithLighting() {
                         )
                     }
                 }
-                
+
                 // Capture button
                 FloatingActionButton(
                     onClick = {
@@ -274,8 +268,8 @@ fun CameraWithLighting() {
                     Icon(Icons.Default.CameraAlt, "Capture")
                 }
             }
-            
-            is CameraKState.Error -> Text("Camera error")
+
+            is CameraKState.Error -> Text("Camera error: ${state.message}")
             CameraKState.Initializing -> CircularProgressIndicator()
         }
     }
@@ -287,29 +281,28 @@ fun CameraWithLighting() {
 Set initial flash mode during setup:
 
 ```kotlin
-val stateHolder = rememberCameraKState(
-    permissions = permissions,
-    cameraConfiguration = {
-        setFlashMode(FlashMode.OFF)  // Start with flash disabled
-    }
+val cameraState by rememberCameraKState(
+    config = CameraConfiguration(
+        flashMode = FlashMode.OFF  // Start with flash disabled
+    )
 )
 ```
 
 ## Platform Availability
 
 ### Android
-- ✅ Flash: Available on rear cameras
-- ✅ Torch: Available on rear cameras
-- ❌ Front camera: Usually no flash/torch
+- Flash: Available on rear cameras
+- Torch: Available on rear cameras
+- Front camera: Usually no flash/torch
 
 ### iOS
-- ✅ Flash: Available on rear cameras
-- ✅ Torch: Available on rear cameras  
-- ❌ Front camera: iPhone 12+ has "Retina Flash" (screen flash)
+- Flash: Available on rear cameras
+- Torch: Available on rear cameras
+- Front camera: iPhone 12+ has "Retina Flash" (screen flash)
 
 ### Desktop
-- ❌ Flash: Not available
-- ❌ Torch: Not available
+- Flash: Not available
+- Torch: Not available
 
 **Check availability:**
 
@@ -328,10 +321,10 @@ if (flashMode != null) {
 
 **Cause:** Front camera selected (no flash hardware).
 
-**Solution:** Switch to rear camera:
+**Solution:** Switch to rear camera using `toggleCameraLens()`:
 
 ```kotlin
-controller.setCameraLens(CameraLens.BACK)
+controller.toggleCameraLens()
 ```
 
 ### Torch Stays On After Closing App
