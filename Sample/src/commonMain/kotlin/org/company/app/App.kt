@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +61,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -395,122 +397,137 @@ fun EnhancedCameraScreen(
         }
     }
 
-    BottomSheetScaffold(
-        scaffoldState = scaffoldState,
-        sheetPeekHeight = 80.dp,
-        containerColor = Color.Transparent,
-        sheetContainerColor = Color(0xFFF7F2E9),
-        sheetContent = {
-            CameraControlsBottomSheet(
-                flashMode = flashMode,
-                torchMode = torchMode,
-                zoomLevel = zoomLevel,
-                maxZoom = maxZoom,
-                aspectRatio = aspectRatio,
-                resolution = resolution,
-                imageFormat = imageFormat,
-                qualityPrioritization = qualityPrioritization,
-                cameraDeviceType = cameraDeviceType,
-                isQRScanningEnabled = isQRScanningEnabled,
-                isOCREnabled = isOCREnabled,
-                onFlashModeChange = {
-                    flashMode = it
-                    cameraController.setFlashMode(it)
-                },
-                onTorchModeChange = {
-                    torchMode = it
-                    cameraController.setTorchMode(it)
-                },
-                onZoomChange = {
-                    zoomLevel = it
-                    cameraController.setZoom(it)
-                },
-                onLensSwitch = {
-                    cameraController.toggleCameraLens()
-                    // Update max zoom for new camera
-                    maxZoom = cameraController.getMaxZoom()
-                    zoomLevel = 1f
-                },
-                onAspectRatioChange = {
-                    onAspectRatioChange(it)
-                },
-                onResolutionChange = {
-                    onResolutionChange(it)
-                },
-                onImageFormatChange = {
-                    onImageFormatChange(it)
-                },
-                onQualityPrioritizationChange = {
-                    onQualityPrioritizationChange(it)
-                },
-                onCameraDeviceTypeChange = {
-                    onCameraDeviceTypeChange(it)
-                },
-                onQRScanningToggle = {
-                    isQRScanningEnabled = it
-                },
-                onOCRToggle = {
-                    isOCREnabled = it
-                },
-                onToggleApi = onToggleApi,
-            )
-        },
-        sheetContentColor = MaterialTheme.colorScheme.onSurface,
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Plugin outputs overlay (top left)
-            PluginOutputsOverlay(
-                modifier = Modifier.align(Alignment.TopStart),
-                detectedQR = detectedQR,
-                recognizedText = recognizedText,
-                isQREnabled = isQRScanningEnabled,
-                isOCREnabled = isOCREnabled,
-            )
+    fun setCameraZoom(newLevel: Float) {
+        cameraController.setZoom(newLevel)
+        zoomLevel = cameraController.getZoom()
+    }
 
-            // OCR output overlay (bottom left)
-            OcrOutputOverlay(
-                modifier = Modifier.align(Alignment.BottomStart),
-                recognizedText = recognizedText,
-                isOCREnabled = isOCREnabled,
-            )
-
-            // Quick controls overlay
-            QuickControlsOverlay(
-                modifier = Modifier.align(Alignment.TopEnd),
-                flashMode = flashMode,
-                torchMode = torchMode,
-                onFlashToggle = {
-                    cameraController.toggleFlashMode()
-                    flashMode = cameraController.getFlashMode() ?: FlashMode.OFF
-                },
-                onTorchToggle = {
-                    cameraController.toggleTorchMode()
-                    torchMode = cameraController.getTorchMode() ?: TorchMode.OFF
-                },
-            )
-
-            // Capture button
-            CaptureButton(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp),
-                isCapturing = isCapturing,
-                onCapture = {
-                    if (!isCapturing) {
-                        isCapturing = true
-                        scope.launch {
-                            handleImageCapture(
-                                cameraController = cameraController,
-                                imageSaverPlugin = imageSaverPlugin,
-                                onImageCaptured = { imageBitmap = it },
-                            )
-                            isCapturing = false
-                        }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            // PinchToZoom
+            .pointerInput(Unit) {
+                detectTransformGestures { _, _, zoomChange, _ ->
+                    if (zoomChange != 1f) {
+                        setCameraZoom(zoomLevel * zoomChange)
                     }
-                },
-            )
+                }
+            },
+    ) {
+        BottomSheetScaffold(
+            scaffoldState = scaffoldState,
+            sheetPeekHeight = 80.dp,
+            containerColor = Color.Transparent,
+            sheetContainerColor = Color(0xFFF7F2E9),
+            sheetContent = {
+                CameraControlsBottomSheet(
+                    flashMode = flashMode,
+                    torchMode = torchMode,
+                    zoomLevel = zoomLevel,
+                    maxZoom = maxZoom,
+                    aspectRatio = aspectRatio,
+                    resolution = resolution,
+                    imageFormat = imageFormat,
+                    qualityPrioritization = qualityPrioritization,
+                    cameraDeviceType = cameraDeviceType,
+                    isQRScanningEnabled = isQRScanningEnabled,
+                    isOCREnabled = isOCREnabled,
+                    onFlashModeChange = {
+                        flashMode = it
+                        cameraController.setFlashMode(it)
+                    },
+                    onTorchModeChange = {
+                        torchMode = it
+                        cameraController.setTorchMode(it)
+                    },
+                    onZoomChange = { setCameraZoom(it) },
+                    onLensSwitch = {
+                        cameraController.toggleCameraLens()
+                        // Update max zoom for new camera
+                        maxZoom = cameraController.getMaxZoom()
+                        zoomLevel = 1f
+                    },
+                    onAspectRatioChange = {
+                        onAspectRatioChange(it)
+                    },
+                    onResolutionChange = {
+                        onResolutionChange(it)
+                    },
+                    onImageFormatChange = {
+                        onImageFormatChange(it)
+                    },
+                    onQualityPrioritizationChange = {
+                        onQualityPrioritizationChange(it)
+                    },
+                    onCameraDeviceTypeChange = {
+                        onCameraDeviceTypeChange(it)
+                    },
+                    onQRScanningToggle = {
+                        isQRScanningEnabled = it
+                    },
+                    onOCRToggle = {
+                        isOCREnabled = it
+                    },
+                    onToggleApi = onToggleApi,
+                )
+            },
+            sheetContentColor = MaterialTheme.colorScheme.onSurface,
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Plugin outputs overlay (top left)
+                PluginOutputsOverlay(
+                    modifier = Modifier.align(Alignment.TopStart),
+                    detectedQR = detectedQR,
+                    recognizedText = recognizedText,
+                    isQREnabled = isQRScanningEnabled,
+                    isOCREnabled = isOCREnabled,
+                )
 
-            // Captured image preview
-            CapturedImagePreview(imageBitmap = imageBitmap) {
-                imageBitmap = null
+                // OCR output overlay (bottom left)
+                OcrOutputOverlay(
+                    modifier = Modifier.align(Alignment.BottomStart),
+                    recognizedText = recognizedText,
+                    isOCREnabled = isOCREnabled,
+                )
+
+                // Quick controls overlay
+                QuickControlsOverlay(
+                    modifier = Modifier.align(Alignment.TopEnd),
+                    flashMode = flashMode,
+                    torchMode = torchMode,
+                    onFlashToggle = {
+                        cameraController.toggleFlashMode()
+                        flashMode = cameraController.getFlashMode() ?: FlashMode.OFF
+                    },
+                    onTorchToggle = {
+                        cameraController.toggleTorchMode()
+                        torchMode = cameraController.getTorchMode() ?: TorchMode.OFF
+                    },
+                )
+
+                // Capture button
+                CaptureButton(
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp),
+                    isCapturing = isCapturing,
+                    onCapture = {
+                        if (!isCapturing) {
+                            isCapturing = true
+                            scope.launch {
+                                handleImageCapture(
+                                    cameraController = cameraController,
+                                    imageSaverPlugin = imageSaverPlugin,
+                                    onImageCaptured = { imageBitmap = it },
+                                )
+                                isCapturing = false
+                            }
+                        }
+                    },
+                )
+
+                // Captured image preview
+                CapturedImagePreview(imageBitmap = imageBitmap) {
+                    imageBitmap = null
+                }
             }
         }
     }
