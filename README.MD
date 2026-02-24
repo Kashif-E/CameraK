@@ -401,15 +401,10 @@ val cameraState by rememberCameraKState(
     },
 )
 
-// Observe QR code events
+// Observe QR code results
 LaunchedEffect(Unit) {
-    stateHolder.events.collect { event ->
-        when (event) {
-            is CameraKEvent.QRCodeScanned -> {
-                println("QR Code: ${event.qrCode}")
-            }
-            else -> {}
-        }
+    qrScannerPlugin.getQrCodeFlow().collect { qrCode ->
+        println("QR Code: $qrCode")
     }
 }
 ```
@@ -426,13 +421,12 @@ qrScannerPlugin.pauseScanning()
 // Resume scanning
 qrScannerPlugin.resumeScanning()
 
-// Get scan results via events
+// Get scan results via flow
 LaunchedEffect(Unit) {
-    stateHolder.events
-        .filterIsInstance<CameraKEvent.QRCodeScanned>()
+    qrScannerPlugin.getQrCodeFlow()
         .distinctUntilChanged()
-        .collectLatest { event ->
-            println("QR Code: ${event.qrCode}")
+        .collectLatest { qrCode ->
+            println("QR Code: $qrCode")
             qrScannerPlugin.pauseScanning()
 
             // Process result...
@@ -469,23 +463,15 @@ LaunchedEffect(Unit) {
 }
 ```
 
-#### Manual Recognition
+#### Control Recognition
 
 ```kotlin
-scope.launch {
-    when (val result = controller.takePicture()) {
-        is ImageCaptureResult.Success -> {
-            val text = ocrPlugin.recognizeText(result.byteArray)
-            println("Text: $text")
-        }
-    }
-}
+// Start recognition (called automatically on camera ready)
+ocrPlugin.startRecognition()
+
+// Stop recognition
+ocrPlugin.stopRecognition()
 ```
-
-#### Supported Languages
-
-- English, Spanish, French, German, Italian, Portuguese, Chinese, Japanese, Korean
-- Multi-language detection automatic
 
 ### Creating Custom Plugins
 
@@ -568,14 +554,14 @@ class CameraKStateHolder {
     val pluginScope: CoroutineScope               // For plugin lifecycle operations
 
     // Camera control
-    suspend fun captureImage()
+    fun captureImage()
     fun setZoom(zoom: Float)
     fun toggleFlashMode()
     fun setFlashMode(mode: FlashMode)
     fun toggleTorchMode()
     fun setTorchMode(mode: TorchMode)
     fun toggleCameraLens()
-    fun initialize()
+    suspend fun initialize()
     fun shutdown()
 
     // Utilities
@@ -671,7 +657,7 @@ sealed class CameraKEvent {
 }
 ```
 
-## Migration Guide: v0.2.0 -> v0.2.0
+## Migration Guide: Legacy API -> v0.2.0+
 
 ### API Migration
 
