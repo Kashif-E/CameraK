@@ -13,7 +13,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 
-class AnalyzerPlugin :CameraPlugin, CameraKPlugin {
+class AnalyzerPlugin :
+    CameraPlugin,
+    CameraKPlugin {
     private var cameraController: CameraController? = null
     private var stateHolder: CameraKStateHolder? = null
     val analyzerFlow = Channel<ByteArray>()
@@ -28,12 +30,13 @@ class AnalyzerPlugin :CameraPlugin, CameraKPlugin {
     fun startAnalyzer() {
         isAnalyzing.value = true
         startAnalyzer(cameraController!!) {
-            if (isAnalyzing.value)
+            if (isAnalyzing.value) {
                 analyzerFlow.trySend(it)
+            }
         }
     }
 
-    fun stopAnalyzer(){
+    fun stopAnalyzer() {
         isAnalyzing.value = false
     }
 
@@ -76,11 +79,11 @@ class AnalyzerPlugin :CameraPlugin, CameraKPlugin {
     }
 
     /**
-    * Convenience method to attach this plugin to a state holder.
-    * Use this when manually managing plugin lifecycle.
-    *
-    * @param stateHolder The state holder to attach to.
-    */
+     * Convenience method to attach this plugin to a state holder.
+     * Use this when manually managing plugin lifecycle.
+     *
+     * @param stateHolder The state holder to attach to.
+     */
     fun attachToStateHolder(stateHolder: CameraKStateHolder) {
         stateHolder.attachPlugin(this)
     }
@@ -89,8 +92,6 @@ class AnalyzerPlugin :CameraPlugin, CameraKPlugin {
 expect fun startAnalyzer(cameraController: CameraController, onFrameAvailable: (ByteArray) -> Unit)
 
 @Composable
-fun rememberAnalyzerPlugin(): AnalyzerPlugin {
-    return remember {
-        AnalyzerPlugin()
-    }
+fun rememberAnalyzerPlugin(): AnalyzerPlugin = remember {
+    AnalyzerPlugin()
 }

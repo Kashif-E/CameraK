@@ -7,11 +7,7 @@ import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.launch
 import java.awt.image.DataBufferByte
 
-
-actual fun startAnalyzer(
-    cameraController: CameraController,
-    onFrameAvailable: (ByteArray) -> Unit
-) {
+actual fun startAnalyzer(cameraController: CameraController, onFrameAvailable: (ByteArray) -> Unit) {
     val scope = CoroutineScope(Dispatchers.Default)
 
     scope.launch {

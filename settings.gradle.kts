@@ -37,3 +37,4 @@ include(":qrScannerPlugin")
 include(":analyzerPlugin")
 
 include("ocrPlugin")
+include(":videoRecorderPlugin")

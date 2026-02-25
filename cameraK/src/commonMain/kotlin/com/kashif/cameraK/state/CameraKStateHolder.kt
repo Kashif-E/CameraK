@@ -2,7 +2,10 @@ package com.kashif.cameraK.state
 
 import androidx.compose.runtime.Stable
 import com.kashif.cameraK.controller.CameraController
+import com.kashif.cameraK.video.VideoConfiguration
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -11,7 +14,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * Pure Kotlin state holder for camera operations.
@@ -116,6 +122,8 @@ class CameraKStateHolder(
     private var controller: CameraController? = null
     private val attachedPlugins = mutableListOf<CameraKPlugin>()
     private var isInitialized = false
+    private var recordingTimerJob: Job? = null
+    private var recordingFilePath: String? = null
 
     // ═══════════════════════════════════════════════════════════════
     // Lifecycle Management
@@ -148,7 +156,7 @@ class CameraKStateHolder(
                 plugin.onAttach(this)
             }
 
-            // Update to ready state
+            // Update to ready statein
             _cameraState.value =
                 CameraKState.Ready(
                     controller = newController,
@@ -175,6 +183,9 @@ class CameraKStateHolder(
         if (!isInitialized) return
 
         try {
+            // Reset recording state if active
+            resetRecordingState()
+
             // Detach plugins
             attachedPlugins.forEach { plugin ->
                 plugin.onDetach()
@@ -376,6 +387,164 @@ class CameraKStateHolder(
             _uiState.value.copy(
                 cameraLens = currentController.getCameraLens(),
             )
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Video Recording Operations
+    // ═══════════════════════════════════════════════════════════════
+
+    private fun resetRecordingState() {
+        recordingTimerJob?.cancel()
+        recordingTimerJob = null
+        recordingFilePath = null
+        _uiState.value =
+            _uiState.value.copy(
+                isRecording = false,
+                isPaused = false,
+                recordingDurationMs = 0L,
+            )
+    }
+
+    /**
+     * Starts video recording.
+     * Emits [CameraKEvent.RecordingStarted] on success.
+     * If [VideoConfiguration.maxDurationMs] > 0, auto-stops and emits
+     * [CameraKEvent.RecordingMaxDurationReached].
+     *
+     * @param configuration Recording settings.
+     */
+    @OptIn(ExperimentalTime::class)
+    fun startRecording(configuration: VideoConfiguration = VideoConfiguration()) {
+        val currentController =
+            controller ?: run {
+                coroutineScope.launch {
+                    _events.emit(
+                        CameraKEvent.RecordingFailed(
+                            Exception("Camera not initialized"),
+                        ),
+                    )
+                }
+                return
+            }
+
+        coroutineScope.launch {
+            try {
+                val path = currentController.startRecording(configuration)
+                recordingFilePath = path
+                _uiState.value =
+                    _uiState.value.copy(
+                        isRecording = true,
+                        isPaused = false,
+                        recordingDurationMs = 0L,
+                    )
+                _events.emit(CameraKEvent.RecordingStarted(path))
+
+                // Start duration ticker with pause-aware elapsed tracking
+                recordingTimerJob = coroutineScope.launch {
+                    val startMs = Clock.System.now().toEpochMilliseconds()
+                    var pausedAccumulatorMs = 0L
+                    var pauseStartMs = 0L
+                    while (isActive) {
+                        delay(250L)
+                        val isPaused = _uiState.value.isPaused
+                        val wasPaused = pauseStartMs > 0L
+                        if (isPaused && !wasPaused) {
+                            pauseStartMs = Clock.System.now().toEpochMilliseconds()
+                        } else if (!isPaused && wasPaused) {
+                            pausedAccumulatorMs += Clock.System.now().toEpochMilliseconds() - pauseStartMs
+                            pauseStartMs = 0L
+                        }
+                        if (isPaused) continue
+                        val elapsed = Clock.System.now().toEpochMilliseconds() - startMs - pausedAccumulatorMs
+                        _uiState.value = _uiState.value.copy(recordingDurationMs = elapsed)
+
+                        if (configuration.maxDurationMs > 0 && elapsed >= configuration.maxDurationMs) {
+                            // Auto-stop — guard against race with manual stopRecording()
+                            if (!_uiState.value.isRecording) break
+                            val result = currentController.stopRecording()
+                            resetRecordingState()
+                            _events.emit(CameraKEvent.RecordingMaxDurationReached(path, elapsed))
+                            _events.emit(CameraKEvent.RecordingStopped(result))
+                            break
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                resetRecordingState()
+                _uiState.value =
+                    _uiState.value.copy(
+                        lastError = "Recording failed: ${e.message}",
+                    )
+                _events.emit(CameraKEvent.RecordingFailed(e))
+            }
+        }
+    }
+
+    /**
+     * Stops the active video recording.
+     * Emits [CameraKEvent.RecordingStopped] with the result.
+     */
+    fun stopRecording() {
+        if (!_uiState.value.isRecording) return
+        val currentController = controller ?: return
+
+        coroutineScope.launch {
+            try {
+                // Cancel timer first to prevent auto-stop race
+                recordingTimerJob?.cancel()
+                recordingTimerJob = null
+                val result = currentController.stopRecording()
+                resetRecordingState()
+                _events.emit(CameraKEvent.RecordingStopped(result))
+            } catch (e: Exception) {
+                resetRecordingState()
+                _uiState.value =
+                    _uiState.value.copy(
+                        lastError = "Stop recording failed: ${e.message}",
+                    )
+                _events.emit(CameraKEvent.RecordingFailed(e))
+            }
+        }
+    }
+
+    /**
+     * Pauses the active video recording.
+     */
+    fun pauseRecording() {
+        val currentController = controller ?: return
+
+        coroutineScope.launch {
+            try {
+                currentController.pauseRecording()
+                _uiState.value = _uiState.value.copy(isPaused = true)
+            } catch (e: Exception) {
+                _uiState.value =
+                    _uiState.value.copy(
+                        lastError = "Pause recording failed: ${e.message}",
+                    )
+                _events.emit(CameraKEvent.RecordingFailed(e))
+            }
+        }
+    }
+
+    /**
+     * Resumes a paused video recording.
+     */
+    fun resumeRecording() {
+        val currentController = controller ?: return
+
+        coroutineScope.launch {
+            try {
+                currentController.resumeRecording()
+                _uiState.value = _uiState.value.copy(isPaused = false)
+            } catch (e: Exception) {
+                _uiState.value =
+                    _uiState.value.copy(
+                        lastError = "Resume recording failed: ${e.message}",
+                    )
+                _events.emit(CameraKEvent.RecordingFailed(e))
+            }
+        }
     }
 
     /**

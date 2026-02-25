@@ -14,17 +14,27 @@ import com.kashif.cameraK.utils.MemoryManager
 import com.kashif.cameraK.utils.fixOrientation
 import com.kashif.cameraK.utils.toByteArray
 import com.kashif.cameraK.utils.toUIImage
+import com.kashif.cameraK.video.VideoCaptureResult
+import com.kashif.cameraK.video.VideoConfiguration
+import com.kashif.cameraK.video.VideoQuality
 import kotlinx.atomicfu.atomic
+import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.autoreleasepool
 import kotlinx.coroutines.suspendCancellableCoroutine
+import platform.AVFoundation.AVCaptureDeviceInput
 import platform.AVFoundation.AVCaptureFlashMode
 import platform.AVFoundation.AVCaptureFlashModeAuto
 import platform.AVFoundation.AVCaptureFlashModeOff
 import platform.AVFoundation.AVCaptureFlashModeOn
 import platform.AVFoundation.AVCaptureMetadataOutput
 import platform.AVFoundation.AVCaptureMetadataOutputObjectsDelegateProtocol
+import platform.AVFoundation.AVCaptureMovieFileOutput
 import platform.AVFoundation.AVCaptureOutput
+import platform.AVFoundation.AVCaptureSessionPreset1280x720
+import platform.AVFoundation.AVCaptureSessionPreset1920x1080
+import platform.AVFoundation.AVCaptureSessionPreset3840x2160
+import platform.AVFoundation.AVCaptureSessionPreset640x480
 import platform.AVFoundation.AVCaptureTorchMode
 import platform.AVFoundation.AVCaptureTorchModeAuto
 import platform.AVFoundation.AVCaptureTorchModeOff
@@ -34,14 +44,16 @@ import platform.AVFoundation.AVCaptureVideoOrientationLandscapeLeft
 import platform.AVFoundation.AVCaptureVideoOrientationLandscapeRight
 import platform.AVFoundation.AVCaptureVideoOrientationPortrait
 import platform.AVFoundation.AVCaptureVideoOrientationPortraitUpsideDown
+import platform.AVFoundation.AVMediaTypeAudio
 import platform.Foundation.NSData
+import platform.Foundation.NSDate
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
+import platform.Foundation.timeIntervalSince1970
 import platform.Photos.PHAssetChangeRequest
 import platform.Photos.PHPhotoLibrary
 import platform.UIKit.UIDevice
 import platform.UIKit.UIDeviceOrientation
-import platform.UIKit.UIFocusUpdateContext
 import platform.UIKit.UIImagePNGRepresentation
 import platform.UIKit.UIViewController
 import platform.darwin.DISPATCH_QUEUE_PRIORITY_HIGH
@@ -49,6 +61,7 @@ import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_global_queue
 import platform.darwin.dispatch_get_main_queue
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.random.Random
 
 actual class CameraController(
@@ -74,6 +87,11 @@ actual class CameraController(
     private var imageCaptureListeners = mutableListOf<(ByteArray) -> Unit>()
     private var metadataOutput = AVCaptureMetadataOutput()
     private var metadataObjectsDelegate: AVCaptureMetadataOutputObjectsDelegateProtocol? = null
+
+    // Video recording
+    private var movieFileOutput: AVCaptureMovieFileOutput? = null
+    private var videoRecordingDelegate: VideoRecordingDelegate? = null
+    private var videoOutputFilePath: String? = null
 
     private val memoryManager = MemoryManager
     private val pendingCaptures = atomic(0)
@@ -146,6 +164,20 @@ actual class CameraController(
             } catch (e: Exception) {
                 platform.Foundation.NSLog("CameraK Error: metadata output - ${e.message}")
             }
+
+            // Add movie file output for video recording
+            try {
+                val movieOutput = AVCaptureMovieFileOutput()
+                if (customCameraController.captureSession?.canAddOutput(movieOutput) == true) {
+                    customCameraController.captureSession?.addOutput(movieOutput)
+                    movieFileOutput = movieOutput
+                }
+            } catch (e: Exception) {
+                platform.Foundation.NSLog("CameraK Error: movie output - ${e.message}")
+            }
+
+            // Pre-add audio input so recording starts without session reconfiguration stutter
+            addAudioInputIfNeeded()
 
             startSession()
         }
@@ -288,7 +320,7 @@ actual class CameraController(
                                                     val photosPath = saveToPhotosLibrary(filePath, image)
 
                                                     // Clean up temp file
-                                                    platform.Foundation.NSFileManager.defaultManager.removeItemAtPath(
+                                                    NSFileManager.defaultManager.removeItemAtPath(
                                                         filePath,
                                                         null,
                                                     )
@@ -316,10 +348,10 @@ actual class CameraController(
                                         ImageCaptureResult.Error(e)
                                     }
                                 } else {
-                                    // ByteArray mode - existing logic
+
                                     when (imageFormat) {
                                         ImageFormat.JPEG -> {
-                                            // Use original capture data directly - already has correct EXIF
+
                                             image.toByteArray().let {
                                                 ImageCaptureResult.Success(it)
                                             }
@@ -381,7 +413,7 @@ actual class CameraController(
     /**
      * Fast file-based capture for iOS - saves directly without ByteArray processing.
      */
-    @OptIn(ExperimentalForeignApi::class)
+    @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
     actual suspend fun takePictureToFile(): ImageCaptureResult = suspendCancellableCoroutine { continuation ->
         if (pendingCaptures.incrementAndGet() > maxConcurrentCaptures) {
             pendingCaptures.decrementAndGet()
@@ -410,10 +442,8 @@ actual class CameraController(
                                 val result = try {
                                     val filePath = createTempFile()
                                     val writeSuccess = if (imageFormat == ImageFormat.JPEG) {
-                                        // Write JPEG directly - no processing
                                         writeDataToFile(image, filePath)
                                     } else {
-                                        // PNG: minimal processing
                                         val uiImage = image.toUIImage()
                                         val orientedImage = uiImage.fixOrientation()
                                         val pngData = UIImagePNGRepresentation(orientedImage)
@@ -424,7 +454,7 @@ actual class CameraController(
                                         when (directory) {
                                             Directory.PICTURES, Directory.DCIM -> {
                                                 val photosPath = saveToPhotosLibrary(filePath, image)
-                                                platform.Foundation.NSFileManager.defaultManager.removeItemAtPath(
+                                                NSFileManager.defaultManager.removeItemAtPath(
                                                     filePath,
                                                     null,
                                                 )
@@ -556,6 +586,11 @@ actual class CameraController(
 
     actual fun getPreferredCameraDeviceType(): CameraDeviceType = cameraDeviceType
 
+    actual fun setPreferredCameraDeviceType(deviceType: CameraDeviceType) {
+        cameraDeviceType = deviceType
+        customCameraController.switchToDeviceType(deviceType)
+    }
+
     actual fun startSession() {
         // Note: The actual session start happens in onSessionReady callback (setupCamera).
         // This method is called from CameraKStateHolder.initialize() which may be before
@@ -584,8 +619,128 @@ actual class CameraController(
     }
 
     actual fun cleanup() {
+        movieFileOutput = null
+        videoRecordingDelegate = null
         customCameraController.cleanupSession()
         memoryManager.clearBufferPools()
+    }
+
+
+    @OptIn(ExperimentalForeignApi::class)
+    actual suspend fun startRecording(configuration: VideoConfiguration): String = suspendCancellableCoroutine { cont ->
+        val output = movieFileOutput ?: run {
+            cont.resumeWithException(IllegalStateException("Movie file output not available"))
+            return@suspendCancellableCoroutine
+        }
+
+        if (output.isRecording()) {
+            cont.resume(videoOutputFilePath ?: "")
+            return@suspendCancellableCoroutine
+        }
+
+        // Audio input is pre-added at session setup to avoid stutter
+        if (configuration.enableAudio) {
+            addAudioInputIfNeeded()
+        }
+
+        val filePath = createVideoTempFile(configuration)
+        videoOutputFilePath = filePath
+        val fileURL = NSURL.fileURLWithPath(filePath)
+
+        // Delete existing file at path if any
+        NSFileManager.defaultManager.removeItemAtPath(filePath, null)
+
+        val delegate = VideoRecordingDelegate()
+        videoRecordingDelegate = delegate
+
+        // Set video orientation on the movie file output connection
+        output.connectionWithMediaType(platform.AVFoundation.AVMediaTypeVideo)?.let { connection ->
+            if (connection.isVideoOrientationSupported()) {
+                connection.videoOrientation = currentVideoOrientation()
+            }
+        }
+
+        dispatch_async(dispatch_get_main_queue()) {
+            output.startRecordingToOutputFileURL(fileURL, recordingDelegate = delegate)
+        }
+
+        cont.resume(filePath)
+    }
+
+    actual suspend fun stopRecording(): VideoCaptureResult = suspendCancellableCoroutine { cont ->
+        val output = movieFileOutput
+        val delegate = videoRecordingDelegate
+
+        if (output == null || delegate == null || !output.isRecording()) {
+            cont.resume(VideoCaptureResult.Error(Exception("No active recording")))
+            return@suspendCancellableCoroutine
+        }
+
+        delegate.onFinished = { result ->
+            if (result is VideoCaptureResult.Success) {
+                // Save to Photos library when using default directory (PICTURES/DCIM)
+                val savedResult = saveVideoToPhotosLibrary(result)
+                cont.resume(savedResult)
+            } else {
+                cont.resume(result)
+            }
+        }
+
+        dispatch_async(dispatch_get_main_queue()) {
+            output.stopRecording()
+        }
+    }
+
+    actual suspend fun pauseRecording() {
+        movieFileOutput?.pauseRecording()
+    }
+
+    actual suspend fun resumeRecording() {
+        movieFileOutput?.resumeRecording()
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    private fun addAudioInputIfNeeded() {
+        val session = customCameraController.captureSession ?: return
+        // Check if audio input already exists
+        val hasAudioInput = session.inputs.any { input ->
+            val deviceInput = input as? AVCaptureDeviceInput
+            deviceInput?.device?.hasMediaType(AVMediaTypeAudio) == true
+        }
+        if (hasAudioInput) return
+
+        val audioDevice = platform.AVFoundation.AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeAudio)
+            ?: return
+        val audioInput = AVCaptureDeviceInput.deviceInputWithDevice(audioDevice, null) ?: return
+
+        customCameraController.queueConfigurationChange {
+            if (session.canAddInput(audioInput)) {
+                session.addInput(audioInput)
+            }
+        }
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    private fun createVideoTempFile(config: VideoConfiguration): String {
+        val timestamp = NSDate().timeIntervalSince1970.toLong()
+        val fileName = "${config.filePrefix}_$timestamp.mp4"
+
+        return if (config.outputDirectory != null) {
+            val dir = config.outputDirectory
+            val fileManager = NSFileManager.defaultManager
+            if (!fileManager.fileExistsAtPath(dir)) {
+                fileManager.createDirectoryAtPath(
+                    dir,
+                    withIntermediateDirectories = true,
+                    attributes = null,
+                    error = null,
+                )
+            }
+            "$dir/$fileName"
+        } else {
+            val tempDir = platform.Foundation.NSTemporaryDirectory()
+            "$tempDir$fileName"
+        }
     }
 
     @OptIn(ExperimentalForeignApi::class)
@@ -609,7 +764,7 @@ actual class CameraController(
 
                 // Create CameraK subdirectory
                 val cameraKDir = "$documentsDir/CameraK"
-                val fileManager = platform.Foundation.NSFileManager.defaultManager
+                val fileManager = NSFileManager.defaultManager
                 if (!fileManager.fileExistsAtPath(cameraKDir)) {
                     fileManager.createDirectoryAtPath(
                         cameraKDir,
@@ -634,9 +789,8 @@ actual class CameraController(
 
         PHPhotoLibrary.sharedPhotoLibrary().performChanges(
             changeBlock = {
-                // Create asset from image data
                 val creationRequest = PHAssetChangeRequest.creationRequestForAssetFromImageAtFileURL(
-                    platform.Foundation.NSURL.fileURLWithPath(filePath),
+                    NSURL.fileURLWithPath(filePath),
                 )
                 savedAssetId = creationRequest?.placeholderForCreatedAsset?.localIdentifier
             },
@@ -656,6 +810,51 @@ actual class CameraController(
             "ph://$savedAssetId" // Use custom scheme to indicate Photos library asset
         } else {
             null
+        }
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    private fun saveVideoToPhotosLibrary(result: VideoCaptureResult.Success): VideoCaptureResult {
+        // Only save to Photos if no custom output directory was specified
+        // and directory is PICTURES or DCIM (not DOCUMENTS)
+        if (directory == Directory.DOCUMENTS) return result
+
+        val filePath = result.filePath
+        var savedAssetId: String? = null
+        var saveError: String? = null
+
+        val semaphore = platform.darwin.dispatch_semaphore_create(0)
+
+        PHPhotoLibrary.sharedPhotoLibrary().performChanges(
+            changeBlock = {
+                val creationRequest = PHAssetChangeRequest.creationRequestForAssetFromVideoAtFileURL(
+                    NSURL.fileURLWithPath(filePath),
+                )
+                savedAssetId = creationRequest?.placeholderForCreatedAsset?.localIdentifier
+            },
+            completionHandler = { success, error ->
+                if (!success || error != null) {
+                    saveError = error?.localizedDescription ?: "Failed to save video to Photos"
+                    platform.Foundation.NSLog(
+                        "CameraK: Failed to save video to Photos: ${saveError}",
+                    )
+                }
+                platform.darwin.dispatch_semaphore_signal(semaphore)
+            },
+        )
+
+        platform.darwin.dispatch_semaphore_wait(semaphore, platform.darwin.DISPATCH_TIME_FOREVER)
+
+        // Clean up temp file after saving to Photos
+        if (saveError == null) {
+            NSFileManager.defaultManager.removeItemAtPath(filePath, null)
+        }
+
+        return if (saveError == null && savedAssetId != null) {
+            VideoCaptureResult.Success("ph://$savedAssetId", result.durationMs)
+        } else {
+            // Still return success with temp path if Photos save failed
+            result
         }
     }
 

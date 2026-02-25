@@ -4,11 +4,5 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-<key>NSCameraUsageDescription</key>
-	<string>Camera permission is required for the app to work.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Photo Library permission is required for the app to work.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Please allow access to save photo in your photo library</string>
 </dict>
 </plist>

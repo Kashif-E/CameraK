@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import androidx.core.content.ContextCompat
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
 import com.google.zxing.MultiFormatReader
@@ -22,19 +21,7 @@ import java.util.EnumMap
 fun CameraController.enableQrCodeScanner(onQrScanner: (String) -> Unit) {
     Log.d("QRScanner", "Enabling QR code scanner")
     try {
-        imageAnalyzer =
-            ImageAnalysis
-                .Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .apply {
-                    setAnalyzer(
-                        ContextCompat.getMainExecutor(context),
-                        QRCodeAnalyzer(onQrScanner),
-                    )
-                }
-
-        updateImageAnalyzer()
+        registerImageAnalyzer(QRCodeAnalyzer(onQrScanner))
     } catch (e: Exception) {
         Log.e("QRScanner", "Failed to enable QR scanner: ${e.message}", e)
         // Camera might not be fully initialized yet - this is expected during startup

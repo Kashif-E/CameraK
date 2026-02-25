@@ -18,23 +18,18 @@ import platform.UIKit.UIImage
 import platform.darwin.NSObject
 import platform.darwin.dispatch_get_main_queue
 
-actual fun startAnalyzer(
-    cameraController: CameraController,
-    onFrameAvailable: (ByteArray) -> Unit
-) {
+actual fun startAnalyzer(cameraController: CameraController, onFrameAvailable: (ByteArray) -> Unit) {
     cameraController.enableAnalyzer(onFrameAvailable)
 }
 
 @OptIn(ExperimentalForeignApi::class)
-internal fun CameraController.enableAnalyzer(
-    onFrameAvailable: (ByteArray) -> Unit,
-): CameraAnalyzer {
+internal fun CameraController.enableAnalyzer(onFrameAvailable: (ByteArray) -> Unit): CameraAnalyzer {
     val analyzer = CameraAnalyzer(onFrameAvailable = onFrameAvailable)
 
     val output = AVCaptureVideoDataOutput().apply {
         setSampleBufferDelegate(analyzer, dispatch_get_main_queue())
         videoSettings = mapOf(
-            kCVPixelBufferPixelFormatTypeKey to kCVPixelFormatType_32BGRA
+            kCVPixelBufferPixelFormatTypeKey to kCVPixelFormatType_32BGRA,
         )
     }
 
@@ -43,15 +38,15 @@ internal fun CameraController.enableAnalyzer(
     return analyzer
 }
 
-internal class CameraAnalyzer(
-    private val onFrameAvailable: (ByteArray) -> Unit
-) : NSObject(), AVCaptureVideoDataOutputSampleBufferDelegateProtocol {
+internal class CameraAnalyzer(private val onFrameAvailable: (ByteArray) -> Unit) :
+    NSObject(),
+    AVCaptureVideoDataOutputSampleBufferDelegateProtocol {
 
     @OptIn(ExperimentalForeignApi::class)
     override fun captureOutput(
         output: AVCaptureOutput,
         didOutputSampleBuffer: CMSampleBufferRef?,
-        fromConnection: AVCaptureConnection
+        fromConnection: AVCaptureConnection,
     ) {
         val buffer = didOutputSampleBuffer ?: return
         val uiImage = bufferToUIImage(buffer)

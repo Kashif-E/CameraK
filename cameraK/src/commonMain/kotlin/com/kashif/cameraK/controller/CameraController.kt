@@ -7,6 +7,8 @@ import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.result.ImageCaptureResult
+import com.kashif.cameraK.video.VideoCaptureResult
+import com.kashif.cameraK.video.VideoConfiguration
 
 /**
  * Interface defining the core functionalities of the CameraController.
@@ -119,6 +121,17 @@ expect class CameraController {
     fun getPreferredCameraDeviceType(): CameraDeviceType
 
     /**
+     * Switches to a different camera device type at runtime.
+     *
+     * On iOS this switches between wide-angle, telephoto, ultra-wide, etc.
+     * On Android this is a no-op (CameraX handles device selection automatically).
+     * On Desktop this is a no-op (single camera).
+     *
+     * @param deviceType The desired [CameraDeviceType] to switch to.
+     */
+    fun setPreferredCameraDeviceType(deviceType: CameraDeviceType)
+
+    /**
      * Sets the zoom level.
      *
      * @param zoomRatio The zoom ratio to set. 1.0 is no zoom, values > 1.0 zoom in.
@@ -174,4 +187,45 @@ expect class CameraController {
      * Note: After calling cleanup(), the controller should not be used again.
      */
     fun cleanup()
+
+    // ═══════════════════════════════════════════════════════════════
+    // Video Recording
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Starts video recording to a file.
+     *
+     * Safe to call while photo capture is active — both use cases coexist.
+     * The output file format is MP4 (H.264 video + AAC audio) on all platforms.
+     *
+     * @param configuration Recording settings (quality, audio, duration limit, output path).
+     * @return The actual output file path where the recording is being written.
+     */
+    suspend fun startRecording(configuration: VideoConfiguration = VideoConfiguration()): String
+
+    /**
+     * Stops the active video recording and finalizes the output file.
+     *
+     * Suspends until the file is fully written and closed.
+     *
+     * @return [VideoCaptureResult.Success] with file path and duration, or [VideoCaptureResult.Error].
+     */
+    suspend fun stopRecording(): VideoCaptureResult
+
+    /**
+     * Pauses the active video recording.
+     *
+     * Audio and video capture are suspended; the output file remains open.
+     * No-op if not currently recording.
+     *
+     * Note: Desktop implementation is best-effort (frame-drop based).
+     */
+    suspend fun pauseRecording()
+
+    /**
+     * Resumes a paused video recording.
+     *
+     * No-op if not currently paused.
+     */
+    suspend fun resumeRecording()
 }

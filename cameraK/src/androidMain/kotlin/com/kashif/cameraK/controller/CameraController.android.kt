@@ -1,11 +1,13 @@
 package com.kashif.cameraK.controller
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.hardware.camera2.CameraCharacteristics
 import android.media.ExifInterface
+import android.os.Environment
 import android.util.Log
 import android.util.Size
 import androidx.annotation.OptIn
@@ -17,12 +19,21 @@ import androidx.camera.core.ExperimentalZeroShutterLag
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.FallbackStrategy
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -39,14 +50,19 @@ import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.utils.InvalidConfigurationException
 import com.kashif.cameraK.utils.MemoryManager
 import com.kashif.cameraK.utils.compressToByteArray
+import com.kashif.cameraK.video.VideoCaptureResult
+import com.kashif.cameraK.video.VideoConfiguration
+import com.kashif.cameraK.video.VideoQuality
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Android-specific implementation of [CameraController] using CameraX.
@@ -73,6 +89,15 @@ actual class CameraController(
     private var camera: Camera? = null
     var imageAnalyzer: ImageAnalysis? = null
     private var previewView: PreviewView? = null
+
+    // Multiple analyzer support: plugins register their analyzers here
+    private val registeredAnalyzers = mutableListOf<ImageAnalysis.Analyzer>()
+
+    // Video recording
+    private var videoCapture: VideoCapture<Recorder>? = null
+    private var activeRecording: Recording? = null
+    private var recordingOutputFile: File? = null
+    private val recordingFinalizeChannel = Channel<VideoCaptureResult>(Channel.CONFLATED)
 
     private val imageCaptureListeners = mutableListOf<(ByteArray) -> Unit>()
 
@@ -108,11 +133,13 @@ actual class CameraController(
                 Log.d("CameraK", "==> Camera selector created for: $cameraDeviceType")
 
                 configureCaptureUseCase(resolutionSelector)
+                configureVideoCaptureUseCase()
 
                 val useCaseGroupBuilder = UseCaseGroup.Builder()
                     .addUseCase(preview!!)
                     .addUseCase(imageCapture!!)
 
+                videoCapture?.let { useCaseGroupBuilder.addUseCase(it) }
                 imageAnalyzer?.let { useCaseGroupBuilder.addUseCase(it) }
 
                 previewView.viewPort?.let { useCaseGroupBuilder.setViewPort(it) }
@@ -279,13 +306,54 @@ actual class CameraController(
         } ?: throw InvalidConfigurationException("Camera not initialized.")
     }
 
+    /**
+     * Registers an [ImageAnalysis.Analyzer] to receive camera frames.
+     * Multiple analyzers can be registered simultaneously — they share a single
+     * [ImageAnalysis] use case via ref-counted frame dispatch.
+     */
+    fun registerImageAnalyzer(analyzer: ImageAnalysis.Analyzer) {
+        registeredAnalyzers.add(analyzer)
+        rebuildMultiplexedAnalyzer()
+    }
+
+    /**
+     * Unregisters a previously registered analyzer.
+     */
+    fun unregisterImageAnalyzer(analyzer: ImageAnalysis.Analyzer) {
+        registeredAnalyzers.remove(analyzer)
+        rebuildMultiplexedAnalyzer()
+    }
+
+    private fun rebuildMultiplexedAnalyzer() {
+        if (registeredAnalyzers.isEmpty()) {
+            if (imageAnalyzer != null) {
+                try { cameraProvider?.unbind(imageAnalyzer) } catch (_: Exception) {}
+                imageAnalyzer = null
+            }
+            return
+        }
+
+        val composite = MultiplexingAnalyzer(registeredAnalyzers.toList())
+        imageAnalyzer = ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+            .apply {
+                setAnalyzer(ContextCompat.getMainExecutor(context), composite)
+            }
+
+        try {
+            updateImageAnalyzer()
+        } catch (_: Exception) {
+            // Camera may not be initialized yet; will be bound at bindCamera time
+        }
+    }
+
     @Deprecated(
         message = "Use takePictureToFile() instead for better performance",
         replaceWith = ReplaceWith("takePictureToFile()"),
         level = DeprecationLevel.WARNING,
     )
     actual suspend fun takePicture(): ImageCaptureResult = suspendCancellableCoroutine { cont ->
-        // Atomic counter rejection pattern - matches native camera apps
         if (pendingCaptures.incrementAndGet() > maxConcurrentCaptures) {
             pendingCaptures.decrementAndGet()
             Log.w("CameraK", "Burst queue full, dropping frame (${pendingCaptures.value} in progress)")
@@ -636,6 +704,10 @@ actual class CameraController(
 
     actual fun getPreferredCameraDeviceType(): CameraDeviceType = cameraDeviceType
 
+    actual fun setPreferredCameraDeviceType(deviceType: CameraDeviceType) {
+        cameraDeviceType = deviceType
+    }
+
     actual fun startSession() {
         memoryManager.updateMemoryStatus()
         memoryManager.clearBufferPools()
@@ -721,12 +793,181 @@ actual class CameraController(
         CameraLens.BACK -> CameraSelector.LENS_FACING_BACK
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // Video Recording
+    // ═══════════════════════════════════════════════════════════════
+
+    private fun configureVideoCaptureUseCase(quality: VideoQuality = VideoQuality.FHD) {
+        try {
+            val cameraXQuality = when (quality) {
+                VideoQuality.SD -> Quality.SD
+                VideoQuality.HD -> Quality.HD
+                VideoQuality.FHD -> Quality.FHD
+                VideoQuality.UHD -> Quality.UHD
+            }
+            val recorder = Recorder.Builder()
+                .setQualitySelector(
+                    QualitySelector.from(
+                        cameraXQuality,
+                        FallbackStrategy.higherQualityOrLowerThan(cameraXQuality),
+                    ),
+                )
+                .build()
+            videoCapture = VideoCapture.withOutput(recorder)
+        } catch (e: Exception) {
+            Log.w("CameraK", "VideoCapture use case not supported: ${e.message}")
+            videoCapture = null
+        }
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    actual suspend fun startRecording(configuration: VideoConfiguration): String = suspendCancellableCoroutine { cont ->
+        val vc = videoCapture ?: run {
+            cont.resumeWithException(IllegalStateException("VideoCapture use case not available"))
+            return@suspendCancellableCoroutine
+        }
+
+        val outputFile = createVideoOutputFile(configuration)
+        recordingOutputFile = outputFile
+        val outputOptions = FileOutputOptions.Builder(outputFile).build()
+
+        val hasAudioPermission = ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val pendingRecording = vc.output.prepareRecording(context, outputOptions).apply {
+            if (configuration.enableAudio && hasAudioPermission) {
+                withAudioEnabled()
+            }
+        }
+
+        activeRecording = pendingRecording.start(
+            ContextCompat.getMainExecutor(context),
+        ) { event ->
+            when (event) {
+                is VideoRecordEvent.Finalize -> {
+                    val file = recordingOutputFile
+                    if (event.hasError()) {
+                        recordingFinalizeChannel.trySend(
+                            VideoCaptureResult.Error(
+                                Exception("Recording error code: ${event.error}"),
+                            ),
+                        )
+                    } else {
+                        // Notify MediaStore so video appears in Gallery
+                        file?.let { notifyMediaStoreVideo(it) }
+                        recordingFinalizeChannel.trySend(
+                            VideoCaptureResult.Success(
+                                filePath = file?.absolutePath ?: "",
+                                durationMs = event.recordingStats.recordedDurationNanos / 1_000_000,
+                            ),
+                        )
+                    }
+                    recordingOutputFile = null
+                }
+            }
+        }
+
+        cont.resume(outputFile.absolutePath)
+    }
+
+    actual suspend fun stopRecording(): VideoCaptureResult {
+        val recording = activeRecording ?: return VideoCaptureResult.Error(
+            IllegalStateException("No active recording"),
+        )
+        recording.stop()
+        activeRecording = null
+        return recordingFinalizeChannel.receive()
+    }
+
+    actual suspend fun pauseRecording() {
+        activeRecording?.pause()
+    }
+
+    actual suspend fun resumeRecording() {
+        activeRecording?.resume()
+    }
+
+    private fun createVideoOutputFile(config: VideoConfiguration): File {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val dir = if (config.outputDirectory != null) {
+            File(config.outputDirectory).also { it.mkdirs() }
+        } else {
+            val storageDir = when (directory) {
+                Directory.PICTURES, Directory.DCIM -> Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_MOVIES,
+                )
+                Directory.DOCUMENTS -> context.getExternalFilesDir(null) ?: context.filesDir
+            }
+            File(storageDir, "CameraK").also { it.mkdirs() }
+        }
+        return File(dir, "${config.filePrefix}_$timeStamp.mp4")
+    }
+
+    private fun notifyMediaStoreVideo(file: File) {
+        try {
+            android.media.MediaScannerConnection.scanFile(
+                context,
+                arrayOf(file.absolutePath),
+                arrayOf("video/mp4"),
+                null,
+            )
+            Log.d("CameraK", "MediaStore notified for video: ${file.absolutePath}")
+        } catch (e: Exception) {
+            Log.e("CameraK", "Failed to notify MediaStore for video: ${e.message}")
+        }
+    }
+
     /**
      * Clean up resources when no longer needed
      * Should be called when the controller is being destroyed
      */
     actual fun cleanup() {
+        activeRecording?.stop()
+        activeRecording = null
+        registeredAnalyzers.clear()
+        recordingFinalizeChannel.close()
         imageProcessingExecutor.shutdown()
         memoryManager.clearBufferPools()
+    }
+}
+
+/**
+ * Dispatches each camera frame to multiple [ImageAnalysis.Analyzer] instances.
+ * Uses [RefCountedImageProxy] so each analyzer can call `close()` independently;
+ * the underlying buffer is released only when all analyzers have finished.
+ */
+private class MultiplexingAnalyzer(
+    private val analyzers: List<ImageAnalysis.Analyzer>,
+) : ImageAnalysis.Analyzer {
+    override fun analyze(imageProxy: ImageProxy) {
+        if (analyzers.isEmpty()) {
+            imageProxy.close()
+            return
+        }
+        if (analyzers.size == 1) {
+            analyzers[0].analyze(imageProxy)
+            return
+        }
+        val refCount = java.util.concurrent.atomic.AtomicInteger(analyzers.size)
+        for (analyzer in analyzers) {
+            analyzer.analyze(RefCountedImageProxy(imageProxy, refCount))
+        }
+    }
+}
+
+/**
+ * Wraps an [ImageProxy] with reference-counted close semantics.
+ * The real proxy is closed only when the last holder calls [close].
+ */
+private class RefCountedImageProxy(
+    private val delegate: ImageProxy,
+    private val refCount: java.util.concurrent.atomic.AtomicInteger,
+) : ImageProxy by delegate {
+    override fun close() {
+        if (refCount.decrementAndGet() <= 0) {
+            delegate.close()
+        }
     }
 }

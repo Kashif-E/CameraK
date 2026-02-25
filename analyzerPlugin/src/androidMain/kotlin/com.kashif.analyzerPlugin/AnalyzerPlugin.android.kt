@@ -4,38 +4,19 @@ import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import androidx.core.content.ContextCompat
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.utils.toByteArray
 
-actual fun startAnalyzer(
-    cameraController: CameraController,
-    onFrameAvailable: (ByteArray) -> Unit,
-) {
+actual fun startAnalyzer(cameraController: CameraController, onFrameAvailable: (ByteArray) -> Unit) {
     cameraController.enableAnalyzer(onFrameAvailable)
 }
-internal fun CameraController.enableAnalyzer(
-    onFrameAvailable: (ByteArray) -> Unit,
-): CameraAnalyzer {
+internal fun CameraController.enableAnalyzer(onFrameAvailable: (ByteArray) -> Unit): CameraAnalyzer {
     val analyzer = CameraAnalyzer(onFrameAvailable = onFrameAvailable)
-
-    imageAnalyzer = ImageAnalysis.Builder()
-        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-        .build()
-        .apply {
-            setAnalyzer(
-                ContextCompat.getMainExecutor(context),
-                analyzer,
-            )
-        }
-
-    updateImageAnalyzer()
+    registerImageAnalyzer(analyzer)
     return analyzer
 }
 
-internal class CameraAnalyzer(
-    private val onFrameAvailable: (ByteArray) -> Unit,
-) : ImageAnalysis.Analyzer {
+internal class CameraAnalyzer(private val onFrameAvailable: (ByteArray) -> Unit) : ImageAnalysis.Analyzer {
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(image: ImageProxy) {
         val mediaImage = image.image
@@ -46,4 +27,3 @@ internal class CameraAnalyzer(
         onFrameAvailable(image.toByteArray())
     }
 }
-

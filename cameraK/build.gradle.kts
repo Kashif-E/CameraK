@@ -61,6 +61,7 @@ kotlin {
             api(libs.androidx.camera.view)
             api(libs.camera.lifecycle)
             api(libs.camera.extensions)
+            api(libs.camera.video)
             api(libs.androidx.activityCompose)
             api(libs.androidx.startup.runtime)
             api(libs.core)

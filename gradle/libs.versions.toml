@@ -37,6 +37,7 @@ camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cam
 camera-core = { module = "androidx.camera:camera-core", version.ref = "camera-core" }
 camera-extensions = { module = "androidx.camera:camera-extensions", version.ref = "camera-extensions" }
 camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camera-lifecycle" }
+camera-video = { module = "androidx.camera:camera-video", version.ref = "camera-core" }
 core = { module = "com.google.zxing:core", version.ref = "core" }
 core-v351 = { module = "com.google.zxing:core", version.ref = "coreVersion" }
 javase = { module = "com.google.zxing:javase", version.ref = "javase" }
