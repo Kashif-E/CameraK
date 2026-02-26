@@ -68,6 +68,7 @@ nav:
     - Flash and Torch: guides/flash-and-torch.md
     - Zoom Control: guides/zoom-control.md
     - Camera Switching: guides/camera-switching.md
+    - Video Recording: guides/video-recording.md
     - Plugins: guides/plugins.md
   - API Reference:
     - CameraKStateHolder: api/state-holder.md

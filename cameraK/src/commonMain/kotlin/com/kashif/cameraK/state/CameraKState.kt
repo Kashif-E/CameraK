@@ -11,6 +11,7 @@ import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.result.ImageCaptureResult
+import com.kashif.cameraK.video.VideoCaptureResult
 
 /**
  * Represents the lifecycle state of the camera system.
@@ -113,6 +114,9 @@ data class CameraUIState(
     val cameraDeviceType: CameraDeviceType = CameraDeviceType.DEFAULT,
     val isCapturing: Boolean = false,
     val lastError: String? = null,
+    val isRecording: Boolean = false,
+    val isPaused: Boolean = false,
+    val recordingDurationMs: Long = 0L,
 )
 
 /**
@@ -182,6 +186,39 @@ sealed class CameraKEvent {
      */
     @Immutable
     data class PermissionDenied(val permission: String) : CameraKEvent()
+
+    /**
+     * Video recording started.
+     *
+     * @property filePath The output file path where the video is being recorded.
+     */
+    @Immutable
+    data class RecordingStarted(val filePath: String) : CameraKEvent()
+
+    /**
+     * Video recording stopped (manually or due to error).
+     *
+     * @property result The result of the recording with file path and duration.
+     */
+    @Immutable
+    data class RecordingStopped(val result: VideoCaptureResult) : CameraKEvent()
+
+    /**
+     * Video recording failed.
+     *
+     * @property exception The exception that caused the failure.
+     */
+    @Immutable
+    data class RecordingFailed(val exception: Exception) : CameraKEvent()
+
+    /**
+     * Video recording reached its configured max duration and auto-stopped.
+     *
+     * @property filePath The output file path.
+     * @property durationMs The actual duration in milliseconds.
+     */
+    @Immutable
+    data class RecordingMaxDurationReached(val filePath: String, val durationMs: Long) : CameraKEvent()
 }
 
 /**

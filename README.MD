@@ -16,7 +16,8 @@ A modern camera library for Compose Multiplatform supporting Android, iOS, and D
 - **Cross-Platform**: Android, iOS, and JVM Desktop
 - **Compose-First**: Native Compose Multiplatform API
 - **Flexible Configuration**: Aspect ratios, zoom, flash control
-- **Plugin System**: Modular QR/barcode scanning, OCR, image saving
+- **Video Recording**: Record video with pause/resume, configurable quality, and max duration
+- **Plugin System**: Modular QR/barcode scanning, OCR, image saving, video recording
 - **Optimized Capture**: Direct file saving with `takePictureToFile()`
 - **Advanced Control**: Camera selection (ultra-wide, telephoto on iOS)
 
@@ -33,6 +34,7 @@ dependencies {
     implementation("io.github.kashif-mehmood-km:image_saver_plugin:0.2.0")
     implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:0.2.0")
     implementation("io.github.kashif-mehmood-km:ocr_plugin:0.2.0")
+    implementation("io.github.kashif-mehmood-km:video_recorder_plugin:0.3")
 }
 ```
 
@@ -49,6 +51,7 @@ camerak = { module = "io.github.kashif-mehmood-km:camerak", version.ref = "camer
 camerak-image-saver = { module = "io.github.kashif-mehmood-km:image_saver_plugin", version.ref = "camerak" }
 camerak-qr-scanner = { module = "io.github.kashif-mehmood-km:qr_scanner_plugin", version.ref = "camerak" }
 camerak-ocr = { module = "io.github.kashif-mehmood-km:ocr_plugin", version.ref = "camerak" }
+camerak-video-recorder = { module = "io.github.kashif-mehmood-km:video_recorder_plugin", version.ref = "camerak" }
 ```
 
 Then in your `build.gradle.kts`:
@@ -59,6 +62,7 @@ dependencies {
     implementation(libs.camerak.image.saver)
     implementation(libs.camerak.qr.scanner)
     implementation(libs.camerak.ocr)
+    implementation(libs.camerak.video.recorder)
 }
 ```
 
@@ -68,6 +72,7 @@ dependencies {
 ```xml
 <uses-permission android:name="android.permission.CAMERA" />
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" /> <!-- Required for video recording with audio -->
 ```
 
 **iOS** - Add to `Info.plist`:
@@ -76,6 +81,8 @@ dependencies {
 <string>Camera access required for taking photos</string>
 <key>NSPhotoLibraryAddUsageDescription</key>
 <string>Photo library access required for saving images</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>Microphone access required for video recording</string>
 ```
 
 ## Quick Start
@@ -473,6 +480,115 @@ ocrPlugin.startRecognition()
 ocrPlugin.stopRecognition()
 ```
 
+### Video Recorder Plugin
+
+Record video with configurable quality, audio support, pause/resume, and optional max duration. Results are delivered through `CameraKEvent` recording events via the `recordingEvents` SharedFlow on the plugin.
+
+#### Video Configuration
+
+```kotlin
+VideoConfiguration(
+    quality = VideoQuality.FHD,        // SD, HD, FHD, UHD
+    enableAudio = true,                // Record audio with video
+    maxDurationMs = 0L,                // 0 = unlimited, or set a limit in milliseconds
+    outputDirectory = null,            // null = platform default
+    filePrefix = "VID",                // Filename prefix
+)
+```
+
+| Quality | Resolution | Bitrate |
+|---------|------------|---------|
+| `SD` | 640x480 | 1.5 Mbps |
+| `HD` | 1280x720 | 5 Mbps |
+| `FHD` | 1920x1080 | 10 Mbps |
+| `UHD` | 3840x2160 | 50 Mbps |
+
+#### Setup
+
+```kotlin
+val videoRecorderPlugin = rememberVideoRecorderPlugin(
+    config = VideoConfiguration(
+        quality = VideoQuality.FHD,
+        enableAudio = true,
+        maxDurationMs = 300_000L, // 5-minute limit
+    ),
+)
+
+val cameraState by rememberCameraKState(
+    setupPlugins = { stateHolder ->
+        stateHolder.attachPlugin(videoRecorderPlugin)
+    },
+)
+```
+
+#### Start and Stop Recording
+
+```kotlin
+// Start recording
+videoRecorderPlugin.startRecording()
+
+// Start recording to a custom output directory
+videoRecorderPlugin.startRecording(outputDirectory = "/path/to/directory")
+
+// Stop recording
+videoRecorderPlugin.stopRecording()
+```
+
+#### Pause and Resume Recording
+
+```kotlin
+// Pause the active recording
+videoRecorderPlugin.pauseRecording()
+
+// Resume a paused recording
+videoRecorderPlugin.resumeRecording()
+```
+
+#### Observe Recording Events
+
+```kotlin
+LaunchedEffect(videoRecorderPlugin) {
+    videoRecorderPlugin.recordingEvents.collect { event ->
+        when (event) {
+            is CameraKEvent.RecordingStarted -> {
+                println("Recording started: ${event.filePath}")
+            }
+            is CameraKEvent.RecordingStopped -> {
+                when (event.result) {
+                    is VideoCaptureResult.Success -> {
+                        val result = event.result as VideoCaptureResult.Success
+                        println("Saved: ${result.filePath}, duration: ${result.durationMs}ms")
+                    }
+                    is VideoCaptureResult.Error -> {
+                        println("Error: ${(event.result as VideoCaptureResult.Error).exception.message}")
+                    }
+                }
+            }
+            is CameraKEvent.RecordingFailed -> {
+                println("Recording failed: ${event.exception.message}")
+            }
+            is CameraKEvent.RecordingMaxDurationReached -> {
+                println("Max duration reached: ${event.durationMs}ms")
+            }
+            else -> {}
+        }
+    }
+}
+```
+
+#### Read Recording State
+
+```kotlin
+// Check if currently recording
+val isRecording = videoRecorderPlugin.isRecording
+
+// Check if recording is paused
+val isPaused = videoRecorderPlugin.isPaused
+
+// Get elapsed recording duration in milliseconds
+val durationMs = videoRecorderPlugin.recordingDurationMs
+```
+
 ### Creating Custom Plugins
 
 Plugins implement simple lifecycle interface:
@@ -545,7 +661,7 @@ Main entry point for all camera operations. Created via `rememberCameraKState()`
 class CameraKStateHolder {
     // State flows - observe for reactivity
     val cameraState: StateFlow<CameraKState>      // Initializing/Ready/Error
-    val uiState: StateFlow<CameraUIState>         // Zoom, flash, torch, lens, format
+    val uiState: StateFlow<CameraUIState>         // Zoom, flash, torch, lens, format, recording state
     val events: SharedFlow<CameraKEvent>          // Camera events (capture, QR, OCR, etc.)
 
     // Plugin management
@@ -563,6 +679,12 @@ class CameraKStateHolder {
     fun toggleCameraLens()
     suspend fun initialize()
     fun shutdown()
+
+    // Video recording
+    fun startRecording(configuration: VideoConfiguration = VideoConfiguration())
+    fun stopRecording()
+    fun pauseRecording()
+    fun resumeRecording()
 
     // Utilities
     suspend fun getReadyCameraController(): CameraController?  // Wait until camera ready
@@ -599,6 +721,12 @@ expect class CameraController {
     // Camera selection
     fun getCameraLens(): CameraLens?
     fun toggleCameraLens()
+
+    // Video recording
+    suspend fun startRecording(configuration: VideoConfiguration = VideoConfiguration()): String
+    suspend fun stopRecording(): VideoCaptureResult
+    suspend fun pauseRecording()
+    suspend fun resumeRecording()
 
     // Session management
     fun startSession()
@@ -642,6 +770,31 @@ sealed class ImageCaptureResult {
 }
 ```
 
+### VideoCaptureResult
+
+Result of video recording operations:
+
+```kotlin
+sealed class VideoCaptureResult {
+    data class Success(val filePath: String, val durationMs: Long) : VideoCaptureResult()
+    data class Error(val exception: Exception) : VideoCaptureResult()
+}
+```
+
+### VideoConfiguration
+
+Configuration for video recording:
+
+```kotlin
+data class VideoConfiguration(
+    val quality: VideoQuality = VideoQuality.FHD,
+    val enableAudio: Boolean = true,
+    val maxDurationMs: Long = 0L,          // 0 = unlimited
+    val outputDirectory: String? = null,   // null = platform default
+    val filePrefix: String = "VID",
+)
+```
+
 ### CameraKEvent
 
 Events emitted during camera operation:
@@ -654,6 +807,10 @@ sealed class CameraKEvent {
     data class QRCodeScanned(val qrCode: String) : CameraKEvent()
     data class TextRecognized(val text: String) : CameraKEvent()
     data class PermissionDenied(val permission: String) : CameraKEvent()
+    data class RecordingStarted(val filePath: String) : CameraKEvent()
+    data class RecordingStopped(val result: VideoCaptureResult) : CameraKEvent()
+    data class RecordingFailed(val exception: Exception) : CameraKEvent()
+    data class RecordingMaxDurationReached(val filePath: String, val durationMs: Long) : CameraKEvent()
 }
 ```
 

@@ -9,14 +9,25 @@ import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.plugins.CameraPlugin
 import com.kashif.cameraK.result.ImageCaptureResult
+import com.kashif.cameraK.video.VideoCaptureResult
+import com.kashif.cameraK.video.VideoConfiguration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.bytedeco.ffmpeg.global.avcodec
+import org.bytedeco.javacv.FFmpegFrameRecorder
 import org.bytedeco.javacv.FrameGrabber
+import org.bytedeco.javacv.Java2DFrameConverter
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import javax.imageio.ImageIO
 
 /**
@@ -33,6 +44,16 @@ actual class CameraController(
     private var cameraGrabber: CameraGrabber? = null
     private val frameChannel = Channel<BufferedImage>(Channel.CONFLATED)
     private val qualityPriority: QualityPrioritization = QualityPrioritization.NONE
+
+    // Video recording
+    private var frameRecorder: FFmpegFrameRecorder? = null
+
+    @Volatile private var isCurrentlyRecording = false
+
+    @Volatile private var isPausedRecording = false
+    private var recordingJob: Job? = null
+    private var recordingOutputPath: String? = null
+    private var recordingStartMs: Long = 0L
 
     private var listener: (ByteArray) -> Unit = {
         // default no-op listener
@@ -157,6 +178,10 @@ actual class CameraController(
      */
     actual fun getPreferredCameraDeviceType(): CameraDeviceType = CameraDeviceType.DEFAULT
 
+    actual fun setPreferredCameraDeviceType(deviceType: CameraDeviceType) {
+        // No-op on desktop — single camera
+    }
+
     /**
      * Sets the zoom level.
      *
@@ -221,9 +246,112 @@ actual class CameraController(
     }
 
     actual fun cleanup() {
+        stopVideoRecorderIfActive()
         cameraGrabber?.stop()
         frameChannel.close()
     }
 
     fun getFrameChannel() = frameChannel
+
+
+    actual suspend fun startRecording(configuration: VideoConfiguration): String = withContext(Dispatchers.IO) {
+        val outputPath = createVideoOutputPath(configuration)
+        recordingOutputPath = outputPath
+
+        val recorder = FFmpegFrameRecorder(
+            outputPath,
+            configuration.quality.width,
+            configuration.quality.height,
+            if (configuration.enableAudio) 1 else 0,
+        ).apply {
+            videoCodec = avcodec.AV_CODEC_ID_H264
+            format = "mp4"
+            frameRate = 30.0
+            videoBitrate = configuration.quality.bitrateBps
+            if (configuration.enableAudio) {
+                audioCodec = avcodec.AV_CODEC_ID_AAC
+                sampleRate = 44100
+                audioBitrate = 128_000
+            }
+            start()
+        }
+        frameRecorder = recorder
+        isCurrentlyRecording = true
+        isPausedRecording = false
+        recordingStartMs = System.currentTimeMillis()
+
+        // Launch recording coroutine that grabs frames independently
+        recordingJob = CoroutineScope(Dispatchers.IO).launch {
+            val converter = Java2DFrameConverter()
+            try {
+                while (isActive && isCurrentlyRecording) {
+                    if (!isPausedRecording) {
+                        val frame = cameraGrabber?.grabCurrentFrame()
+                        if (frame != null) {
+                            try {
+                                val videoFrame = converter.convert(frame)
+                                recorder.record(videoFrame)
+                            } catch (e: Exception) {
+                                System.err.println("CameraK recording frame error: ${e.message}")
+                            }
+                        }
+                    }
+                    delay(33) // ~30fps
+                }
+            } catch (e: Exception) {
+                System.err.println("CameraK recording loop error: ${e.message}")
+            }
+        }
+
+        outputPath
+    }
+
+    actual suspend fun stopRecording(): VideoCaptureResult = withContext(Dispatchers.IO) {
+        isCurrentlyRecording = false
+        recordingJob?.cancel()
+        recordingJob = null
+        val durationMs = System.currentTimeMillis() - recordingStartMs
+        return@withContext try {
+            frameRecorder?.stop()
+            frameRecorder?.release()
+            frameRecorder = null
+            VideoCaptureResult.Success(recordingOutputPath ?: "", durationMs)
+        } catch (e: Exception) {
+            VideoCaptureResult.Error(e)
+        }
+    }
+
+    actual suspend fun pauseRecording() {
+        isPausedRecording = true
+    }
+
+    actual suspend fun resumeRecording() {
+        isPausedRecording = false
+    }
+
+    private fun stopVideoRecorderIfActive() {
+        if (isCurrentlyRecording) {
+            isCurrentlyRecording = false
+            recordingJob?.cancel()
+            recordingJob = null
+            try {
+                frameRecorder?.stop()
+                frameRecorder?.release()
+            } catch (e: Exception) {
+                System.err.println("CameraK: Error stopping recorder: ${e.message}")
+            }
+            frameRecorder = null
+        }
+    }
+
+    private fun createVideoOutputPath(config: VideoConfiguration): String {
+        val timestamp = LocalDateTime.now()
+            .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+        val dir = if (config.outputDirectory != null) {
+            File(config.outputDirectory).also { it.mkdirs() }
+        } else {
+            File("captured_videos").also { it.mkdirs() }
+        }
+        return File(dir, "${config.filePrefix}_$timestamp.mp4").absolutePath
+    }
 }

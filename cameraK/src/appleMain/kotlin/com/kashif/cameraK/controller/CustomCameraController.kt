@@ -513,6 +513,86 @@ class CustomCameraController(
         captureImage(quality)
     }
 
+    /**
+     * Switches to a specific camera device type (e.g. wide-angle, telephoto, ultra-wide)
+     * while keeping the same camera position (front/back).
+     */
+    @OptIn(ExperimentalForeignApi::class)
+    fun switchToDeviceType(deviceType: CameraDeviceType) {
+        val session = captureSession ?: return
+        val targetType = deviceType.toAVCaptureDeviceType() ?: return
+
+        // Determine current position
+        val position = if (isUsingFrontCamera) {
+            AVCaptureDevicePositionFront
+        } else {
+            AVCaptureDevicePositionBack
+        }
+
+        // Discover device matching the requested type and position
+        val discoverySession = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
+            listOf(targetType),
+            AVMediaTypeVideo,
+            position,
+        )
+
+        val newDevice = discoverySession.devices.firstOrNull() as? AVCaptureDevice ?: run {
+            // Fallback: try any position
+            val fallback = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
+                listOf(targetType),
+                AVMediaTypeVideo,
+                AVCaptureDevicePositionUnspecified,
+            )
+            fallback.devices.firstOrNull() as? AVCaptureDevice
+        } ?: return
+
+        val wasRunning = session.isRunning()
+        if (wasRunning) {
+            session.stopRunning()
+        }
+
+        session.beginConfiguration()
+
+        try {
+            // Remove current input
+            session.inputs.firstOrNull()?.let { input ->
+                session.removeInput(input as AVCaptureInput)
+            }
+
+            val newInput = AVCaptureDeviceInput.deviceInputWithDevice(newDevice, null)
+                ?: throw Exception("Failed to create input for device type")
+
+            if (session.canAddInput(newInput)) {
+                session.addInput(newInput)
+                currentCamera = newDevice
+                if (newDevice.position == AVCaptureDevicePositionBack) {
+                    backCamera = newDevice
+                } else {
+                    frontCamera = newDevice
+                }
+            }
+
+            cameraPreviewLayer?.connection?.let { connection ->
+                if (connection.isVideoMirroringSupported()) {
+                    connection.automaticallyAdjustsVideoMirroring = false
+                    connection.setVideoMirrored(isUsingFrontCamera)
+                }
+            }
+
+            session.commitConfiguration()
+        } catch (_: Exception) {
+            session.commitConfiguration()
+        }
+
+        if (wasRunning) {
+            dispatch_async(
+                dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH.toLong(), 0u),
+            ) {
+                session.startRunning()
+            }
+        }
+    }
+
     @OptIn(ExperimentalForeignApi::class)
     fun switchCamera() {
         guard(captureSession != null) { return@guard }

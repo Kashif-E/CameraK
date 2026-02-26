@@ -30,7 +30,7 @@ fun ImageBitmap.toByteArray(): ByteArray? {
 }
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-public fun ByteArray.toNSData(): NSData = memScoped {
+fun ByteArray.toNSData(): NSData = memScoped {
     NSData.create(
         bytes = allocArrayOf(this@toNSData),
         length = this@toNSData.size.toULong(),
@@ -95,14 +95,12 @@ fun UIImage.fixOrientation(): UIImage {
 }
 
 @OptIn(ExperimentalForeignApi::class)
-fun UIImage.toByteArray(): ByteArray {
-    return run {
-        val imageData = UIImageJPEGRepresentation(this, 1.0)
-            ?: throw IllegalArgumentException("image data is null")
-        val bytes = imageData.bytes ?: throw IllegalArgumentException("image bytes is null")
-        val length = imageData.length
+fun UIImage.toByteArray(): ByteArray = run {
+    val imageData = UIImageJPEGRepresentation(this, 1.0)
+        ?: throw IllegalArgumentException("image data is null")
+    val bytes = imageData.bytes ?: throw IllegalArgumentException("image bytes is null")
+    val length = imageData.length
 
-        val data: CPointer<ByteVar> = bytes.reinterpret()
-        ByteArray(length.toInt()) { index -> data[index] }
-    }
+    val data: CPointer<ByteVar> = bytes.reinterpret()
+    ByteArray(length.toInt()) { index -> data[index] }
 }

@@ -6,7 +6,6 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -69,19 +68,7 @@ internal fun CameraController.enableTextRecognition(
             onError = onError,
         )
 
-    imageAnalyzer =
-        ImageAnalysis
-            .Builder()
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build()
-            .apply {
-                setAnalyzer(
-                    ContextCompat.getMainExecutor(context),
-                    analyzer,
-                )
-            }
-
-    updateImageAnalyzer()
+    registerImageAnalyzer(analyzer)
     return analyzer
 }
 

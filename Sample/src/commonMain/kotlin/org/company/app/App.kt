@@ -1,5 +1,14 @@
 package org.company.app
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,38 +22,27 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetScaffoldState
-import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -56,25 +54,28 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.decodeToImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.composables.icons.lucide.Camera
-import com.composables.icons.lucide.Crop
-import com.composables.icons.lucide.Flashlight
-import com.composables.icons.lucide.FlashlightOff
-import com.composables.icons.lucide.Frame
+import androidx.compose.ui.unit.sp
+import com.composables.icons.lucide.Aperture
+import com.composables.icons.lucide.Focus
 import com.composables.icons.lucide.Image
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Monitor
+import com.composables.icons.lucide.Ratio
+import com.composables.icons.lucide.ScanLine
+import com.composables.icons.lucide.Settings
+import com.composables.icons.lucide.Sun
 import com.composables.icons.lucide.SwitchCamera
+import com.composables.icons.lucide.Type
 import com.composables.icons.lucide.X
 import com.composables.icons.lucide.Zap
 import com.kashif.cameraK.compose.CameraKScreen
@@ -92,7 +93,11 @@ import com.kashif.cameraK.permissions.Permissions
 import com.kashif.cameraK.permissions.providePermissions
 import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.state.CameraConfiguration
+import com.kashif.cameraK.state.CameraKEvent
 import com.kashif.cameraK.state.CameraKState
+import com.kashif.cameraK.state.CameraKStateHolder
+import com.kashif.cameraK.video.VideoConfiguration
+import com.kashif.cameraK.video.VideoQuality
 import com.kashif.imagesaverplugin.ImageSaverConfig
 import com.kashif.imagesaverplugin.ImageSaverPlugin
 import com.kashif.imagesaverplugin.rememberImageSaverPlugin
@@ -100,25 +105,25 @@ import com.kashif.ocrPlugin.OcrPlugin
 import com.kashif.ocrPlugin.rememberOcrPlugin
 import com.kashif.qrscannerplugin.QRScannerPlugin
 import com.kashif.qrscannerplugin.rememberQRScannerPlugin
+import com.kashif.videorecorderplugin.VideoRecorderPlugin
+import com.kashif.videorecorderplugin.rememberVideoRecorderPlugin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.company.app.theme.AppTheme
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import kotlin.uuid.ExperimentalUuidApi
 
-/**
- * Main entry point for the CameraK sample application.
- *
- * Currently demonstrates the legacy callback-based API.
- * See [LegacyApiScreen] for the old API pattern.
- *
- * @see rememberCameraKState For the new Compose-first API example.
- */
+private val Red = Color(0xFFEA4335)
+private val Surface = Color(0xFF1A1A1A)
+private val ChipBg = Color(0xFF2D2D2D)
+private val ChipBgSelected = Color(0xFF4A4A4A)
+private val TextPrimary = Color.White
+private val TextSecondary = Color(0xFFB3B3B3)
+
 @Composable
 fun App() = AppTheme {
     val permissions: Permissions = providePermissions()
     val snackbarHostState = remember { SnackbarHostState() }
-    var useNewApi by remember { mutableStateOf(true) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -127,7 +132,6 @@ fun App() = AppTheme {
         val cameraPermissionState = remember { mutableStateOf(permissions.hasCameraPermission()) }
         val storagePermissionState = remember { mutableStateOf(permissions.hasStoragePermission()) }
 
-        // Create all plugin instances
         val imageSaverPlugin = rememberImageSaverPlugin(
             config = ImageSaverConfig(
                 isAutoSave = true,
@@ -138,6 +142,13 @@ fun App() = AppTheme {
         )
         val qrScannerPlugin = rememberQRScannerPlugin()
         val ocrPlugin = rememberOcrPlugin()
+        val videoRecorderPlugin = rememberVideoRecorderPlugin(
+            config = VideoConfiguration(
+                quality = VideoQuality.FHD,
+                enableAudio = true,
+                maxDurationMs = 300_000L,
+            ),
+        )
 
         PermissionsHandler(
             permissions = permissions,
@@ -146,19 +157,12 @@ fun App() = AppTheme {
         )
 
         if (cameraPermissionState.value && storagePermissionState.value) {
-            if (useNewApi) {
-                CameraContent(
-                    imageSaverPlugin = imageSaverPlugin,
-                    qrScannerPlugin = qrScannerPlugin,
-                    ocrPlugin = ocrPlugin,
-                    onToggleApi = { useNewApi = !useNewApi },
-                )
-            } else {
-                LegacyAppContent(
-                    imageSaverPlugin = imageSaverPlugin,
-                    onToggleApi = { useNewApi = !useNewApi },
-                )
-            }
+            CameraContent(
+                imageSaverPlugin = imageSaverPlugin,
+                qrScannerPlugin = qrScannerPlugin,
+                ocrPlugin = ocrPlugin,
+                videoRecorderPlugin = videoRecorderPlugin,
+            )
         }
     }
 }
@@ -183,37 +187,27 @@ private fun PermissionsHandler(
         )
     }
 }
-
 @Composable
 private fun CameraContent(
     imageSaverPlugin: ImageSaverPlugin,
     qrScannerPlugin: QRScannerPlugin,
     ocrPlugin: OcrPlugin,
-    onToggleApi: () -> Unit = {},
+    videoRecorderPlugin: VideoRecorderPlugin,
 ) {
-    var aspectRatio by remember { mutableStateOf(AspectRatio.RATIO_4_3) }
-    var resolution by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    var imageFormat by remember { mutableStateOf(ImageFormat.JPEG) }
-    var qualityPrioritization by remember { mutableStateOf(QualityPrioritization.BALANCED) }
-    var cameraDeviceType by remember { mutableStateOf(CameraDeviceType.WIDE_ANGLE) }
-    var configVersion by remember { mutableStateOf(0) }
-
-    // Plugin output states
-    var detectedQR by remember { mutableStateOf<String?>(null) }
+    var qrCodes by remember { mutableStateOf(listOf<String>()) }
     var recognizedText by remember { mutableStateOf<String?>(null) }
 
-    // Collect plugin outputs
     LaunchedEffect(qrScannerPlugin) {
         qrScannerPlugin.getQrCodeFlow().collect { qr ->
-            detectedQR = qr
-            println("QR Code detected: $qr")
+            if (qr !in qrCodes) {
+                qrCodes = (listOf(qr) + qrCodes).take(5)
+            }
         }
     }
 
     LaunchedEffect(ocrPlugin) {
         for (text in ocrPlugin.ocrFlow) {
             recognizedText = text
-            println("Text recognized: $text")
         }
     }
 
@@ -221,18 +215,18 @@ private fun CameraContent(
         config = CameraConfiguration(
             cameraLens = CameraLens.BACK,
             flashMode = FlashMode.OFF,
-            imageFormat = imageFormat,
+            imageFormat = ImageFormat.JPEG,
             directory = Directory.PICTURES,
             torchMode = TorchMode.OFF,
-            qualityPrioritization = qualityPrioritization,
-            cameraDeviceType = cameraDeviceType,
-            aspectRatio = aspectRatio,
-            targetResolution = resolution,
+            qualityPrioritization = QualityPrioritization.BALANCED,
+            cameraDeviceType = CameraDeviceType.WIDE_ANGLE,
+            aspectRatio = AspectRatio.RATIO_4_3,
         ),
         setupPlugins = { stateHolder ->
             stateHolder.attachPlugin(imageSaverPlugin)
             stateHolder.attachPlugin(qrScannerPlugin)
             stateHolder.attachPlugin(ocrPlugin)
+            stateHolder.attachPlugin(videoRecorderPlugin)
         },
     )
 
@@ -241,24 +235,19 @@ private fun CameraContent(
         showPreview = true,
         loadingContent = {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().background(Color.Black),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Text(
-                        "Initializing Camera...",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
+                Text(
+                    "Initializing Camera...",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextSecondary,
+                )
             }
         },
         errorContent = { error ->
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().background(Color.Black),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
@@ -269,110 +258,102 @@ private fun CameraContent(
                     Icon(
                         imageVector = Lucide.X,
                         contentDescription = "Error",
-                        tint = MaterialTheme.colorScheme.error,
+                        tint = Red,
                         modifier = Modifier.size(48.dp),
-                    )
-                    Text(
-                        "Camera Error",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.error,
                     )
                     Text(
                         error.message,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = TextSecondary,
                         textAlign = TextAlign.Center,
                     )
                 }
             }
         },
     ) { state ->
-        EnhancedCameraScreen(
+        CameraScreen(
             cameraState = state,
             imageSaverPlugin = imageSaverPlugin,
             qrScannerPlugin = qrScannerPlugin,
             ocrPlugin = ocrPlugin,
-            detectedQR = detectedQR,
+            videoRecorderPlugin = videoRecorderPlugin,
+            qrCodes = qrCodes,
             recognizedText = recognizedText,
-            aspectRatio = aspectRatio,
-            resolution = resolution,
-            imageFormat = imageFormat,
-            qualityPrioritization = qualityPrioritization,
-            cameraDeviceType = cameraDeviceType,
-            onAspectRatioChange = { ratio: AspectRatio ->
-                aspectRatio = ratio
-                configVersion++
-            },
-            onResolutionChange = { res: Pair<Int, Int>? ->
-                resolution = res
-                configVersion++
-            },
-            onImageFormatChange = { format: ImageFormat ->
-                imageFormat = format
-                configVersion++
-            },
-            onQualityPrioritizationChange = { quality: QualityPrioritization ->
-                qualityPrioritization = quality
-                configVersion++
-            },
-            onCameraDeviceTypeChange = { device: CameraDeviceType ->
-                cameraDeviceType = device
-                configVersion++
-            },
-            onToggleApi = onToggleApi,
         )
     }
 }
 
+private enum class CameraMode { Photo, Video }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EnhancedCameraScreen(
+private fun CameraScreen(
     cameraState: CameraKState.Ready,
     imageSaverPlugin: ImageSaverPlugin,
     qrScannerPlugin: QRScannerPlugin,
     ocrPlugin: OcrPlugin,
-    detectedQR: String?,
+    videoRecorderPlugin: VideoRecorderPlugin,
+    qrCodes: List<String>,
     recognizedText: String?,
-    aspectRatio: AspectRatio,
-    resolution: Pair<Int, Int>?,
-    imageFormat: ImageFormat,
-    qualityPrioritization: QualityPrioritization,
-    cameraDeviceType: CameraDeviceType,
-    onAspectRatioChange: (AspectRatio) -> Unit,
-    onResolutionChange: (Pair<Int, Int>?) -> Unit,
-    onImageFormatChange: (ImageFormat) -> Unit,
-    onQualityPrioritizationChange: (QualityPrioritization) -> Unit,
-    onCameraDeviceTypeChange: (CameraDeviceType) -> Unit,
-    onToggleApi: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val cameraController = cameraState.controller
     var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var isCapturing by remember { mutableStateOf(false) }
 
-    // Camera settings state
+
+    var cameraMode by remember { mutableStateOf(CameraMode.Photo) }
+    var isRecording by remember { mutableStateOf(false) }
+    var recordingDurationMs by remember { mutableStateOf(0L) }
+
+
     var flashMode by remember { mutableStateOf(FlashMode.OFF) }
     var torchMode by remember { mutableStateOf(TorchMode.OFF) }
     var zoomLevel by remember { mutableFloatStateOf(1f) }
     var maxZoom by remember { mutableFloatStateOf(1f) }
+    var aspectRatio by remember { mutableStateOf(AspectRatio.RATIO_4_3) }
+    var resolution by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var imageFormat by remember { mutableStateOf(ImageFormat.JPEG) }
+    var qualityPrioritization by remember { mutableStateOf(QualityPrioritization.BALANCED) }
+    var cameraDeviceType by remember { mutableStateOf(CameraDeviceType.WIDE_ANGLE) }
 
-    // Plugin control states - Plugins auto-activate when camera is ready
-    // Users can disable them via toggles, but they start enabled
+
     var isQRScanningEnabled by remember { mutableStateOf(true) }
     var isOCREnabled by remember { mutableStateOf(true) }
 
-    // Bottom sheet state
-    val bottomSheetState = rememberStandardBottomSheetState(
-        initialValue = SheetValue.PartiallyExpanded,
-        skipHiddenState = false,
-    )
-    val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = bottomSheetState)
+    var showSettings by remember { mutableStateOf(false) }
 
     LaunchedEffect(cameraController) {
         maxZoom = cameraController.getMaxZoom()
     }
 
-    // Control plugin states
+    LaunchedEffect(videoRecorderPlugin) {
+        videoRecorderPlugin.recordingEvents.collect { event ->
+            when (event) {
+                is CameraKEvent.RecordingStarted -> {
+                    isRecording = true
+                }
+                is CameraKEvent.RecordingStopped,
+                is CameraKEvent.RecordingFailed,
+                is CameraKEvent.RecordingMaxDurationReached,
+                -> {
+                    isRecording = false
+                    recordingDurationMs = 0L
+                }
+                else -> {}
+            }
+        }
+    }
+
+    LaunchedEffect(isRecording) {
+        if (isRecording) {
+            while (true) {
+                recordingDurationMs = videoRecorderPlugin.recordingDurationMs
+                delay(250L)
+            }
+        }
+    }
+
     LaunchedEffect(isQRScanningEnabled) {
         try {
             if (isQRScanningEnabled) {
@@ -380,9 +361,7 @@ fun EnhancedCameraScreen(
             } else {
                 qrScannerPlugin.pauseScanning()
             }
-        } catch (e: Exception) {
-            println("QR Scanner error: ${e.message}")
-        }
+        } catch (_: Exception) {}
     }
 
     LaunchedEffect(isOCREnabled) {
@@ -392,9 +371,7 @@ fun EnhancedCameraScreen(
             } else {
                 ocrPlugin.stopRecognition()
             }
-        } catch (e: Exception) {
-            println("OCR error: ${e.message}")
-        }
+        } catch (_: Exception) {}
     }
 
     fun setCameraZoom(newLevel: Float) {
@@ -405,7 +382,6 @@ fun EnhancedCameraScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // PinchToZoom
             .pointerInput(Unit) {
                 detectTransformGestures { _, _, zoomChange, _ ->
                     if (zoomChange != 1f) {
@@ -414,119 +390,302 @@ fun EnhancedCameraScreen(
                 }
             },
     ) {
-        BottomSheetScaffold(
-            scaffoldState = scaffoldState,
-            sheetPeekHeight = 80.dp,
-            containerColor = Color.Transparent,
-            sheetContainerColor = Color(0xFFF7F2E9),
-            sheetContent = {
-                CameraControlsBottomSheet(
-                    flashMode = flashMode,
-                    torchMode = torchMode,
+        TopBar(
+            modifier = Modifier.align(Alignment.TopCenter),
+            flashMode = flashMode,
+            torchMode = torchMode,
+            aspectRatio = aspectRatio,
+            isRecording = isRecording,
+            recordingDurationMs = recordingDurationMs,
+            onFlashToggle = {
+                cameraController.toggleFlashMode()
+                flashMode = cameraController.getFlashMode() ?: FlashMode.OFF
+            },
+            onTorchToggle = {
+                cameraController.toggleTorchMode()
+                torchMode = cameraController.getTorchMode() ?: TorchMode.OFF
+            },
+            onAspectRatioCycle = {
+                val entries = AspectRatio.entries
+                val next = entries[(entries.indexOf(aspectRatio) + 1) % entries.size]
+                aspectRatio = next
+            },
+        )
+
+        if (isOCREnabled && recognizedText != null) {
+            OcrBanner(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 220.dp),
+                text = recognizedText,
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.85f))
+                .padding(bottom = 16.dp, top = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // Zoom chips
+            if (maxZoom > 1f) {
+                ZoomChips(
                     zoomLevel = zoomLevel,
                     maxZoom = maxZoom,
-                    aspectRatio = aspectRatio,
-                    resolution = resolution,
-                    imageFormat = imageFormat,
-                    qualityPrioritization = qualityPrioritization,
-                    cameraDeviceType = cameraDeviceType,
-                    isQRScanningEnabled = isQRScanningEnabled,
-                    isOCREnabled = isOCREnabled,
-                    onFlashModeChange = {
-                        flashMode = it
-                        cameraController.setFlashMode(it)
-                    },
-                    onTorchModeChange = {
-                        torchMode = it
-                        cameraController.setTorchMode(it)
-                    },
                     onZoomChange = { setCameraZoom(it) },
-                    onLensSwitch = {
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            if (isQRScanningEnabled && qrCodes.isNotEmpty()) {
+                QrChipRow(qrCodes = qrCodes)
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            // Mode switcher
+            ModeSwitcher(
+                currentMode = cameraMode,
+                onModeChange = { cameraMode = it },
+                enabled = !isRecording,
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                CameraFlipButton(
+                    onClick = {
                         cameraController.toggleCameraLens()
-                        // Update max zoom for new camera
                         maxZoom = cameraController.getMaxZoom()
                         zoomLevel = 1f
                     },
-                    onAspectRatioChange = {
-                        onAspectRatioChange(it)
-                    },
-                    onResolutionChange = {
-                        onResolutionChange(it)
-                    },
-                    onImageFormatChange = {
-                        onImageFormatChange(it)
-                    },
-                    onQualityPrioritizationChange = {
-                        onQualityPrioritizationChange(it)
-                    },
-                    onCameraDeviceTypeChange = {
-                        onCameraDeviceTypeChange(it)
-                    },
-                    onQRScanningToggle = {
-                        isQRScanningEnabled = it
-                    },
-                    onOCRToggle = {
-                        isOCREnabled = it
-                    },
-                    onToggleApi = onToggleApi,
-                )
-            },
-            sheetContentColor = MaterialTheme.colorScheme.onSurface,
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Plugin outputs overlay (top left)
-                PluginOutputsOverlay(
-                    modifier = Modifier.align(Alignment.TopStart),
-                    detectedQR = detectedQR,
-                    recognizedText = recognizedText,
-                    isQREnabled = isQRScanningEnabled,
-                    isOCREnabled = isOCREnabled,
+                    enabled = !isRecording,
                 )
 
-                // OCR output overlay (bottom left)
-                OcrOutputOverlay(
-                    modifier = Modifier.align(Alignment.BottomStart),
-                    recognizedText = recognizedText,
-                    isOCREnabled = isOCREnabled,
-                )
-
-                // Quick controls overlay
-                QuickControlsOverlay(
-                    modifier = Modifier.align(Alignment.TopEnd),
-                    flashMode = flashMode,
-                    torchMode = torchMode,
-                    onFlashToggle = {
-                        cameraController.toggleFlashMode()
-                        flashMode = cameraController.getFlashMode() ?: FlashMode.OFF
-                    },
-                    onTorchToggle = {
-                        cameraController.toggleTorchMode()
-                        torchMode = cameraController.getTorchMode() ?: TorchMode.OFF
-                    },
-                )
-
-                // Capture button
-                CaptureButton(
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp),
+                ShutterButton(
+                    mode = cameraMode,
+                    isRecording = isRecording,
                     isCapturing = isCapturing,
-                    onCapture = {
+                    onPhotoCapture = {
                         if (!isCapturing) {
                             isCapturing = true
                             scope.launch {
                                 handleImageCapture(
                                     cameraController = cameraController,
-                                    imageSaverPlugin = imageSaverPlugin,
                                     onImageCaptured = { imageBitmap = it },
                                 )
                                 isCapturing = false
                             }
                         }
                     },
+                    onVideoToggle = {
+                        if (isRecording) {
+                            videoRecorderPlugin.stopRecording()
+                        } else {
+                            videoRecorderPlugin.startRecording()
+                        }
+                    },
                 )
 
-                // Captured image preview
-                CapturedImagePreview(imageBitmap = imageBitmap) {
-                    imageBitmap = null
+                SettingsButton(
+                    isOpen = showSettings,
+                    onClick = { showSettings = !showSettings },
+                )
+            }
+        }
+
+        if (showSettings) {
+            SettingsPanel(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                resolution = resolution,
+                imageFormat = imageFormat,
+                qualityPrioritization = qualityPrioritization,
+                cameraDeviceType = cameraDeviceType,
+                isQRScanningEnabled = isQRScanningEnabled,
+                isOCREnabled = isOCREnabled,
+                onResolutionChange = { resolution = it },
+                onImageFormatChange = { imageFormat = it },
+                onQualityPrioritizationChange = { qualityPrioritization = it },
+                onCameraDeviceTypeChange = {
+                    cameraDeviceType = it
+                    cameraController.setPreferredCameraDeviceType(it)
+                },
+                onQRScanningToggle = { isQRScanningEnabled = it },
+                onOCRToggle = { isOCREnabled = it },
+                onDismiss = { showSettings = false },
+            )
+        }
+
+        CapturedImagePreview(imageBitmap = imageBitmap) { imageBitmap = null }
+    }
+}
+
+@Composable
+private fun TopBar(
+    modifier: Modifier = Modifier,
+    flashMode: FlashMode,
+    torchMode: TorchMode,
+    aspectRatio: AspectRatio,
+    isRecording: Boolean,
+    recordingDurationMs: Long,
+    onFlashToggle: () -> Unit,
+    onTorchToggle: () -> Unit,
+    onAspectRatioCycle: () -> Unit,
+) {
+
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.6f))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (isRecording) {
+            RecordingTimerHud(durationMs = recordingDurationMs)
+        } else {
+            TopBarIconChip(
+                icon = if (flashMode != FlashMode.OFF) Lucide.Zap else Lucide.Zap,
+                label = flashMode.name,
+                active = flashMode != FlashMode.OFF,
+                onClick = onFlashToggle,
+            )
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            TopBarIconChip(
+                icon = Lucide.Ratio,
+                label = aspectRatio.name.replace("RATIO_", "").replace("_", ":"),
+                active = false,
+                onClick = onAspectRatioCycle,
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            TopBarIconChip(
+                icon = if (torchMode != TorchMode.OFF) Lucide.Sun else Lucide.Sun,
+                label = torchMode.name,
+                active = torchMode != TorchMode.OFF,
+                onClick = onTorchToggle,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TopBarIconChip(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.clickable(onClick = onClick),
+        color = if (active) Color.White.copy(alpha = 0.2f) else Color.Transparent,
+        shape = RoundedCornerShape(20.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (active) Color.Yellow else TextSecondary,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = label,
+                color = if (active) Color.Yellow else TextSecondary,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecordingTimerHud(modifier: Modifier = Modifier, durationMs: Long) {
+    val totalSeconds = (durationMs / 1000).toInt()
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    val timeText = "${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+
+    val infiniteTransition = rememberInfiniteTransition()
+    val dotAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween<Float>(1000, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "dotAlpha",
+    )
+
+    Row(
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(Red.copy(alpha = dotAlpha), CircleShape),
+        )
+        Text(
+            text = timeText,
+            color = Red,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun ZoomChips(modifier: Modifier = Modifier, zoomLevel: Float, maxZoom: Float, onZoomChange: (Float) -> Unit) {
+    val stops = buildList {
+        add(1f)
+        if (maxZoom >= 2f) add(2f)
+        if (maxZoom > 2f && maxZoom >= 4f) add(4f.coerceAtMost(maxZoom))
+        if (maxZoom > 4f) add(maxZoom)
+    }.distinct()
+
+    Surface(
+        modifier = modifier,
+        color = Color.Black.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(24.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            stops.forEach { stop ->
+                val isActive = (zoomLevel - stop).let { it > -0.15f && it < 0.15f }
+                val label = if (stop == stop.toLong().toFloat()) {
+                    "${stop.toInt()}x"
+                } else {
+                    "${(stop * 10).toInt() / 10f}x"
+                }
+                Surface(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable { onZoomChange(stop) },
+                    color = if (isActive) Color.White.copy(alpha = 0.25f) else Color.Transparent,
+                    shape = CircleShape,
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Text(
+                            text = label,
+                            color = if (isActive) Color.Yellow else TextSecondary,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                        )
+                    }
                 }
             }
         }
@@ -534,38 +693,36 @@ fun EnhancedCameraScreen(
 }
 
 @Composable
-private fun QuickControlsOverlay(
-    modifier: Modifier = Modifier,
-    flashMode: FlashMode,
-    torchMode: TorchMode,
-    onFlashToggle: () -> Unit,
-    onTorchToggle: () -> Unit,
-) {
-    Surface(
-        modifier = modifier.padding(16.dp),
-        color = Color.Black.copy(alpha = 0.6f),
-        shape = RoundedCornerShape(12.dp),
+private fun ModeSwitcher(currentMode: CameraMode, onModeChange: (CameraMode) -> Unit, enabled: Boolean = true) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(32.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            IconButton(onClick = onFlashToggle) {
-                Icon(
-                    imageVector = when (flashMode) {
-                        FlashMode.ON -> Lucide.Flashlight
-                        FlashMode.OFF -> Lucide.FlashlightOff
-                        FlashMode.AUTO -> Lucide.Flashlight
-                    },
-                    contentDescription = "Flash: $flashMode",
-                    tint = Color.White,
+        CameraMode.entries.forEach { mode ->
+            val isSelected = mode == currentMode
+            val textColor by animateColorAsState(
+                targetValue = if (isSelected) TextPrimary else TextSecondary,
+            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable(enabled = enabled) { onModeChange(mode) },
+            ) {
+                Text(
+                    text = mode.name.uppercase(),
+                    color = textColor,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    letterSpacing = 1.sp,
                 )
-            }
-            IconButton(onClick = onTorchToggle) {
-                Icon(
-                    imageVector = if (torchMode != TorchMode.OFF) Lucide.Flashlight else Lucide.FlashlightOff,
-                    contentDescription = "Torch: $torchMode",
-                    tint = Color.White,
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .height(3.dp)
+                        .width(if (isSelected) 24.dp else 0.dp)
+                        .background(
+                            if (isSelected) TextPrimary else Color.Transparent,
+                            RoundedCornerShape(1.5.dp),
+                        ),
                 )
             }
         }
@@ -573,624 +730,403 @@ private fun QuickControlsOverlay(
 }
 
 @Composable
-private fun CaptureButton(modifier: Modifier = Modifier, isCapturing: Boolean, onCapture: () -> Unit) {
-    FilledTonalButton(
-        onClick = onCapture,
-        enabled = !isCapturing,
-        modifier = modifier.size(80.dp).clip(CircleShape),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-        ),
+private fun ShutterButton(
+    mode: CameraMode,
+    isRecording: Boolean,
+    isCapturing: Boolean,
+    onPhotoCapture: () -> Unit,
+    onVideoToggle: () -> Unit,
+) {
+    val isVideoMode = mode == CameraMode.Video
+
+    val outerRingColor by animateColorAsState(
+        targetValue = if (isRecording) Red else Color.White,
+    )
+    val innerColor by animateColorAsState(
+        targetValue = if (isVideoMode) Red else Color.White,
+    )
+    val innerSize by animateDpAsState(
+        targetValue = if (isRecording) 24.dp else 60.dp,
+    )
+    val innerCornerRadius by animateDpAsState(
+        targetValue = if (isRecording) 6.dp else 30.dp,
+    )
+
+    val pulseScale = if (isRecording) {
+        val infiniteTransition = rememberInfiniteTransition()
+        val scale by infiniteTransition.animateFloat(
+            initialValue = 1.0f,
+            targetValue = 1.08f,
+            animationSpec = infiniteRepeatable(
+                animation = tween<Float>(1000, easing = EaseInOut),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "pulseScale",
+        )
+        scale
+    } else {
+        1.0f
+    }
+
+    val pressScale by animateFloatAsState(
+        targetValue = if (isCapturing) 0.85f else 1.0f,
+    )
+
+    val combinedScale = pulseScale * pressScale
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(72.dp)
+            .clickable(
+                enabled = !isCapturing,
+                onClick = if (isVideoMode) onVideoToggle else onPhotoCapture,
+            ),
     ) {
-        Icon(
-            imageVector = Lucide.Camera,
-            contentDescription = "Capture",
-            tint = if (isCapturing) Color.White.copy(alpha = 0.5f) else Color.White,
-            modifier = Modifier.size(32.dp),
+        Box(
+            modifier = Modifier
+                .size((72 * combinedScale).dp)
+                .border(3.dp, outerRingColor, CircleShape),
+        )
+        Box(
+            modifier = Modifier
+                .size(innerSize * combinedScale)
+                .background(innerColor, RoundedCornerShape(innerCornerRadius)),
         )
     }
 }
 
 @Composable
-private fun CameraControlsBottomSheet(
-    flashMode: FlashMode,
-    torchMode: TorchMode,
-    zoomLevel: Float,
-    maxZoom: Float,
-    aspectRatio: AspectRatio,
+private fun CameraFlipButton(onClick: () -> Unit, enabled: Boolean = true) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(48.dp)
+            .background(ChipBg, CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+    ) {
+        Icon(
+            imageVector = Lucide.SwitchCamera,
+            contentDescription = "Flip Camera",
+            tint = TextPrimary,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+@Composable
+private fun SettingsButton(isOpen: Boolean, onClick: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(48.dp)
+            .background(
+                if (isOpen) ChipBgSelected else ChipBg,
+                CircleShape,
+            )
+            .clickable(onClick = onClick),
+    ) {
+        Icon(
+            imageVector = if (isOpen) Lucide.X else Lucide.Settings,
+            contentDescription = if (isOpen) "Close Settings" else "Settings",
+            tint = TextPrimary,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+@Composable
+private fun SettingsPanel(
+    modifier: Modifier = Modifier,
     resolution: Pair<Int, Int>?,
     imageFormat: ImageFormat,
     qualityPrioritization: QualityPrioritization,
     cameraDeviceType: CameraDeviceType,
     isQRScanningEnabled: Boolean,
     isOCREnabled: Boolean,
-    onFlashModeChange: (FlashMode) -> Unit,
-    onTorchModeChange: (TorchMode) -> Unit,
-    onZoomChange: (Float) -> Unit,
-    onLensSwitch: () -> Unit,
-    onAspectRatioChange: (AspectRatio) -> Unit,
     onResolutionChange: (Pair<Int, Int>?) -> Unit,
     onImageFormatChange: (ImageFormat) -> Unit,
     onQualityPrioritizationChange: (QualityPrioritization) -> Unit,
     onCameraDeviceTypeChange: (CameraDeviceType) -> Unit,
     onQRScanningToggle: (Boolean) -> Unit,
     onOCRToggle: (Boolean) -> Unit,
-    onToggleApi: () -> Unit = {},
+    onDismiss: () -> Unit,
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    val resolutionOptions = listOf(null, 1920 to 1080, 1280 to 720, 640 to 480)
+    fun resLabel(r: Pair<Int, Int>?): String = r?.let { "${it.first}x${it.second}" } ?: "Auto"
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Surface,
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
     ) {
-        item(span = { GridItemSpan(3) }) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            // Header
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Camera Controls",
-                    style = MaterialTheme.typography.titleLarge,
+                    "Settings",
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF221B00),
+                    color = TextPrimary,
                 )
-
-                FilledTonalButton(
-                    onClick = onToggleApi,
-                    modifier = Modifier.widthIn(min = 100.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color(0xFFD4A574),
-                        contentColor = Color(0xFF221B00),
-                    ),
-                ) {
-                    Text(
-                        "Switch API",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        imageVector = Lucide.X,
+                        contentDescription = "Close",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
-        }
 
-        // Zoom Control
-        if (maxZoom > 1f) {
-            item(span = { GridItemSpan(2) }) {
-                ZoomControl(
-                    zoomLevel = zoomLevel,
-                    maxZoom = maxZoom,
-                    onZoomChange = onZoomChange,
-                )
+            // Resolution
+            SettingRow(icon = Lucide.Focus, label = "Resolution") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(resolutionOptions) { option ->
+                        Chip(resLabel(option), option == resolution) { onResolutionChange(option) }
+                    }
+                }
             }
-        }
 
-        // Flash Mode Control
-        item {
-            FlashModeControl(
-                flashMode = flashMode,
-                onFlashModeChange = onFlashModeChange,
-            )
-        }
+            // Image Format
+            SettingRow(icon = Lucide.Image, label = "Image Format") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(ImageFormat.entries.toList()) { format ->
+                        Chip(format.name, format == imageFormat) { onImageFormatChange(format) }
+                    }
+                }
+            }
 
-        // Torch Mode Control
-        item {
-            TorchModeControl(
-                torchMode = torchMode,
-                onTorchModeChange = onTorchModeChange,
-            )
-        }
+            // Quality Prioritization
+            SettingRow(icon = Lucide.Aperture, label = "Quality Priority") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(QualityPrioritization.entries.toList()) { priority ->
+                        Chip(priority.name, priority == qualityPrioritization) {
+                            onQualityPrioritizationChange(priority)
+                        }
+                    }
+                }
+            }
 
-        item {
-            AspectRatioControl(
-                aspectRatio = aspectRatio,
-                onAspectRatioChange = onAspectRatioChange,
-            )
-        }
+            // Camera Device Type
+            SettingRow(icon = Lucide.Monitor, label = "Camera Type") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(CameraDeviceType.entries.toList()) { type ->
+                        Chip(
+                            label = type.name.replace("_", " "),
+                            selected = type == cameraDeviceType,
+                            onClick = { onCameraDeviceTypeChange(type) },
+                        )
+                    }
+                }
+            }
 
-        item {
-            ResolutionControl(
-                resolution = resolution,
-                onResolutionChange = onResolutionChange,
-            )
-        }
-
-        item {
-            ImageFormatControl(
-                imageFormat = imageFormat,
-                onImageFormatChange = onImageFormatChange,
-            )
-        }
-
-        item {
-            QualityPrioritizationControl(
-                qualityPrioritization = qualityPrioritization,
-                onQualityPrioritizationChange = onQualityPrioritizationChange,
-            )
-        }
-
-        item {
-            CameraDeviceTypeControl(
-                cameraDeviceType = cameraDeviceType,
-                onCameraDeviceTypeChange = onCameraDeviceTypeChange,
-            )
-        }
-
-        // Camera Lens Switch
-        item {
-            CameraLensControl(onLensSwitch = onLensSwitch)
-        }
-
-        // Plugin Controls Section
-        item(span = { GridItemSpan(3) }) {
-            Text(
-                text = "Active Plugins",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF221B00),
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-            )
-        }
-
-        item(span = { GridItemSpan(3) }) {
-            PluginToggleControl(
-                label = "QR Scanner",
-                isEnabled = isQRScanningEnabled,
-                onToggle = onQRScanningToggle,
-            )
-        }
-
-        item(span = { GridItemSpan(3) }) {
-            PluginToggleControl(
-                label = "OCR (Text Recognition)",
-                isEnabled = isOCREnabled,
-                onToggle = onOCRToggle,
-            )
+            // Plugin toggles
+            SettingToggle(Lucide.ScanLine, "QR Scanner", isQRScanningEnabled, onQRScanningToggle)
+            SettingToggle(Lucide.Type, "OCR (Text Recognition)", isOCREnabled, onOCRToggle)
         }
     }
 }
 
 @Composable
-private fun ZoomControl(zoomLevel: Float, maxZoom: Float, onZoomChange: (Float) -> Unit) {
-    Column {
+private fun SettingRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    content: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = "Zoom",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = TextSecondary,
+                modifier = Modifier.size(18.dp),
             )
             Text(
-                text = "Zoom: ${(zoomLevel * 10).toInt() / 10f}x",
+                text = label,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
+                color = TextSecondary,
             )
         }
-        Slider(
-            value = zoomLevel,
-            onValueChange = onZoomChange,
-            valueRange = 1f..maxZoom,
-            steps = ((maxZoom - 1f) * 10).toInt().coerceAtLeast(0),
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-            ),
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = "1.0x",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "${(maxZoom * 10).toInt() / 10f}x",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        content()
     }
 }
 
 @Composable
-private fun FlashModeControl(flashMode: FlashMode, onFlashModeChange: (FlashMode) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
+private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val bgColor by animateColorAsState(
+        targetValue = if (selected) Color.White else ChipBg,
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (selected) Color.Black else TextSecondary,
+    )
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Surface(
+        modifier = Modifier.clickable(onClick = onClick),
+        color = bgColor,
+        shape = RoundedCornerShape(20.dp),
     ) {
-        Icon(
-            imageVector = when (flashMode) {
-                FlashMode.ON -> Lucide.Flashlight
-                FlashMode.OFF -> Lucide.FlashlightOff
-                FlashMode.AUTO -> Lucide.Flashlight
-            },
-            contentDescription = "Flash Mode",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp),
-        )
-
         Text(
-            text = flashMode.name,
+            text = label,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            color = textColor,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            color = Color(0xFF221B00),
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
         )
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            FlashMode.entries.forEach { mode ->
-                DropdownMenuItem(
-                    text = { Text(mode.name) },
-                    onClick = {
-                        onFlashModeChange(mode)
-                        expanded = false
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = when (mode) {
-                                FlashMode.ON -> Lucide.Flashlight
-                                FlashMode.OFF -> Lucide.FlashlightOff
-                                FlashMode.AUTO -> Lucide.Flashlight
-                            },
-                            contentDescription = null,
-                        )
-                    },
-                )
-            }
-        }
     }
 }
 
 @Composable
-private fun TorchModeControl(torchMode: TorchMode, onTorchModeChange: (TorchMode) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            imageVector = if (torchMode != TorchMode.OFF) Lucide.Flashlight else Lucide.FlashlightOff,
-            contentDescription = "Torch Mode",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp),
-        )
-
-        Text(
-            text = torchMode.name,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            color = Color(0xFF221B00),
-        )
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            TorchMode.entries.forEach { mode ->
-                DropdownMenuItem(
-                    text = { Text(mode.name) },
-                    onClick = {
-                        onTorchModeChange(mode)
-                        expanded = false
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = if (mode != TorchMode.OFF) Lucide.Flashlight else Lucide.FlashlightOff,
-                            contentDescription = null,
-                        )
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AspectRatioControl(aspectRatio: AspectRatio, onAspectRatioChange: (AspectRatio) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            imageVector = Lucide.Crop,
-            contentDescription = "Aspect Ratio",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp),
-        )
-
-        Text(
-            text = aspectRatio.name.replace("RATIO_", "").replace("_", ":"),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            color = Color(0xFF221B00),
-        )
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            AspectRatio.entries.forEach { ratio ->
-                DropdownMenuItem(
-                    text = { Text(ratio.name.replace("RATIO_", "").replace("_", ":")) },
-                    onClick = {
-                        onAspectRatioChange(ratio)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResolutionControl(resolution: Pair<Int, Int>?, onResolutionChange: (Pair<Int, Int>?) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val options = listOf(null, 1920 to 1080, 1280 to 720, 640 to 480)
-
-    fun label(pair: Pair<Int, Int>?): String = pair?.let { "${it.first}x${it.second}" } ?: "Auto"
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            imageVector = Lucide.Frame,
-            contentDescription = "Resolution",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp),
-        )
-
-        Text(
-            text = label(resolution),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            color = Color(0xFF221B00),
-        )
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(label(option)) },
-                    onClick = {
-                        onResolutionChange(option)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ImageFormatControl(imageFormat: ImageFormat, onImageFormatChange: (ImageFormat) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            imageVector = Lucide.Image,
-            contentDescription = "Image Format",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp),
-        )
-
-        Text(
-            text = imageFormat.name,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            color = Color(0xFF221B00),
-        )
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            ImageFormat.entries.forEach { format ->
-                DropdownMenuItem(
-                    text = { Text(format.name) },
-                    onClick = {
-                        onImageFormatChange(format)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun QualityPrioritizationControl(
-    qualityPrioritization: QualityPrioritization,
-    onQualityPrioritizationChange: (QualityPrioritization) -> Unit,
+private fun SettingToggle(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            imageVector = Lucide.Zap,
-            contentDescription = "Quality Priority",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp),
-        )
-
-        Text(
-            text = qualityPrioritization.name,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            color = Color(0xFF221B00),
-        )
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            QualityPrioritization.entries.forEach { priority ->
-                DropdownMenuItem(
-                    text = { Text(priority.name) },
-                    onClick = {
-                        onQualityPrioritizationChange(priority)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CameraDeviceTypeControl(
-    cameraDeviceType: CameraDeviceType,
-    onCameraDeviceTypeChange: (CameraDeviceType) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = true }
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            imageVector = Lucide.SwitchCamera,
-            contentDescription = "Camera Type",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp),
-        )
-
-        Text(
-            text = cameraDeviceType.name.replace("_", " "),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            color = Color(0xFF221B00),
-        )
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            CameraDeviceType.entries.forEach { type ->
-                DropdownMenuItem(
-                    text = { Text(type.name.replace("_", " ")) },
-                    onClick = {
-                        onCameraDeviceTypeChange(type)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CameraLensControl(onLensSwitch: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onLensSwitch)
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            imageVector = Lucide.SwitchCamera,
-            contentDescription = "Switch Camera",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp),
-        )
-        Text(
-            text = "Switch Camera",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            color = Color(0xFF221B00),
-        )
-    }
-}
-
-@Composable
-private fun CameraControlSwitch(icon: ImageVector, text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(horizontal = 8.dp),
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(24.dp),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = text,
-            color = Color.White,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Spacer(modifier = Modifier.width(8.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (checked) Color(0xFF4285F4) else TextSecondary,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary,
+            )
+        }
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color(0xFF4285F4),
+                uncheckedThumbColor = TextSecondary,
+                uncheckedTrackColor = ChipBg,
             ),
         )
+    }
+}
+
+@Composable
+private fun QrChipRow(qrCodes: List<String>) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items(qrCodes) { code ->
+            Surface(
+                color = Color(0xFF4CAF50).copy(alpha = 0.9f),
+                shape = RoundedCornerShape(20.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = Lucide.ScanLine,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = if (code.length > 30) code.take(30) + "..." else code,
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OcrBanner(modifier: Modifier = Modifier, text: String) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = modifier
+            .padding(horizontal = 24.dp)
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
+        color = Color(0xFF1A237E).copy(alpha = 0.9f),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Lucide.Type,
+                    contentDescription = null,
+                    tint = Color(0xFF82B1FF),
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = "Text Detected",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF82B1FF),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = if (expanded) "Less" else "More",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+                maxLines = if (expanded) 10 else 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalResourceApi::class, ExperimentalUuidApi::class)
+private suspend fun handleImageCapture(cameraController: CameraController, onImageCaptured: (ImageBitmap) -> Unit) {
+    when (val result = cameraController.takePictureToFile()) {
+        is ImageCaptureResult.SuccessWithFile -> {
+            println("Image captured: ${result.filePath}")
+        }
+        is ImageCaptureResult.Success -> {
+            println("Image captured (${result.byteArray.size} bytes)")
+            onImageCaptured(result.byteArray.decodeToImageBitmap())
+        }
+        is ImageCaptureResult.Error -> {
+            println("Capture error: ${result.exception.message}")
+        }
     }
 }
 
@@ -1205,9 +1141,7 @@ private fun CapturedImagePreview(imageBitmap: ImageBitmap?, onDismiss: () -> Uni
                 Image(
                     bitmap = bitmap,
                     contentDescription = "Captured Image",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
                     contentScale = ContentScale.Fit,
                 )
 
@@ -1216,15 +1150,12 @@ private fun CapturedImagePreview(imageBitmap: ImageBitmap?, onDismiss: () -> Uni
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(16.dp)
-                        .background(
-                            MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
-                            CircleShape,
-                        ),
+                        .background(ChipBg, CircleShape),
                 ) {
                     Icon(
                         imageVector = Lucide.X,
                         contentDescription = "Close Preview",
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        tint = TextPrimary,
                         modifier = Modifier.rotate(120f),
                     )
                 }
@@ -1234,179 +1165,6 @@ private fun CapturedImagePreview(imageBitmap: ImageBitmap?, onDismiss: () -> Uni
         LaunchedEffect(bitmap) {
             delay(3000)
             onDismiss()
-        }
-    }
-}
-
-/**
- * Handles image capture results using the new takePictureToFile() method.
- *
- * This method is significantly faster than takePicture() as it:
- * - Saves directly to disk without ByteArray conversion (2-3 seconds faster)
- * - Skips decode/encode cycles
- * - Returns file path immediately
- *
- * The ImageSaverPlugin's isAutoSave configuration is respected:
- * - When isAutoSave = true: Plugin's listener saves the ByteArray in background
- * - File path is still returned for immediate use
- */
-@OptIn(ExperimentalResourceApi::class, ExperimentalUuidApi::class)
-private suspend fun handleImageCapture(
-    cameraController: CameraController,
-    imageSaverPlugin: ImageSaverPlugin,
-    onImageCaptured: (ImageBitmap) -> Unit,
-) {
-    when (val result = cameraController.takePictureToFile()) {
-        is ImageCaptureResult.SuccessWithFile -> {
-            // Image saved directly to file - significantly faster!
-            println("Image captured and saved at: ${result.filePath}")
-
-            // Optional: Load image from file for preview
-            // val bitmap = imageSaverPlugin.getByteArrayFrom(result.filePath).decodeToImageBitmap()
-            // onImageCaptured(bitmap)
-        }
-
-        is ImageCaptureResult.Success -> {
-            // Fallback for platforms that don't support direct file capture
-            println("Image captured successfully (${result.byteArray.size} bytes)")
-        }
-
-        is ImageCaptureResult.Error -> {
-            println("Image Capture Error: ${result.exception.message}")
-        }
-    }
-}
-
-@Composable
-private fun PluginOutputsOverlay(
-    modifier: Modifier = Modifier,
-    detectedQR: String?,
-    recognizedText: String?,
-    isQREnabled: Boolean,
-    isOCREnabled: Boolean,
-) {
-    if ((isQREnabled && detectedQR != null) || (isOCREnabled && recognizedText != null)) {
-        Surface(
-            modifier = modifier.padding(16.dp),
-            color = Color.Black.copy(alpha = 0.8f),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    "Plugin Outputs",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
-
-                if (isQREnabled && detectedQR != null) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            "QR Code:",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.7f),
-                        )
-                        Text(
-                            detectedQR,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF4CAF50),
-                        )
-                    }
-                }
-
-                if (isOCREnabled && recognizedText != null) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            "Recognized Text:",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.7f),
-                        )
-                        Text(
-                            recognizedText.take(100) + if (recognizedText.length > 100) "..." else "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF2196F3),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PluginToggleControl(label: String, isEnabled: Boolean, onToggle: (Boolean) -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF221B00),
-            )
-            Switch(
-                checked = isEnabled,
-                onCheckedChange = onToggle,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color(0xFF4CAF50),
-                    checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
-                    uncheckedThumbColor = Color.Gray,
-                    uncheckedTrackColor = Color.Gray.copy(alpha = 0.3f),
-                ),
-            )
-        }
-    }
-}
-
-@Composable
-private fun OcrOutputOverlay(modifier: Modifier = Modifier, recognizedText: String?, isOCREnabled: Boolean) {
-    if (isOCREnabled && recognizedText != null) {
-        Surface(
-            modifier = modifier
-                .padding(16.dp)
-                .border(2.dp, Color(0xFF2196F3), RoundedCornerShape(12.dp)),
-            color = Color(0xFF1F1F1F),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(12.dp)
-                    .widthIn(max = 250.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    "📝 Recognized Text",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2196F3),
-                )
-
-                Text(
-                    recognizedText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                    maxLines = 5,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                Text(
-                    "Length: ${recognizedText.length} chars",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.6f),
-                )
-            }
         }
     }
 }

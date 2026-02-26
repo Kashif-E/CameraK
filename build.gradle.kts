@@ -22,7 +22,7 @@ buildscript {
 spotless {
     kotlin {
         target("**/*.kt")
-        targetExclude("**/build/**")
+        targetExclude("**/build/**", "**/com/composables/**")
         ktlint("1.5.0")
             .setEditorConfigPath("$rootDir/.editorconfig")
             .editorConfigOverride(
