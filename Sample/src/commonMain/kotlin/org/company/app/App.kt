@@ -95,6 +95,7 @@ import com.kashif.cameraK.result.ImageCaptureResult
 import com.kashif.cameraK.state.CameraConfiguration
 import com.kashif.cameraK.state.CameraKEvent
 import com.kashif.cameraK.state.CameraKState
+import com.kashif.cameraK.state.CameraKStateHolder
 import com.kashif.cameraK.video.VideoConfiguration
 import com.kashif.cameraK.video.VideoQuality
 import com.kashif.imagesaverplugin.ImageSaverConfig
@@ -534,6 +535,8 @@ private fun TopBar(
     onTorchToggle: () -> Unit,
     onAspectRatioCycle: () -> Unit,
 ) {
+
+
     Row(
         modifier = modifier
             .fillMaxWidth()
