@@ -83,7 +83,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "qr_scanner_plugin",
-        version = "0.2.0",
+        version = "0.3",
     )
 
     pom {
