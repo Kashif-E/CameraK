@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "com.kashif.camera_compose"
-version = "1.0"
+version = "0.3"
 
 kotlin {
     jvmToolchain(11)

@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.kashif.analyzer_plugin"
-version = "0.0.2"
+version = "0.3"
 
 kotlin {
     jvmToolchain(11)
