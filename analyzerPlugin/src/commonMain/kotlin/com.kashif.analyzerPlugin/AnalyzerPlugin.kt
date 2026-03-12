@@ -18,7 +18,7 @@ class AnalyzerPlugin :
     CameraKPlugin {
     private var cameraController: CameraController? = null
     private var stateHolder: CameraKStateHolder? = null
-    val analyzerFlow = Channel<ByteArray>()
+    val analyzerFlow = Channel<ByteArray>(Channel.CONFLATED)
     private var isAnalyzing = atomic(false)
     private var collectorJob: Job? = null
 
