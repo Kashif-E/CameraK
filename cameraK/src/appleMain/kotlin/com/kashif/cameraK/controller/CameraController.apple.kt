@@ -176,9 +176,6 @@ actual class CameraController(
                 platform.Foundation.NSLog("CameraK Error: movie output - ${e.message}")
             }
 
-            // Pre-add audio input so recording starts without session reconfiguration stutter
-            addAudioInputIfNeeded()
-
             startSession()
         }
 
@@ -638,7 +635,6 @@ actual class CameraController(
             return@suspendCancellableCoroutine
         }
 
-        // Audio input is pre-added at session setup to avoid stutter
         if (configuration.enableAudio) {
             addAudioInputIfNeeded()
         }
