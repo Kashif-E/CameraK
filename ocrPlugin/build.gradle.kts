@@ -11,10 +11,10 @@ plugins {
 }
 
 group = "com.kashif.ocr_plugin"
-version = "0.4"
+version = "1.1"
 
 kotlin {
-    jvmToolchain(11)
+    jvmToolchain(17)
     androidTarget {
         publishLibraryVariants("release", "debug")
     }
@@ -84,7 +84,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "ocr_plugin",
-        version = "0.4",
+        version = "1.1",
     )
 
     pom {

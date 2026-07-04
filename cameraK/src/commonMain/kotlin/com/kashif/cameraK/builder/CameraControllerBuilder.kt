@@ -9,10 +9,9 @@ import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
-import com.kashif.cameraK.plugins.CameraPlugin
 
 /**
- * Builder interface for constructing a [CameraController] with customizable configurations and plugins.
+ * Builder interface for constructing a [CameraController] with customizable configuration.
  */
 interface CameraControllerBuilder {
     fun setFlashMode(flashMode: FlashMode): CameraControllerBuilder
@@ -35,14 +34,6 @@ interface CameraControllerBuilder {
     fun setDirectory(directory: Directory): CameraControllerBuilder
 
     /**
-     * Adds a [CameraPlugin] to the [CameraController].
-     *
-     * @param plugin The plugin to add.
-     * @return The current instance of [CameraControllerBuilder].
-     */
-    fun addPlugin(plugin: CameraPlugin): CameraControllerBuilder
-
-    /**
      * Builds and returns a configured instance of [CameraController].
      *
      * @throws InvalidConfigurationException If mandatory parameters are missing or configurations are incompatible.
@@ -58,17 +49,6 @@ interface CameraControllerBuilder {
     fun setQualityPrioritization(prioritization: QualityPrioritization): CameraControllerBuilder
 
     /**
-     * Configure whether takePicture() should return file path or ByteArray.
-     *
-     * When true: Returns ImageCaptureResult.SuccessWithFile (fastest - no processing)
-     * When false: Returns ImageCaptureResult.Success with ByteArray (default)
-     *
-     * Note: File path option skips all processing for maximum performance.
-     * The file will be in the configured directory.
-     */
-    fun setReturnFilePath(returnFilePath: Boolean): CameraControllerBuilder
-
-    /**
      * Sets the aspect ratio for preview and capture.
      * Supported values map to platform defaults (16:9, 4:3). 9:16 uses 16:9 with rotation; 1:1 falls back to closest available.
      */
@@ -79,4 +59,10 @@ interface CameraControllerBuilder {
      * Platforms may fall back to the closest supported resolution if an exact match is unavailable.
      */
     fun setResolution(width: Int, height: Int): CameraControllerBuilder
+
+    /**
+     * When true, front-camera captures are horizontally mirrored to match the mirrored preview.
+     * No effect on the back camera. Defaults to a no-op on platforms without a front/back lens.
+     */
+    fun setMirrorFrontCamera(mirror: Boolean): CameraControllerBuilder = this
 }

@@ -1,10 +1,11 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.utils.CameraKLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.bytedeco.javacv.FFmpegFrameGrabber
@@ -13,7 +14,7 @@ import org.bytedeco.javacv.VideoInputFrameGrabber
 import java.awt.image.BufferedImage
 
 class CameraGrabber(
-    private val frameChannel: Channel<BufferedImage>,
+    private val frameFlow: MutableSharedFlow<BufferedImage>,
     private val errorHandler: (Throwable) -> Unit,
     private val targetResolution: Pair<Int, Int>? = null,
 ) {
@@ -58,24 +59,12 @@ class CameraGrabber(
 
         job =
             coroutineScope.launch(Dispatchers.IO) {
-                var frameCount = 0
-                var lastFpsTime = System.currentTimeMillis()
-
                 try {
                     while (isActive) {
                         val frame = grabber?.grab()
                         if (frame?.image != null) {
                             converter.convert(frame)?.let { image ->
-                                frameChannel.trySend(image)
-                                println("DEBUG: Sent frame to channel, image size: ${image.width}x${image.height}")
-
-                                frameCount++
-                                val currentTime = System.currentTimeMillis()
-                                if (currentTime - lastFpsTime >= 1000) {
-                                    println("Camera FPS: $frameCount")
-                                    frameCount = 0
-                                    lastFpsTime = currentTime
-                                }
+                                frameFlow.tryEmit(image)
                             }
                         }
 
@@ -109,7 +98,7 @@ class CameraGrabber(
         OperatingSystem.LINUX -> {
             // Prefer /dev/video0 but fall back to the first available readable device (#52, #53)
             val videoDevice = findBestVideoDevice()
-            println("CameraK: Using video device: $videoDevice")
+            CameraKLogger.d("CameraK", "Using video device: $videoDevice")
             FFmpegFrameGrabber(videoDevice)
         }
     }.apply {

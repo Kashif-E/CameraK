@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.enums.DeviceOrientation
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.launch
 
 @Composable
@@ -28,14 +27,13 @@ actual fun CameraPreviewView(
     overlay: @Composable (CameraPreviewScope.() -> Unit)?,
 ) {
     Box(modifier = modifier) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(modifier = modifier) {
             val scope = rememberCoroutineScope()
-            val frameChannel = controller.getFrameChannel()
             var currentFrame by remember { mutableStateOf<ImageBitmap?>(null) }
 
             LaunchedEffect(controller) {
                 scope.launch(Dispatchers.Default) {
-                    frameChannel.consumeAsFlow().collect { frame ->
+                    controller.frameFlow.collect { frame ->
                         currentFrame = frame.toComposeImageBitmap()
                     }
                 }

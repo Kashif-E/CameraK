@@ -1,12 +1,12 @@
 package com.kashif.ocrPlugin
-
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toAwtImage
 import com.kashif.cameraK.controller.CameraController
+import com.kashif.cameraK.utils.CameraKLogger
 import kotlinx.atomicfu.locks.ReentrantLock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.bytedeco.leptonica.PIX
@@ -37,10 +37,10 @@ class OCRProcessor {
         try {
             val tessdataDir = findTessdataDirectory()
             if (tessdataDir == null) {
-                System.err.println("Warning: Could not find tessdata directory. OCR will be disabled.")
+                CameraKLogger.w("CameraK", "Warning: Could not find tessdata directory. OCR will be disabled.")
                 isInitialized = false
             } else if (api.Init(tessdataDir, "eng") != 0) {
-                System.err.println("Warning: Could not initialize Tesseract. OCR will be disabled.")
+                CameraKLogger.w("CameraK", "Warning: Could not initialize Tesseract. OCR will be disabled.")
                 isInitialized = false
             } else {
                 api.SetVariable(
@@ -51,7 +51,7 @@ class OCRProcessor {
                 isInitialized = true
             }
         } catch (e: Exception) {
-            System.err.println("Warning: Failed to initialize OCR: ${e.message}")
+            CameraKLogger.w("CameraK", "Warning: Failed to initialize OCR: ${e.message}")
             isInitialized = false
         }
     }
@@ -173,17 +173,23 @@ actual suspend fun extractTextFromBitmapImpl(bitmap: ImageBitmap): String {
  * @param cameraController The camera controller providing frames
  * @param onText Callback invoked when text is detected with the extracted text
  */
-actual fun startRecognition(cameraController: CameraController, onText: (text: String) -> Unit) {
+actual fun startRecognition(cameraController: CameraController, onText: (text: String) -> Unit): RecognitionHandle {
     val ocrProcessor = OCRProcessor()
     val scope = CoroutineScope(Dispatchers.Default)
 
     scope.launch {
-        cameraController.getFrameChannel().consumeAsFlow().collect { image ->
+        cameraController.frameFlow.collect { image ->
             ocrProcessor.scanImage(image)?.let { text ->
                 withContext(Dispatchers.Main) {
                     onText(text)
                 }
             }
         }
+    }
+
+    // Cancel the (previously immortal) collector and release the Tesseract native handle.
+    return RecognitionHandle {
+        scope.cancel()
+        ocrProcessor.close()
     }
 }
