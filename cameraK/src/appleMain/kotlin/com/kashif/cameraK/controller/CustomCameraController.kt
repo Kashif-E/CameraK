@@ -380,9 +380,13 @@ class CustomCameraController(
         currentCamera?.let { camera ->
             if (camera.hasTorch) {
                 try {
-                    camera.lockForConfiguration(null)
-                    camera.torchMode = mode
-                    camera.unlockForConfiguration()
+                    if (camera.lockForConfiguration(null)) {
+                        try {
+                            camera.torchMode = mode
+                        } finally {
+                            camera.unlockForConfiguration()
+                        }
+                    }
                 } catch (e: Exception) {
                     onError?.invoke(CameraException.ConfigurationError("Failed to set torch mode"))
                 }
@@ -399,9 +403,13 @@ class CustomCameraController(
         currentCamera?.let { camera ->
             val clampedZoom = zoomFactor.coerceIn(1.0f, getMaxZoom())
             try {
-                camera.lockForConfiguration(null)
-                camera.videoZoomFactor = clampedZoom.toDouble()
-                camera.unlockForConfiguration()
+                if (camera.lockForConfiguration(null)) {
+                    try {
+                        camera.videoZoomFactor = clampedZoom.toDouble()
+                    } finally {
+                        camera.unlockForConfiguration()
+                    }
+                }
             } catch (e: Exception) {
                 onError?.invoke(CameraException.ConfigurationError("Failed to set zoom: ${e.message}"))
             }
@@ -424,32 +432,35 @@ class CustomCameraController(
      * Sets the focus point and exposure point of interest.
      * @param x Normalized x coordinate (0..1)
      * @param y Normalized y coordinate (0..1)
+     * @param size Size of the metering area (ignored on iOS as AVFoundation uses normalized points)
      */
     @OptIn(ExperimentalForeignApi::class)
-    fun setFocus(x: Float, y: Float) {
+    fun setFocus(x: Float, y: Float, size: Float) {
         val camera = currentCamera ?: return
         val previewLayer = cameraPreviewLayer ?: return
 
         try {
-            camera.lockForConfiguration(null)
+            if (camera.lockForConfiguration(null)) {
+                try {
+                    val point = platform.CoreGraphics.CGPointMake(
+                        x.toDouble() * previewLayer.bounds.useContents { this.size.width },
+                        y.toDouble() * previewLayer.bounds.useContents { this.size.height },
+                    )
+                    val devicePoint = previewLayer.captureDevicePointOfInterestForPoint(point)
 
-            val point = platform.CoreGraphics.CGPointMake(
-                x.toDouble() * previewLayer.bounds.useContents { size.width },
-                y.toDouble() * previewLayer.bounds.useContents { size.height }
-            )
-            val devicePoint = previewLayer.captureDevicePointOfInterestForPoint(point)
+                    if (camera.isFocusPointOfInterestSupported()) {
+                        camera.focusPointOfInterest = devicePoint
+                        camera.focusMode = AVCaptureFocusModeAutoFocus
+                    }
 
-            if (camera.isFocusPointOfInterestSupported()) {
-                camera.focusPointOfInterest = devicePoint
-                camera.focusMode = AVCaptureFocusModeAutoFocus
+                    if (camera.isExposurePointOfInterestSupported()) {
+                        camera.exposurePointOfInterest = devicePoint
+                        camera.exposureMode = AVCaptureExposureModeContinuousAutoExposure
+                    }
+                } finally {
+                    camera.unlockForConfiguration()
+                }
             }
-
-            if (camera.isExposurePointOfInterestSupported()) {
-                camera.exposurePointOfInterest = devicePoint
-                camera.exposureMode = AVCaptureExposureModeContinuousAutoExposure
-            }
-
-            camera.unlockForConfiguration()
         } catch (e: Exception) {
             NSLog("CameraK: Error setting focus: ${e.message}")
         }
