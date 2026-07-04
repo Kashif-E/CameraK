@@ -343,6 +343,18 @@ class CameraKStateHolder(
     }
 
     /**
+     * Sets the focus point and metering area.
+     *
+     * @param x Horizontal coordinate (0.0 to 1.0).
+     * @param y Vertical coordinate (0.0 to 1.0).
+     * @param size Size of the focus/metering area (0.0 to 1.0).
+     */
+    fun setFocus(x: Float, y: Float, size: Float = 0.15f) {
+        val currentController = controller ?: return
+        currentController.setFocus(x, y, size)
+    }
+
+    /**
      * Toggles the flash mode (OFF → AUTO → ON → OFF).
      */
     fun toggleFlashMode() {
