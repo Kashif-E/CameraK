@@ -715,7 +715,7 @@ class CameraKStateHolder {
 
     // Camera control
     fun captureImage()
-    fun setFocus(x: Float, y: Float, size: Float)
+    fun setFocus(x: Float, y: Float, size: Float = 0.15f)
     fun setZoom(zoom: Float)
     fun toggleFlashMode()
     fun setFlashMode(mode: FlashMode)
@@ -749,7 +749,7 @@ expect class CameraController {
     suspend fun takePicture(): ImageCaptureResult              // Legacy - returns ByteArray
 
     // Focus control
-    fun setFocus(x: Float, y: Float, size: Float)
+    fun setFocus(x: Float, y: Float, size: Float = 0.15f)
 
     // Zoom control
     fun setZoom(zoom: Float)
