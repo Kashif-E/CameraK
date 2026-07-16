@@ -96,7 +96,7 @@ Pure functions ported from VisionSDK's `LensKindClassifier`, placed in commonMai
 
 ### Desktop (desktopMain)
 
-`getCameraCapabilities()` returns one `LensInfo(id = "", deviceType = DEFAULT, lens = BACK, minZoom = 1f, maxZoom = 1f, hasFlash = false, isLogical = false)` when a webcam is present, else empty list.
+`getCameraCapabilities()` returns one `LensInfo(id = "", deviceType = DEFAULT, lens = BACK, minZoom = 1f, maxZoom = 1f, hasFlash = false, isLogical = false)` unconditionally — the controller layer doesn't track webcam presence, and a constructed desktop controller implies a camera context.
 
 ## Error Handling
 
