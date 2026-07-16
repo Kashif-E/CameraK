@@ -1,5 +1,6 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.capabilities.CameraCapabilities
 import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
@@ -458,6 +459,8 @@ actual class CameraController(
         cameraDeviceType = deviceType
         customCameraController.switchToDeviceType(deviceType)
     }
+
+    actual fun getCameraCapabilities(): CameraCapabilities = CameraCapabilities.EMPTY
 
     actual fun startSession() {
         // Note: The actual session start happens in onSessionReady callback (setupCamera).

@@ -1,5 +1,6 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.capabilities.CameraCapabilities
 import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
@@ -123,6 +124,22 @@ expect class CameraController {
      * @param deviceType The desired [CameraDeviceType] to switch to.
      */
     fun setPreferredCameraDeviceType(deviceType: CameraDeviceType)
+
+    /**
+     * Returns a snapshot of the device's camera hardware: every lens with its
+     * classified type (ultra-wide / wide / telephoto / macro), facing, zoom range
+     * and flash availability.
+     *
+     * Use [CameraCapabilities.availableDeviceTypes] to know which values of
+     * [setPreferredCameraDeviceType] will actually switch lenses on this device.
+     *
+     * Platform notes:
+     * - Android: enumerated via Camera2, including physical sub-lenses of logical
+     *   multi-cameras. Cached after the first call.
+     * - iOS: enumerated via AVCaptureDeviceDiscoverySession.
+     * - Desktop: reports a single DEFAULT lens.
+     */
+    fun getCameraCapabilities(): CameraCapabilities
 
     /**
      * Sets the zoom level.

@@ -1,5 +1,7 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.capabilities.CameraCapabilities
+import com.kashif.cameraK.capabilities.LensInfo
 import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
@@ -178,6 +180,20 @@ actual class CameraController(
     actual fun setPreferredCameraDeviceType(deviceType: CameraDeviceType) {
         // No-op on desktop — single camera
     }
+
+    actual fun getCameraCapabilities(): CameraCapabilities = CameraCapabilities(
+        listOf(
+            LensInfo(
+                id = "",
+                deviceType = CameraDeviceType.DEFAULT,
+                lens = CameraLens.BACK,
+                minZoom = 1f,
+                maxZoom = 1f,
+                hasFlash = false,
+                isLogical = false,
+            ),
+        ),
+    )
 
     /**
      * Sets the zoom level.

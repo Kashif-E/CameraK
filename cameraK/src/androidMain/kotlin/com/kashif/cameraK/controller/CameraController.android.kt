@@ -36,6 +36,7 @@ import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import com.kashif.cameraK.capabilities.CameraCapabilities
 import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
@@ -607,6 +608,8 @@ actual class CameraController(
         // (this rebind keeps the session/plugins; the field alone has no effect until a bind).
         previewView?.let { bindCamera(it) }
     }
+
+    actual fun getCameraCapabilities(): CameraCapabilities = CameraCapabilities.EMPTY
 
     actual fun startSession() {
         memoryManager.updateMemoryStatus()
