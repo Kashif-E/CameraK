@@ -460,7 +460,8 @@ actual class CameraController(
         customCameraController.switchToDeviceType(deviceType)
     }
 
-    actual fun getCameraCapabilities(): CameraCapabilities = CameraCapabilities.EMPTY
+    actual fun getCameraCapabilities(): CameraCapabilities =
+        CameraCapabilities(customCameraController.getCameraCapabilities())
 
     actual fun startSession() {
         // Note: The actual session start happens in onSessionReady callback (setupCamera).

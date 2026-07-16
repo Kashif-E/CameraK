@@ -1,5 +1,6 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.capabilities.LensInfo
 import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
@@ -164,37 +165,66 @@ class CustomCameraController(
         }
     }
 
+    /**
+     * Single discovery entry point — setupInputs, switchToDeviceType and
+     * getCameraCapabilities all enumerate through here.
+     */
+    private fun discoverDevices(deviceTypes: List<String>, position: AVCaptureDevicePosition): List<AVCaptureDevice> =
+        AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
+            deviceTypes,
+            AVMediaTypeVideo,
+            position,
+        ).devices.map { it as AVCaptureDevice }
+
+    private fun allLensDeviceTypes(): List<String> = listOfNotNull(
+        AVCaptureDeviceTypeBuiltInWideAngleCamera,
+        AVCaptureDeviceTypeBuiltInTelephotoCamera,
+        AVCaptureDeviceTypeBuiltInUltraWideCamera,
+    )
+
+    /**
+     * Enumerates every built-in lens (wide, telephoto, ultra-wide) on both positions.
+     */
+    fun getCameraCapabilities(): List<LensInfo> =
+        discoverDevices(allLensDeviceTypes(), AVCaptureDevicePositionUnspecified).map { device ->
+            LensInfo(
+                id = device.uniqueID,
+                deviceType = when (device.deviceType) {
+                    AVCaptureDeviceTypeBuiltInUltraWideCamera -> CameraDeviceType.ULTRA_WIDE
+                    AVCaptureDeviceTypeBuiltInTelephotoCamera -> CameraDeviceType.TELEPHOTO
+                    AVCaptureDeviceTypeBuiltInWideAngleCamera -> CameraDeviceType.WIDE_ANGLE
+                    else -> CameraDeviceType.DEFAULT
+                },
+                lens = if (device.position == AVCaptureDevicePositionFront) CameraLens.FRONT else CameraLens.BACK,
+                minZoom = device.minAvailableVideoZoomFactor.toFloat(),
+                maxZoom = device.maxAvailableVideoZoomFactor.toFloat(),
+                hasFlash = device.hasFlash,
+                isLogical = false,
+            )
+        }
+
     @OptIn(ExperimentalForeignApi::class)
     private fun setupInputs(cameraDeviceType: CameraDeviceType): Boolean {
         val deviceTypeString = cameraDeviceType.toAVCaptureDeviceType()
-        val deviceTypes = deviceTypeString?.let { listOf(it) } ?: listOfNotNull(
-            AVCaptureDeviceTypeBuiltInWideAngleCamera,
-            AVCaptureDeviceTypeBuiltInTelephotoCamera,
-            AVCaptureDeviceTypeBuiltInUltraWideCamera,
-        )
 
-        val discoverySession = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
-            deviceTypes,
-            AVMediaTypeVideo,
+        val discovered = discoverDevices(
+            deviceTypeString?.let { listOf(it) } ?: allLensDeviceTypes(),
             AVCaptureDevicePositionUnspecified,
         )
-
-        val devices = discoverySession.devices.ifEmpty {
-            AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo)?.let { listOf<Any?>(it) } ?: emptyList()
+        val devices = discovered.ifEmpty {
+            listOfNotNull(AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo) as? AVCaptureDevice)
         }
 
-        devices.forEach { device ->
-            val cam = device as AVCaptureDevice
+        devices.forEach { cam ->
             when (cam.position) {
                 AVCaptureDevicePositionBack -> backCamera = cam
                 AVCaptureDevicePositionFront -> frontCamera = cam
             }
         }
 
-        fun findByTypeAndPosition(type: String?, position: Long?): AVCaptureDevice? = devices.firstOrNull { dev ->
-            val cam = dev as AVCaptureDevice
+        fun findByTypeAndPosition(type: String?, position: Long?): AVCaptureDevice? = devices.firstOrNull { cam ->
             (type == null || cam.deviceType == type) && (position == null || cam.position == position)
-        } as? AVCaptureDevice
+        }
 
         val requestedType = cameraDeviceType.toAVCaptureDeviceType()
         val desiredPosition = when (initialCameraLens) {
@@ -527,22 +557,10 @@ class CustomCameraController(
             AVCaptureDevicePositionBack
         }
 
-        // Discover device matching the requested type and position
-        val discoverySession = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
-            listOf(targetType),
-            AVMediaTypeVideo,
-            position,
-        )
-
-        val newDevice = discoverySession.devices.firstOrNull() as? AVCaptureDevice ?: run {
-            // Fallback: try any position
-            val fallback = AVCaptureDeviceDiscoverySession.discoverySessionWithDeviceTypes(
-                listOf(targetType),
-                AVMediaTypeVideo,
-                AVCaptureDevicePositionUnspecified,
-            )
-            fallback.devices.firstOrNull() as? AVCaptureDevice
-        } ?: return
+        // Discover device matching the requested type and position, falling back to any position
+        val newDevice = discoverDevices(listOf(targetType), position).firstOrNull()
+            ?: discoverDevices(listOf(targetType), AVCaptureDevicePositionUnspecified).firstOrNull()
+            ?: return
 
         val wasRunning = session.isRunning()
         if (wasRunning) {
