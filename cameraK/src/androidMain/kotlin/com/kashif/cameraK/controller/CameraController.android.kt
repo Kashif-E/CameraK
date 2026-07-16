@@ -36,7 +36,9 @@ import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import com.kashif.cameraK.capabilities.AndroidLensDescriptor
 import com.kashif.cameraK.capabilities.CameraCapabilities
+import com.kashif.cameraK.capabilities.LensEnumerator
 import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
@@ -118,6 +120,12 @@ actual class CameraController(
 
     private val imageProcessingExecutor = Executors.newFixedThreadPool(2)
     private val analyzerExecutor = Executors.newSingleThreadExecutor()
+
+    // Hardware doesn't change at runtime; enumerate once.
+    private var cachedLensSnapshot: List<AndroidLensDescriptor>? = null
+
+    internal fun lensSnapshot(): List<AndroidLensDescriptor> =
+        cachedLensSnapshot ?: LensEnumerator.snapshot(context).also { cachedLensSnapshot = it }
 
     // Portrait/landscape category of the display rotation used to build the current ViewPort. The
     // ViewPort is immutable once bound, so when the display flips category we must rebind to rebuild
@@ -609,7 +617,7 @@ actual class CameraController(
         previewView?.let { bindCamera(it) }
     }
 
-    actual fun getCameraCapabilities(): CameraCapabilities = CameraCapabilities.EMPTY
+    actual fun getCameraCapabilities(): CameraCapabilities = CameraCapabilities(lensSnapshot().map { it.info })
 
     actual fun startSession() {
         memoryManager.updateMemoryStatus()
