@@ -2,7 +2,6 @@ package com.kashif.cameraK.controller
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.hardware.camera2.CameraCharacteristics
 import android.os.Environment
 import android.util.Rational
 import android.util.Size
@@ -10,6 +9,7 @@ import android.view.OrientationEventListener
 import android.view.Surface
 import androidx.annotation.OptIn
 import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -124,6 +124,13 @@ actual class CameraController(
     // Hardware doesn't change at runtime; enumerate once.
     private var cachedLensSnapshot: List<AndroidLensDescriptor>? = null
 
+    // Set by createCameraSelector when the requested device type is a physical sub-lens of a
+    // logical multi-camera. CameraSelector.setPhysicalCameraId ALONE silently no-ops on real
+    // hardware — it must be paired with Camera2Interop.Extender.setPhysicalCameraId on EVERY
+    // use-case builder (proven by VisionSDK spike PXA-2178). Consulted by bindCamera,
+    // configureCaptureUseCase and rebuildMultiplexedAnalyzer.
+    private var pinnedPhysicalId: String? = null
+
     internal fun lensSnapshot(): List<AndroidLensDescriptor> =
         cachedLensSnapshot ?: LensEnumerator.snapshot(context).also { cachedLensSnapshot = it }
 
@@ -137,6 +144,7 @@ actual class CameraController(
     @Volatile
     private var pendingViewPortRebind = false
 
+    @OptIn(ExperimentalCamera2Interop::class)
     fun bindCamera(previewView: PreviewView, onCameraReady: () -> Unit = {}) {
         this.previewView = previewView
 
@@ -149,15 +157,16 @@ actual class CameraController(
                 cameraProvider?.unbindAll()
 
                 val resolutionSelector = createResolutionSelector()
+                // Must run before any use-case builder: it decides pinnedPhysicalId.
+                val cameraSelector = createCameraSelector()
 
                 preview = Preview.Builder()
                     .setResolutionSelector(resolutionSelector)
+                    .apply { pinnedPhysicalId?.let { Camera2Interop.Extender(this).setPhysicalCameraId(it) } }
                     .build()
                     .also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
-
-                val cameraSelector = createCameraSelector()
 
                 configureCaptureUseCase(resolutionSelector)
                 // Only build VideoCapture when a recording is active/about to start — see field doc.
@@ -289,86 +298,52 @@ actual class CameraController(
     }
 
     /**
-     * Creates a camera selector based on lens facing and device type.
+     * Creates a camera selector for the current facing + requested device type, resolved
+     * against the real lens snapshot (35mm-equivalent classification) instead of raw
+     * focal-length thresholds.
      *
-     * Uses Camera2 Interop to access physical camera characteristics for proper
-     * device type selection (telephoto, ultra-wide, macro). Falls back gracefully
-     * to the default camera if the requested type is not available.
-     *
-     * @return CameraSelector configured for the current lens and device type
+     * - WIDE_ANGLE/DEFAULT: no filter (the default logical camera opens wide).
+     * - Requested type maps to a top-level camera id: exact-id filter.
+     * - Requested type maps to a physical sub-lens: physical-camera pin (selector half;
+     *   the use-case builders apply the Camera2Interop half via [pinnedPhysicalId]).
+     * - Type unavailable on this facing: warn and fall back to the default camera.
      */
     @OptIn(ExperimentalCamera2Interop::class)
     private fun createCameraSelector(): CameraSelector {
+        pinnedPhysicalId = null
         val builder = CameraSelector.Builder()
             .requireLensFacing(cameraLens.toCameraXLensFacing())
 
-        when (cameraDeviceType) {
-            CameraDeviceType.WIDE_ANGLE, CameraDeviceType.DEFAULT -> {
-                // Default camera, no filter needed
-            }
-            CameraDeviceType.TELEPHOTO -> {
-                builder.addCameraFilter { cameraInfos ->
-                    cameraInfos.filter { cameraInfo ->
-                        try {
-                            val camera2Info = Camera2CameraInfo.from(cameraInfo)
-                            val focalLengths = camera2Info.getCameraCharacteristic(
-                                CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
-                            )?.toList() ?: emptyList()
-                            focalLengths.any { it > 4.0f }
-                        } catch (e: Exception) {
-                            false
-                        }
-                    }.ifEmpty {
-                        CameraKLogger.w("CameraK", "Telephoto camera not available, using default")
-                        cameraInfos.take(1)
-                    }
-                }
-            }
-            CameraDeviceType.ULTRA_WIDE -> {
-                builder.addCameraFilter { cameraInfos ->
-                    cameraInfos.filter { cameraInfo ->
-                        try {
-                            val camera2Info = Camera2CameraInfo.from(cameraInfo)
-                            val focalLengths = camera2Info.getCameraCharacteristic(
-                                CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
-                            )?.toList() ?: emptyList()
-                            focalLengths.any { it < 2.5f }
-                        } catch (e: Exception) {
-                            false
-                        }
-                    }.ifEmpty {
-                        CameraKLogger.w("CameraK", "Ultra-wide camera not available, using default")
-                        cameraInfos.take(1)
-                    }
-                }
-            }
-            CameraDeviceType.MACRO -> {
-                builder.addCameraFilter { cameraInfos ->
-                    cameraInfos.filter { cameraInfo ->
-                        try {
-                            val camera2Info = Camera2CameraInfo.from(cameraInfo)
-                            val minFocusDistance = camera2Info.getCameraCharacteristic(
-                                CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-                            ) ?: 0f
-                            minFocusDistance > 0f && minFocusDistance < 0.2f
-                        } catch (e: Exception) {
-                            false
-                        }
-                    }.ifEmpty {
-                        CameraKLogger.w("CameraK", "Macro camera not available, using default")
-                        cameraInfos.take(1)
-                    }
-                }
-            }
+        if (cameraDeviceType == CameraDeviceType.DEFAULT || cameraDeviceType == CameraDeviceType.WIDE_ANGLE) {
+            return builder.build()
         }
 
-        return builder.build()
+        val target = lensSnapshot().firstOrNull {
+            it.info.lens == cameraLens && it.info.deviceType == cameraDeviceType
+        }
+        if (target == null) {
+            CameraKLogger.w("CameraK", "$cameraDeviceType not available for $cameraLens, using default camera")
+            return builder.build()
+        }
+
+        return if (target.isPhysicalChild) {
+            pinnedPhysicalId = target.info.id
+            builder.setPhysicalCameraId(target.info.id).build()
+        } else {
+            builder.addCameraFilter { cameraInfos ->
+                cameraInfos.filter { Camera2CameraInfo.from(it).cameraId == target.info.id }
+                    .ifEmpty {
+                        CameraKLogger.w("CameraK", "Camera ${target.info.id} not offered by CameraX, using default")
+                        cameraInfos
+                    }
+            }.build()
+        }
     }
 
     /**
      * Configure the image capture use case with settings adapted to current memory conditions
      */
-    @OptIn(ExperimentalZeroShutterLag::class)
+    @OptIn(ExperimentalZeroShutterLag::class, ExperimentalCamera2Interop::class)
     private fun configureCaptureUseCase(resolutionSelector: ResolutionSelector) {
         imageCapture = ImageCapture.Builder()
             .setFlashMode(flashMode.toCameraXFlashMode())
@@ -387,6 +362,7 @@ actual class CameraController(
                 },
             )
             .setResolutionSelector(resolutionSelector)
+            .apply { pinnedPhysicalId?.let { Camera2Interop.Extender(this).setPhysicalCameraId(it) } }
             .build()
     }
 
@@ -422,6 +398,7 @@ actual class CameraController(
         rebuildMultiplexedAnalyzer()
     }
 
+    @OptIn(ExperimentalCamera2Interop::class)
     private fun rebuildMultiplexedAnalyzer() {
         if (registeredAnalyzers.isEmpty()) {
             if (imageAnalyzer != null) {
@@ -436,6 +413,7 @@ actual class CameraController(
         val composite = MultiplexingAnalyzer(registeredAnalyzers.toList())
         imageAnalyzer = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .apply { pinnedPhysicalId?.let { Camera2Interop.Extender(this).setPhysicalCameraId(it) } }
             .build()
             .apply {
                 // Run analysis off the main thread — frame work (e.g. JPEG-encoding the analyzer
