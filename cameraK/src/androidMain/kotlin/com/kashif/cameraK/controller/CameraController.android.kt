@@ -341,7 +341,19 @@ actual class CameraController(
 
         return if (target.isPhysicalChild) {
             pinnedPhysicalId = target.info.id
-            builder.setPhysicalCameraId(target.info.id).build()
+            // setPhysicalCameraId ALONE does not influence which logical camera CameraSelector
+            // picks: CameraSelector.select() (verified against CameraX 1.5.1 source) resolves
+            // purely from the CameraFilter set, and the physical id is only consulted later by
+            // the use-case builders' Camera2Interop.Extender. Without this filter, on a facing
+            // with multiple logical multi-cameras, selection could land on the wrong logical
+            // camera while still (silently) trying to pin a physical id that belongs to a
+            // different one. Constrain selection to the physical child's parent logical camera;
+            // fall back to the unfiltered set if for some reason it's not offered.
+            builder.setPhysicalCameraId(target.info.id)
+                .addCameraFilter { cameraInfos ->
+                    cameraInfos.filter { Camera2CameraInfo.from(it).cameraId == target.parentLogicalId }
+                        .ifEmpty { cameraInfos }
+                }.build()
         } else {
             builder.addCameraFilter { cameraInfos ->
                 cameraInfos.filter { Camera2CameraInfo.from(it).cameraId == target.info.id }

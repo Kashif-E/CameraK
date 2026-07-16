@@ -8,8 +8,16 @@ import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.utils.CameraKLogger
 
-/** [LensInfo] plus the Android-only binding facts the selector needs. */
-internal class AndroidLensDescriptor(val info: LensInfo, val isPhysicalChild: Boolean)
+/**
+ * [LensInfo] plus the Android-only binding facts the selector needs.
+ *
+ * @property parentLogicalId For a physical sub-lens, the id of the enclosing top-level logical
+ * camera it was expanded from; null for top-level entries. CameraSelector.select() (CameraX 1.5.1)
+ * resolves purely from the CameraFilter set — setPhysicalCameraId does NOT influence which logical
+ * camera is picked — so pinning a physical child to the right hardware requires filtering on this
+ * parent id too (see CameraController.createCameraSelector).
+ */
+internal class AndroidLensDescriptor(val info: LensInfo, val isPhysicalChild: Boolean, val parentLogicalId: String?)
 
 /**
  * Camera2 snapshot of every lens on the device. Top-level ids come from
@@ -31,11 +39,12 @@ internal object LensEnumerator {
 
         val rawByFacing = mutableMapOf<CameraLens, MutableList<RawCamera>>()
         for (id in cameraIds) {
-            val raw = describe(manager, id, isPhysicalChild = false) ?: continue
+            val raw = describe(manager, id, isPhysicalChild = false, parentLogicalId = null) ?: continue
             rawByFacing.getOrPut(raw.facing) { mutableListOf() }.add(raw)
             if (raw.isLogical) {
                 for (physicalId in raw.physicalCameraIds) {
-                    val child = describe(manager, physicalId, isPhysicalChild = true) ?: continue
+                    val child = describe(manager, physicalId, isPhysicalChild = true, parentLogicalId = id)
+                        ?: continue
                     rawByFacing.getOrPut(child.facing) { mutableListOf() }.add(child)
                 }
             }
@@ -67,6 +76,7 @@ internal object LensEnumerator {
                             isLogical = raw.isLogical,
                         ),
                         isPhysicalChild = raw.isPhysicalChild,
+                        parentLogicalId = raw.parentLogicalId,
                     ),
                 )
             }
@@ -76,12 +86,22 @@ internal object LensEnumerator {
 
     private val MACRO_FOCUS_RANGE = 0.001f..0.2f
 
+    // Dedup pool is per PARENT logical camera, not per facing: two logical cameras on the same
+    // facing (e.g. two back logical multi-cameras) can each have a child at the same focal length
+    // without being crop siblings of each other — pooling all children of a facing together would
+    // wrongly collapse one representative across both parents.
     private fun dedupeCropSiblings(rawCameras: List<RawCamera>): List<RawCamera> {
         val (children, topLevel) = rawCameras.partition { it.isPhysicalChild }
-        val surviving = dedupeOpticallyDistinctLenses(
-            children.map { RawLensFocalInfo(it.id, it.focalLengthsMm, it.physicalSizeWidthMm, it.isLogical) },
-        ).mapTo(mutableSetOf()) { it.id }
-        return topLevel + children.filter { it.id in surviving }
+        val survivingIds = children
+            .groupBy { it.parentLogicalId }
+            .values
+            .flatMap { group ->
+                dedupeOpticallyDistinctLenses(
+                    group.map { RawLensFocalInfo(it.id, it.focalLengthsMm, it.physicalSizeWidthMm, it.isLogical) },
+                )
+            }
+            .mapTo(mutableSetOf()) { it.id }
+        return topLevel + children.filter { it.id in survivingIds }
     }
 
     private class RawCamera(
@@ -92,13 +112,19 @@ internal object LensEnumerator {
         val hasFlash: Boolean,
         val isLogical: Boolean,
         val isPhysicalChild: Boolean,
+        val parentLogicalId: String?,
         val focalLengthsMm: List<Float>,
         val physicalSizeWidthMm: Float?,
         val physicalCameraIds: Set<String>,
         val minFocusDistance: Float,
     )
 
-    private fun describe(manager: CameraManager?, id: String, isPhysicalChild: Boolean): RawCamera? {
+    private fun describe(
+        manager: CameraManager?,
+        id: String,
+        isPhysicalChild: Boolean,
+        parentLogicalId: String?,
+    ): RawCamera? {
         val characteristics = try {
             manager?.getCameraCharacteristics(id)
         } catch (e: Exception) {
@@ -140,6 +166,7 @@ internal object LensEnumerator {
             hasFlash = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true,
             isLogical = physicalIds.isNotEmpty(),
             isPhysicalChild = isPhysicalChild,
+            parentLogicalId = parentLogicalId,
             focalLengthsMm = characteristics.get(
                 CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
             )?.toList().orEmpty(),
