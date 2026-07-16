@@ -172,6 +172,15 @@ actual class CameraController(
                 // Only build VideoCapture when a recording is active/about to start — see field doc.
                 if (includeVideoUseCase) configureVideoCaptureUseCase(pendingVideoQuality) else videoCapture = null
 
+                // Rebuild rather than reuse the existing instance: its baked-in Camera2Interop pin
+                // reflects the PREVIOUS lens/device type. Reusing it after a switch would silently
+                // analyze frames from the wrong physical camera (or lose the pin). Constructed here
+                // (after createCameraSelector set pinnedPhysicalId, before the use-case group is
+                // assembled below) so it binds via this bindToLifecycle call, not a second nested one.
+                if (registeredAnalyzers.isNotEmpty()) {
+                    imageAnalyzer = buildMultiplexedAnalyzer()
+                }
+
                 // Align capture rotation with the display rotation that also drives the ViewPort and
                 // the preview box, so all three agree (WYSIWYG). Relying on the accelerometer
                 // OrientationEventListener for this let the crop (display-based) and the EXIF
@@ -372,8 +381,10 @@ actual class CameraController(
             imageAnalyzer?.let { analyzer ->
                 cameraProvider?.bindToLifecycle(
                     lifecycleOwner,
-                    CameraSelector.Builder().requireLensFacing(cameraLens.toCameraXLensFacing())
-                        .build(),
+                    // Reuse createCameraSelector() rather than a bare lens-facing selector: a
+                    // pinned physical lens must carry the same selector-level pin as the main
+                    // bind, otherwise the analyzer silently reads frames from the default camera.
+                    createCameraSelector(),
                     analyzer,
                 )
             }
@@ -398,7 +409,26 @@ actual class CameraController(
         rebuildMultiplexedAnalyzer()
     }
 
+    /**
+     * Builds the multiplexed [ImageAnalysis] use case from [registeredAnalyzers], baking in
+     * [pinnedPhysicalId] via Camera2Interop. Construction only — does not bind. Callers that
+     * already own a bindToLifecycle call (bindCamera) apply the result to the same use-case
+     * group instead of triggering a redundant nested bind.
+     */
     @OptIn(ExperimentalCamera2Interop::class)
+    private fun buildMultiplexedAnalyzer(): ImageAnalysis {
+        val composite = MultiplexingAnalyzer(registeredAnalyzers.toList())
+        return ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .apply { pinnedPhysicalId?.let { Camera2Interop.Extender(this).setPhysicalCameraId(it) } }
+            .build()
+            .apply {
+                // Run analysis off the main thread — frame work (e.g. JPEG-encoding the analyzer
+                // frame, QR/OCR) is too heavy to block the UI thread.
+                setAnalyzer(analyzerExecutor, composite)
+            }
+    }
+
     private fun rebuildMultiplexedAnalyzer() {
         if (registeredAnalyzers.isEmpty()) {
             if (imageAnalyzer != null) {
@@ -410,16 +440,7 @@ actual class CameraController(
             return
         }
 
-        val composite = MultiplexingAnalyzer(registeredAnalyzers.toList())
-        imageAnalyzer = ImageAnalysis.Builder()
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .apply { pinnedPhysicalId?.let { Camera2Interop.Extender(this).setPhysicalCameraId(it) } }
-            .build()
-            .apply {
-                // Run analysis off the main thread — frame work (e.g. JPEG-encoding the analyzer
-                // frame, QR/OCR) is too heavy to block the UI thread.
-                setAnalyzer(analyzerExecutor, composite)
-            }
+        imageAnalyzer = buildMultiplexedAnalyzer()
 
         try {
             updateImageAnalyzer()
