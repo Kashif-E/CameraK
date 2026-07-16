@@ -300,7 +300,7 @@ Query available camera hardware capabilities before switching to specific lens t
 ```kotlin
 val capabilities = stateHolder.getCameraCapabilities()
 if (CameraDeviceType.ULTRA_WIDE in capabilities.availableDeviceTypes(CameraLens.BACK)) {
-    stateHolder.setPreferredCameraDeviceType(CameraDeviceType.ULTRA_WIDE)
+    stateHolder.getController()?.setPreferredCameraDeviceType(CameraDeviceType.ULTRA_WIDE)
 }
 ```
 
