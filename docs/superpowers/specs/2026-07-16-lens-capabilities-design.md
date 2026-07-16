@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-16
 **Status:** Approved (design discussed and accepted in session)
-**Reference:** VisionSDK Android camera core (`vision-sdk-android/.../camera/core`) — ported, not depended on.
+**Approach:** Based on 35mm-equivalent focal-length classification, validated on real multi-camera hardware.
 
 ## Problem
 
@@ -17,7 +17,7 @@
 
 ## Non-Goals
 
-- No `Lens`-object/`LensSelection.Pin` API (VisionSDK style) — the existing enum API is kept.
+- No `Lens`-object/`LensSelection.Pin` API — the existing enum API is kept.
 - No capabilities in `CameraUIState`/StateFlow — static hardware info, a query function suffices.
 - No zoom switch-points (Android exposes no API for it).
 - No changes to the iOS switching path (already correct via `AVCaptureDeviceType`).
@@ -56,7 +56,7 @@ Classification note: a lens whose focal data is unreadable maps to `CameraDevice
 
 ### Shared classification math (commonMain, internal)
 
-Pure functions ported from VisionSDK's `LensKindClassifier`, placed in commonMain so they run in `desktopTest` (fastest loop, repo convention):
+Pure functions implementing 35mm-equivalent focal-length classification, placed in commonMain so they run in `desktopTest` (fastest loop, repo convention):
 
 - `equivalentFocalLengthMm(focalMm, sensorWidthMm?)` — 35mm-equivalent: `focal × 36 / sensorWidth`; falls back to raw mm when sensor size unreadable.
 - `deriveLensDeviceTypes(List<RawLensFocalInfo>): Map<String, CameraDeviceType>` — rules:
@@ -81,7 +81,7 @@ Pure functions ported from VisionSDK's `LensKindClassifier`, placed in commonMai
 **Rewrite: `createCameraSelector()`** — resolve requested `CameraDeviceType` against the snapshot for the current facing:
 
 - Requested type maps to a **top-level** id → `addCameraFilter` matching `Camera2CameraInfo.getCameraId()` (exact id, not focal-length re-filtering).
-- Requested type maps to a **physical child** → `CameraSelector.Builder().setPhysicalCameraId(id)` filtered to the parent logical camera, plus `Camera2Interop.Extender.setPhysicalCameraId` on Preview/ImageCapture/ImageAnalysis builders (CameraX 1.5.1, already the project version; proven by VisionSDK spike PXA-2178).
+- Requested type maps to a **physical child** → `CameraSelector.Builder().setPhysicalCameraId(id)` filtered to the parent logical camera, plus `Camera2Interop.Extender.setPhysicalCameraId` on Preview/ImageCapture/ImageAnalysis builders (CameraX 1.5.1, already the project version; both halves are required together — verified on real hardware).
 - Type unavailable for facing → log warning, bind default camera (current fallback behavior, unchanged).
 - `WIDE_ANGLE`/`DEFAULT` → no filter (current behavior).
 

@@ -127,12 +127,16 @@ actual class CameraController(
     // Set by createCameraSelector when the requested device type is a physical sub-lens of a
     // logical multi-camera. CameraSelector.setPhysicalCameraId ALONE silently no-ops on real
     // hardware — it must be paired with Camera2Interop.Extender.setPhysicalCameraId on EVERY
-    // use-case builder (proven by VisionSDK spike PXA-2178). Consulted by bindCamera,
+    // use-case builder (verified on real hardware). Consulted by bindCamera,
     // configureCaptureUseCase and rebuildMultiplexedAnalyzer.
     private var pinnedPhysicalId: String? = null
 
     internal fun lensSnapshot(): List<AndroidLensDescriptor> =
-        cachedLensSnapshot ?: LensEnumerator.snapshot(context).also { cachedLensSnapshot = it }
+        cachedLensSnapshot ?: LensEnumerator.snapshot(context).also {
+            // Don't cache an empty result: a transient camera-service failure on the first call
+            // would otherwise permanently disable lens switching for the controller's lifetime.
+            if (it.isNotEmpty()) cachedLensSnapshot = it
+        }
 
     // Portrait/landscape category of the display rotation used to build the current ViewPort. The
     // ViewPort is immutable once bound, so when the display flips category we must rebind to rebuild

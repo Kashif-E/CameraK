@@ -118,7 +118,12 @@ expect class CameraController {
      * Switches to a different camera device type at runtime.
      *
      * On iOS this switches between wide-angle, telephoto, ultra-wide, etc.
-     * On Android this is a no-op (CameraX handles device selection automatically).
+     * On Android this resolves the request against the device's classified lenses
+     * (ultra-wide/telephoto/macro, including physical sub-lenses of logical multi-cameras)
+     * and switches to the matching one; if the requested type isn't available on the current
+     * facing, it falls back to the default camera and logs a warning. Check
+     * [CameraCapabilities.availableDeviceTypes] first to know which types will actually switch
+     * lenses on this device.
      * On Desktop this is a no-op (single camera).
      *
      * @param deviceType The desired [CameraDeviceType] to switch to.

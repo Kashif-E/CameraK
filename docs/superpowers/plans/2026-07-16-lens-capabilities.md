@@ -4,7 +4,7 @@
 
 **Goal:** Public `getCameraCapabilities()` on all platforms, and Android `setPreferredCameraDeviceType(ULTRA_WIDE/TELEPHOTO)` that actually binds those lenses — including physical sub-lenses of logical multi-cameras.
 
-**Architecture:** Pure classification math (35mm-equivalent focal length) lives in commonMain (unit-testable via `desktopTest`). Android enumerates cameras via `CameraManager` including `physicalCameraIds` expansion, and binds physical sub-lenses via `CameraSelector.setPhysicalCameraId` + `Camera2Interop.Extender.setPhysicalCameraId` on every use-case builder (both are required together — proven by VisionSDK spike PXA-2178). iOS wraps its existing `AVCaptureDeviceDiscoverySession` pattern into `LensInfo`s. Spec: `docs/superpowers/specs/2026-07-16-lens-capabilities-design.md`.
+**Architecture:** Pure classification math (35mm-equivalent focal length) lives in commonMain (unit-testable via `desktopTest`). Android enumerates cameras via `CameraManager` including `physicalCameraIds` expansion, and binds physical sub-lenses via `CameraSelector.setPhysicalCameraId` + `Camera2Interop.Extender.setPhysicalCameraId` on every use-case builder (both are required together — verified on real hardware). iOS wraps its existing `AVCaptureDeviceDiscoverySession` pattern into `LensInfo`s. Spec: `docs/superpowers/specs/2026-07-16-lens-capabilities-design.md`.
 
 **Tech Stack:** Kotlin Multiplatform, CameraX 1.5.1 (already the project version — do not bump), AVFoundation, kotlin.test.
 
@@ -754,7 +754,7 @@ Add the field next to `cachedLensSnapshot`:
     // Set by createCameraSelector when the requested device type is a physical sub-lens of a
     // logical multi-camera. CameraSelector.setPhysicalCameraId ALONE silently no-ops on real
     // hardware — it must be paired with Camera2Interop.Extender.setPhysicalCameraId on EVERY
-    // use-case builder (proven by VisionSDK spike PXA-2178). Consulted by bindCamera,
+    // use-case builder (verified on real hardware). Consulted by bindCamera,
     // configureCaptureUseCase and rebuildMultiplexedAnalyzer.
     private var pinnedPhysicalId: String? = null
 ```

@@ -8,8 +8,8 @@ import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.utils.CameraKLogger
 
-/** [LensInfo] plus the Android-only binding facts Task 5's selector needs. */
-internal class AndroidLensDescriptor(val info: LensInfo, val isPhysicalChild: Boolean, val parentLogicalId: String?)
+/** [LensInfo] plus the Android-only binding facts the selector needs. */
+internal class AndroidLensDescriptor(val info: LensInfo, val isPhysicalChild: Boolean)
 
 /**
  * Camera2 snapshot of every lens on the device. Top-level ids come from
@@ -31,11 +31,11 @@ internal object LensEnumerator {
 
         val rawByFacing = mutableMapOf<CameraLens, MutableList<RawCamera>>()
         for (id in cameraIds) {
-            val raw = describe(manager, id, isPhysicalChild = false, parentLogicalId = null) ?: continue
+            val raw = describe(manager, id, isPhysicalChild = false) ?: continue
             rawByFacing.getOrPut(raw.facing) { mutableListOf() }.add(raw)
             if (raw.isLogical) {
                 for (physicalId in raw.physicalCameraIds) {
-                    val child = describe(manager, physicalId, isPhysicalChild = true, parentLogicalId = id) ?: continue
+                    val child = describe(manager, physicalId, isPhysicalChild = true) ?: continue
                     rawByFacing.getOrPut(child.facing) { mutableListOf() }.add(child)
                 }
             }
@@ -67,7 +67,6 @@ internal object LensEnumerator {
                             isLogical = raw.isLogical,
                         ),
                         isPhysicalChild = raw.isPhysicalChild,
-                        parentLogicalId = raw.parentLogicalId,
                     ),
                 )
             }
@@ -93,19 +92,13 @@ internal object LensEnumerator {
         val hasFlash: Boolean,
         val isLogical: Boolean,
         val isPhysicalChild: Boolean,
-        val parentLogicalId: String?,
         val focalLengthsMm: List<Float>,
         val physicalSizeWidthMm: Float?,
         val physicalCameraIds: Set<String>,
         val minFocusDistance: Float,
     )
 
-    private fun describe(
-        manager: CameraManager?,
-        id: String,
-        isPhysicalChild: Boolean,
-        parentLogicalId: String?,
-    ): RawCamera? {
+    private fun describe(manager: CameraManager?, id: String, isPhysicalChild: Boolean): RawCamera? {
         val characteristics = try {
             manager?.getCameraCharacteristics(id)
         } catch (e: Exception) {
@@ -147,7 +140,6 @@ internal object LensEnumerator {
             hasFlash = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true,
             isLogical = physicalIds.isNotEmpty(),
             isPhysicalChild = isPhysicalChild,
-            parentLogicalId = parentLogicalId,
             focalLengthsMm = characteristics.get(
                 CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
             )?.toList().orEmpty(),
