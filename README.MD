@@ -21,7 +21,7 @@ A modern camera library for Compose Multiplatform supporting Android, iOS, and D
 
 - **Cross-Platform**: Android, iOS, and JVM Desktop
 - **Compose-First**: Native Compose Multiplatform API
-- **Flexible Configuration**: Aspect ratios, zoom, flash control
+- **Flexible Configuration**: Aspect ratios, zoom, focus, flash, lens selection (ultra-wide/tele) with hardware capability query
 - **Video Recording**: Record video with pause/resume, configurable quality, and max duration
 - **Plugin System**: Modular QR/barcode scanning, OCR, image saving, video recording, Image Analyzer
 - **Optimized Capture**: Direct file saving with `takePictureToFile()`
@@ -290,6 +290,17 @@ when (cameraState) {
         // Camera lens
         controller.toggleCameraLens()  // Switches between FRONT/BACK
     }
+}
+```
+
+### Hardware Capabilities Query
+
+Query available camera hardware capabilities before switching to specific lens types:
+
+```kotlin
+val capabilities = stateHolder.getCameraCapabilities()
+if (CameraDeviceType.ULTRA_WIDE in capabilities.availableDeviceTypes(CameraLens.BACK)) {
+    stateHolder.setPreferredCameraDeviceType(CameraDeviceType.ULTRA_WIDE)
 }
 ```
 
@@ -737,6 +748,7 @@ class CameraKStateHolder {
     // Utilities
     suspend fun getReadyCameraController(): CameraController?  // Wait until camera ready
     fun getController(): CameraController?
+    fun getCameraCapabilities(): CameraCapabilities           // Query hardware capabilities
 }
 ```
 
@@ -778,6 +790,9 @@ expect class CameraController {
     fun startSession()
     fun stopSession()
     fun cleanup()
+
+    // Hardware capabilities
+    fun getCameraCapabilities(): CameraCapabilities
 
     // Event listeners
     fun addImageCaptureListener(listener: (ByteArray) -> Unit)
