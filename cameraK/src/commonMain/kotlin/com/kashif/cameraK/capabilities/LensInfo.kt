@@ -29,9 +29,14 @@ data class LensInfo(
 /**
  * Snapshot of the device's camera hardware. Obtain via `CameraController.getCameraCapabilities()`
  * or `CameraKStateHolder.getCameraCapabilities()`.
+ *
+ * [allLenses] is copied on construction so this class's `@Immutable` contract holds regardless of
+ * what the caller does with the list it passed in.
  */
 @Immutable
-class CameraCapabilities(val allLenses: List<LensInfo>) {
+class CameraCapabilities(allLenses: List<LensInfo>) {
+
+    val allLenses: List<LensInfo> = allLenses.toList()
 
     /** Lenses facing [lens], in enumeration order. */
     fun lenses(lens: CameraLens): List<LensInfo> = allLenses.filter { it.lens == lens }

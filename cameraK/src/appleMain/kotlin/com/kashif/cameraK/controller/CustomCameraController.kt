@@ -174,7 +174,7 @@ class CustomCameraController(
             deviceTypes,
             AVMediaTypeVideo,
             position,
-        ).devices.map { it as AVCaptureDevice }
+        ).devices.mapNotNull { it as? AVCaptureDevice }
 
     private fun allLensDeviceTypes(): List<String> = listOfNotNull(
         AVCaptureDeviceTypeBuiltInWideAngleCamera,

@@ -25,7 +25,7 @@ A modern camera library for Compose Multiplatform supporting Android, iOS, and D
 - **Video Recording**: Record video with pause/resume, configurable quality, and max duration
 - **Plugin System**: Modular QR/barcode scanning, OCR, image saving, video recording, Image Analyzer
 - **Optimized Capture**: Direct file saving with `takePictureToFile()`
-- **Advanced Control**: Camera selection (ultra-wide, telephoto on iOS)
+- **Advanced Control**: Camera selection (ultra-wide, telephoto) on Android and iOS
 
 ## Installation
 
