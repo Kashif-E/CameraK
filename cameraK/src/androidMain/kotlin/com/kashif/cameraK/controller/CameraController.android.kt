@@ -393,6 +393,21 @@ actual class CameraController(
 
     fun updateImageAnalyzer() {
         camera?.let {
+            if (activeRecording == null) {
+                // Not recording: rebind the whole camera so the analyzer is bound INSIDE the
+                // UseCaseGroup and shares its ViewPort crop, instead of being bound alone with its
+                // own selector outside the group (which skipped the shared crop and could diverge
+                // from the group on any future config). previewView is set by bindCamera, so this
+                // is only null if updateImageAnalyzer is somehow called before the first bind —
+                // fall back to the old solo-bind path in that case.
+                val pv = previewView
+                if (pv != null) {
+                    bindCamera(pv)
+                    return
+                }
+            }
+            // Recording is active: a full rebind (unbindAll) would tear down the live VideoCapture
+            // session, so fall back to solo-binding just the analyzer outside the UseCaseGroup.
             cameraProvider?.unbind(imageAnalyzer)
             imageAnalyzer?.let { analyzer ->
                 cameraProvider?.bindToLifecycle(

@@ -59,7 +59,7 @@ internal object LensEnumerator {
             for (raw in rawCameras) {
                 // Focal length can't detect macro; keep the pre-existing min-focus-distance rule
                 // for top-level ids (matches the old createCameraSelector MACRO filter).
-                val deviceType = if (!raw.isPhysicalChild && raw.minFocusDistance in MACRO_FOCUS_RANGE) {
+                val deviceType = if (!raw.isPhysicalChild && raw.minFocusDistance > MACRO_MIN_DIOPTERS) {
                     CameraDeviceType.MACRO
                 } else {
                     types[raw.id] ?: CameraDeviceType.DEFAULT
@@ -84,7 +84,12 @@ internal object LensEnumerator {
         return result
     }
 
-    private val MACRO_FOCUS_RANGE = 0.001f..0.2f
+    // LENS_INFO_MINIMUM_FOCUS_DISTANCE is in diopters (1/meters) — larger means it focuses
+    // closer, not farther. A typical main/wide camera reports ~8-12 diopters (focuses down to
+    // ~8-12cm); dedicated macro lenses report ~20-33 diopters (focus at ~3-5cm or closer). 20 is
+    // comfortably above the main-camera range while still catching real macro lenses. A
+    // fixed-focus lens reports 0 and stays excluded naturally.
+    private const val MACRO_MIN_DIOPTERS = 20f
 
     // Dedup pool is per PARENT logical camera, not per facing: two logical cameras on the same
     // facing (e.g. two back logical multi-cameras) can each have a child at the same focal length
