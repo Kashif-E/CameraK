@@ -1,5 +1,6 @@
 package com.kashif.cameraK.controller
 
+import com.kashif.cameraK.capabilities.CameraCapabilities
 import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
@@ -117,12 +118,33 @@ expect class CameraController {
      * Switches to a different camera device type at runtime.
      *
      * On iOS this switches between wide-angle, telephoto, ultra-wide, etc.
-     * On Android this is a no-op (CameraX handles device selection automatically).
+     * On Android this resolves the request against the device's classified lenses
+     * (ultra-wide/telephoto/macro, including physical sub-lenses of logical multi-cameras)
+     * and switches to the matching one; if the requested type isn't available on the current
+     * facing, it falls back to the default camera and logs a warning. Check
+     * [CameraCapabilities.availableDeviceTypes] first to know which types will actually switch
+     * lenses on this device.
      * On Desktop this is a no-op (single camera).
      *
      * @param deviceType The desired [CameraDeviceType] to switch to.
      */
     fun setPreferredCameraDeviceType(deviceType: CameraDeviceType)
+
+    /**
+     * Returns a snapshot of the device's camera hardware: every lens with its
+     * classified type (ultra-wide / wide / telephoto / macro), facing, zoom range
+     * and flash availability.
+     *
+     * Use [CameraCapabilities.availableDeviceTypes] to know which values of
+     * [setPreferredCameraDeviceType] will actually switch lenses on this device.
+     *
+     * Platform notes:
+     * - Android: enumerated via Camera2, including physical sub-lenses of logical
+     *   multi-cameras. Cached after the first call.
+     * - iOS: enumerated via AVCaptureDeviceDiscoverySession.
+     * - Desktop: reports a single DEFAULT lens.
+     */
+    fun getCameraCapabilities(): CameraCapabilities
 
     /**
      * Sets the zoom level.

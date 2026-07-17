@@ -5,7 +5,9 @@ package com.kashif.cameraK.enums
  *
  * Note: Availability varies by device hardware and platform:
  * - iOS: All types supported via AVFoundation device types
- * - Android: Support depends on device hardware; uses CameraSelector filters
+ * - Android: Support depends on device hardware; resolved against a Camera2-based lens
+ *   snapshot (see `CameraController.getCameraCapabilities().availableDeviceTypes(...)`),
+ *   falling back to the default camera when the requested type isn't present
  * - Desktop: Not supported (single camera only)
  */
 enum class CameraDeviceType {

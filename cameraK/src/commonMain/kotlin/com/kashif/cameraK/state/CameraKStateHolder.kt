@@ -1,6 +1,7 @@
 package com.kashif.cameraK.state
 
 import androidx.compose.runtime.Stable
+import com.kashif.cameraK.capabilities.CameraCapabilities
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.enums.DeviceOrientation
 import com.kashif.cameraK.video.VideoConfiguration
@@ -322,6 +323,12 @@ class CameraKStateHolder(
      * @see cameraState To observe camera state and auto-activate
      */
     fun getController(): CameraController? = controller
+
+    /**
+     * Returns the device's camera hardware capabilities, or [CameraCapabilities.EMPTY]
+     * while the camera is not yet initialized.
+     */
+    fun getCameraCapabilities(): CameraCapabilities = controller?.getCameraCapabilities() ?: CameraCapabilities.EMPTY
 
     // ═══════════════════════════════════════════════════════════════
     // Camera Operations
