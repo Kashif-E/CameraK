@@ -35,7 +35,7 @@ Add dependencies to your `build.gradle.kts`:
 ```kotlin
 dependencies {
     // Core library
-    implementation("io.github.kashif-mehmood-km:camerak:1.1")
+    implementation("io.github.kashif-mehmood-km:camerak:1.2")
 
     // Optional plugins
     implementation("io.github.kashif-mehmood-km:image_saver_plugin:1.1")
@@ -1010,7 +1010,7 @@ LaunchedEffect(ocrPlugin) {
 
 ```gradle
 dependencies {
-    implementation("io.github.kashif-mehmood-km:camerak:1.1")
+    implementation("io.github.kashif-mehmood-km:camerak:1.2")
     implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:1.1")
     implementation("io.github.kashif-mehmood-km:ocr_plugin:1.1")
     implementation("io.github.kashif-mehmood-km:image_saver_plugin:1.1")

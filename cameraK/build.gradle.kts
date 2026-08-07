@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "com.kashif.camera_compose"
-version = "1.1"
+version = "1.2"
 
 kotlin {
     jvmToolchain(17)
@@ -102,11 +102,17 @@ android {
     }
 }
 
+// Google Play SDK Console ownership token: androidMain/resources puts it in the AAR's classes.jar;
+// this also puts it in the root (metadata) artifact, which is what the Maven coordinate resolves to.
+tasks.named<Jar>("allMetadataJar") {
+    from("src/androidMain/resources")
+}
+
 mavenPublishing {
     coordinates(
         groupId = "io.github.kashif-mehmood-km",
         artifactId = "camerak",
-        version = "1.1",
+        version = "1.2",
     )
 
     pom {
