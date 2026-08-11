@@ -22,11 +22,11 @@ A modern camera library for Compose Multiplatform supporting Android, iOS, and D
 
 - **Cross-Platform**: Android, iOS, and JVM Desktop
 - **Compose-First**: Native Compose Multiplatform API
-- **Flexible Configuration**: Aspect ratios, zoom, focus, flash control
+- **Flexible Configuration**: Aspect ratios, zoom, focus, flash, lens selection (ultra-wide/tele) with hardware capability query
 - **Video Recording**: Record video with pause/resume, configurable quality, and max duration
 - **Plugin System**: Modular QR/barcode scanning, OCR, image saving, video recording, Image Analyzer
 - **Optimized Capture**: Direct file saving with `takePictureToFile()`
-- **Advanced Control**: Camera selection (ultra-wide, telephoto on iOS)
+- **Advanced Control**: Camera selection (ultra-wide, telephoto) on Android and iOS
 
 ## Installation
 
@@ -35,14 +35,14 @@ Add dependencies to your `build.gradle.kts`:
 ```kotlin
 dependencies {
     // Core library
-    implementation("io.github.kashif-mehmood-km:camerak:1.1")
+    implementation("io.github.kashif-mehmood-km:camerak:1.2")
 
     // Optional plugins
-    implementation("io.github.kashif-mehmood-km:image_saver_plugin:1.1")
-    implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:1.1")
-    implementation("io.github.kashif-mehmood-km:ocr_plugin:1.1")
-    implementation("io.github.kashif-mehmood-km:video_recorder_plugin:1.1")
-    implementation("io.github.kashif-mehmood-km:analyzer_plugin:1.1")
+    implementation("io.github.kashif-mehmood-km:image_saver_plugin:1.2")
+    implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:1.2")
+    implementation("io.github.kashif-mehmood-km:ocr_plugin:1.2")
+    implementation("io.github.kashif-mehmood-km:video_recorder_plugin:1.2")
+    implementation("io.github.kashif-mehmood-km:analyzer_plugin:1.2")
 }
 ```
 
@@ -52,7 +52,7 @@ Add to your `libs.versions.toml`:
 
 ```toml
 [versions]
-camerak = "1.0"
+camerak = "1.2"
 
 [libraries]
 camerak = { module = "io.github.kashif-mehmood-km:camerak", version.ref = "camerak" }
@@ -291,6 +291,17 @@ when (cameraState) {
         // Camera lens
         controller.toggleCameraLens()  // Switches between FRONT/BACK
     }
+}
+```
+
+### Hardware Capabilities Query
+
+Query available camera hardware capabilities before switching to specific lens types:
+
+```kotlin
+val capabilities = stateHolder.getCameraCapabilities()
+if (CameraDeviceType.ULTRA_WIDE in capabilities.availableDeviceTypes(CameraLens.BACK)) {
+    stateHolder.getController()?.setPreferredCameraDeviceType(CameraDeviceType.ULTRA_WIDE)
 }
 ```
 
@@ -739,6 +750,7 @@ class CameraKStateHolder {
     // Utilities
     suspend fun getReadyCameraController(): CameraController?  // Wait until camera ready
     fun getController(): CameraController?
+    fun getCameraCapabilities(): CameraCapabilities           // Query hardware capabilities
 }
 ```
 
@@ -783,6 +795,9 @@ expect class CameraController {
     fun startSession()
     fun stopSession()
     fun cleanup()
+
+    // Hardware capabilities
+    fun getCameraCapabilities(): CameraCapabilities
 
     // Event listeners
     fun addImageCaptureListener(listener: (ByteArray) -> Unit)
@@ -999,10 +1014,10 @@ LaunchedEffect(ocrPlugin) {
 
 ```gradle
 dependencies {
-    implementation("io.github.kashif-mehmood-km:camerak:1.1")
-    implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:1.1")
-    implementation("io.github.kashif-mehmood-km:ocr_plugin:1.1")
-    implementation("io.github.kashif-mehmood-km:image_saver_plugin:1.1")
+    implementation("io.github.kashif-mehmood-km:camerak:1.2")
+    implementation("io.github.kashif-mehmood-km:qr_scanner_plugin:1.2")
+    implementation("io.github.kashif-mehmood-km:ocr_plugin:1.2")
+    implementation("io.github.kashif-mehmood-km:image_saver_plugin:1.2")
 }
 ```
 
