@@ -564,8 +564,11 @@ actual class CameraController(
         val previewView = this.previewView ?: return
         val camera = this.camera ?: return
 
+        val clampedX = x.coerceIn(0f, 1f)
+        val clampedY = y.coerceIn(0f, 1f)
+
         val factory = previewView.meteringPointFactory
-        val point = factory.createPoint(x * previewView.width, y * previewView.height, size)
+        val point = factory.createPoint(clampedX * previewView.width, clampedY * previewView.height, size)
         val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE)
             .setAutoCancelDuration(3, TimeUnit.SECONDS)
             .build()

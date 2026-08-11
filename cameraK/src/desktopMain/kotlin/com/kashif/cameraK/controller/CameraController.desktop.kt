@@ -179,7 +179,7 @@ actual class CameraController(
         // No-op on desktop — single camera
     }
 
-    actual fun setFocus(x: Float,y: Float,size: Float){
+    actual fun setFocus(x: Float, y: Float, size: Float) {
         // focus not available on desktop
     }
 

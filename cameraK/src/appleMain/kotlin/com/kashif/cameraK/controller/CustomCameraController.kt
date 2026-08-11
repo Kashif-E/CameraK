@@ -461,12 +461,15 @@ class CustomCameraController(
         val camera = currentCamera ?: return
         val previewLayer = cameraPreviewLayer ?: return
 
+        val clampedX = x.coerceIn(0f, 1f)
+        val clampedY = y.coerceIn(0f, 1f)
+
         try {
             if (camera.lockForConfiguration(null)) {
                 try {
                     val point = platform.CoreGraphics.CGPointMake(
-                        x.toDouble() * previewLayer.bounds.useContents { this.size.width },
-                        y.toDouble() * previewLayer.bounds.useContents { this.size.height },
+                        clampedX.toDouble() * previewLayer.bounds.useContents { this.size.width },
+                        clampedY.toDouble() * previewLayer.bounds.useContents { this.size.height },
                     )
                     val devicePoint = previewLayer.captureDevicePointOfInterestForPoint(point)
 
@@ -484,28 +487,8 @@ class CustomCameraController(
                 }
             }
         } catch (e: Exception) {
-            NSLog("CameraK: Error setting focus: ${e.message}")
+            onError?.invoke(CameraException.ConfigurationError("Failed to set focus: ${e.message}"))
         }
-    }
-
-    /**
-     * Sets the session preset quality based on memory conditions
-     * This allows for dynamic adjustment of capture quality
-     */
-    private fun adjustSessionQuality() {
-        captureSession?.beginConfiguration()
-
-        val memoryUsage = MemoryManager.getMemoryUsagePercentage()
-        val underPressure = MemoryManager.isUnderMemoryPressure()
-
-        val newPreset = when {
-            underPressure -> AVCaptureSessionPresetMedium
-            memoryUsage > 70 -> AVCaptureSessionPresetHigh
-            else -> AVCaptureSessionPresetPhoto
-        }
-
-        captureSession?.sessionPreset = newPreset
-        captureSession?.commitConfiguration()
     }
 
     /**

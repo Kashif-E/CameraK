@@ -134,7 +134,7 @@ expect class CameraController {
      * Note: Coordinates are relative to the preview surface.
      * On Desktop: Not supported, no-op.
      */
-    fun setFocus(x: Float = 0f, y: Float = 0f, size: Float = 0.15f)
+    fun setFocus(x: Float, y: Float, size: Float = 0.15f)
 
     /**
      * Sets the zoom level.
