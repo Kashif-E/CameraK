@@ -220,6 +220,7 @@ val cameraState by rememberCameraKState(
 
         // Visual settings
         aspectRatio = AspectRatio.RATIO_16_9,   // 4:3, 16:9, 9:16, 1:1
+        previewScaleType = PreviewScaleType.FIT_CENTER, // FIT_CENTER or FILL_CENTER
         targetResolution = 1920 to 1080,        // Optional specific resolution
 
         // Flash control
@@ -256,6 +257,7 @@ val cameraState by rememberCameraKState(
 |----------|------|---------|-------------|
 | `cameraLens` | `CameraLens` | `BACK` | Front or back camera |
 | `aspectRatio` | `AspectRatio` | `RATIO_16_9` | 4:3, 16:9, 9:16, or 1:1 |
+| `previewScaleType` | `PreviewScaleType` | `FIT_CENTER` | FIT_CENTER or FILL_CENTER |
 | `targetResolution` | `Pair<Int, Int>?` | `null` | Specific width x height |
 | `flashMode` | `FlashMode` | `OFF` | ON, OFF, or AUTO |
 | `torchMode` | `TorchMode` | `OFF` | ON, OFF, or AUTO |
@@ -315,6 +317,17 @@ AspectRatio.RATIO_16_9  // Widescreen (most common)
 AspectRatio.RATIO_9_16  // Vertical stories (Instagram, TikTok)
 AspectRatio.RATIO_1_1   // Square (Instagram feed)
 ```
+
+### Preview Scale Type
+
+How the camera preview is scaled within its container view when the aspect ratios differ:
+
+```kotlin
+PreviewScaleType.FIT_CENTER   // Fit the whole frame, letterboxing overflow (default)
+PreviewScaleType.FILL_CENTER  // Fill the container, cropping overflow
+```
+
+On Android these map to `PreviewView.ScaleType.FIT_CENTER` / `FILL_CENTER`; on iOS they map to `AVLayerVideoGravityResizeAspect` / `AVLayerVideoGravityResizeAspectFill`.
 
 ### Image Formats
 

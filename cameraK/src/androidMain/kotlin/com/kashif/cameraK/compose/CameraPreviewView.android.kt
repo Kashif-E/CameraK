@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.enums.DeviceOrientation
+import com.kashif.cameraK.enums.PreviewScaleType
 import com.kashif.cameraK.enums.previewAspectRatio
 
 @Composable
@@ -25,9 +26,13 @@ actual fun CameraPreviewView(
 ) {
     val context = LocalContext.current
     // FIT_CENTER shows the whole frame (letterboxed) instead of cropping it to fill the view,
-    // so the preview matches the captured field of view.
+    // so the preview matches the captured field of view. FILL_CENTER crops the frame to fill.
+    val previewScaleType = when (controller.getPreviewScaleType()) {
+        PreviewScaleType.FIT_CENTER -> PreviewView.ScaleType.FIT_CENTER
+        PreviewScaleType.FILL_CENTER -> PreviewView.ScaleType.FILL_CENTER
+    }
     val previewView = remember {
-        PreviewView(context).apply { scaleType = PreviewView.ScaleType.FIT_CENTER }
+        PreviewView(context).apply { scaleType = previewScaleType }
     }
 
     DisposableEffect(controller, previewView) {

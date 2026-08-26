@@ -7,6 +7,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.PreviewScaleType
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.utils.InvalidConfigurationException
@@ -24,6 +25,7 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
     private var qualityPriority: QualityPrioritization = QualityPrioritization.NONE
     private var cameraDeviceType: CameraDeviceType = CameraDeviceType.DEFAULT
     private var aspectRatio: AspectRatio = AspectRatio.RATIO_4_3
+    private var previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER
     private var targetResolution: Pair<Int, Int>? = null
     private var mirrorFrontCamera: Boolean = false
 
@@ -59,6 +61,11 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
 
     override fun setAspectRatio(aspectRatio: AspectRatio): CameraControllerBuilder {
         this.aspectRatio = aspectRatio
+        return this
+    }
+
+    override fun setPreviewScaleType(previewScaleType: PreviewScaleType): CameraControllerBuilder {
+        this.previewScaleType = previewScaleType
         return this
     }
 
@@ -103,6 +110,7 @@ class IOSCameraControllerBuilder : CameraControllerBuilder {
             qualityPriority = qualityPriority,
             cameraDeviceType = cameraDeviceType,
             aspectRatio = aspectRatio,
+            previewScaleType = previewScaleType,
             targetResolution = targetResolution,
             mirrorFrontCamera = mirrorFrontCamera,
         )

@@ -7,6 +7,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.PreviewScaleType
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 
@@ -53,6 +54,12 @@ interface CameraControllerBuilder {
      * Supported values map to platform defaults (16:9, 4:3). 9:16 uses 16:9 with rotation; 1:1 falls back to closest available.
      */
     fun setAspectRatio(aspectRatio: AspectRatio): CameraControllerBuilder
+
+    /**
+     * Sets how the preview is scaled within its container view.
+     * Defaults to [PreviewScaleType.FIT_CENTER].
+     */
+    fun setPreviewScaleType(previewScaleType: PreviewScaleType): CameraControllerBuilder
 
     /**
      * Sets a target capture resolution (width x height) for preview/capture when the platform supports it.

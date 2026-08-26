@@ -4,6 +4,7 @@ import com.kashif.cameraK.capabilities.LensInfo
 import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
+import com.kashif.cameraK.enums.PreviewScaleType
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.utils.CameraKLogger
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -36,6 +37,7 @@ class CustomCameraController(
     val qualityPrioritization: QualityPrioritization,
     private var initialCameraLens: CameraLens = CameraLens.BACK,
     private val aspectRatio: AspectRatio = AspectRatio.RATIO_4_3,
+    private val previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER,
     private val targetResolution: Pair<Int, Int>? = null,
     private val mirrorFrontCamera: Boolean = false,
 ) : NSObject(),
@@ -384,9 +386,12 @@ class CustomCameraController(
         val session = captureSession ?: return
 
         val newPreviewLayer = AVCaptureVideoPreviewLayer(session = session).apply {
-            // ResizeAspect (letterbox) so the preview shows the exact frame that gets captured — WYSIWYG (#119).
-            // ResizeAspectFill would crop the preview to fill the view, mismatching the full-frame captured photo.
-            videoGravity = AVLayerVideoGravityResizeAspect
+            // FIT_CENTER (ResizeAspect) letterboxes so the preview shows the exact captured frame —
+            // WYSIWYG (#119). FILL_CENTER (ResizeAspectFill) crops to fill the view instead.
+            videoGravity = when (previewScaleType) {
+                PreviewScaleType.FIT_CENTER -> AVLayerVideoGravityResizeAspect
+                PreviewScaleType.FILL_CENTER -> AVLayerVideoGravityResizeAspectFill
+            }
             setFrame(view.bounds)
             connection?.videoOrientation = currentVideoOrientation()
         }
