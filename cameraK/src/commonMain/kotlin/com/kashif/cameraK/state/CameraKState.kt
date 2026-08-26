@@ -8,6 +8,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.PreviewScaleType
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.result.ImageCaptureResult
@@ -264,6 +265,7 @@ data class CameraConfiguration(
     val qualityPrioritization: QualityPrioritization = QualityPrioritization.BALANCED,
     val cameraDeviceType: CameraDeviceType = CameraDeviceType.DEFAULT,
     val aspectRatio: AspectRatio = AspectRatio.RATIO_16_9,
+    val previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER,
     val targetResolution: Pair<Int, Int>? = null,
     val directory: Directory = Directory.PICTURES,
     val mirrorFrontCamera: Boolean = false,

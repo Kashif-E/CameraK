@@ -7,6 +7,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.DeviceOrientation
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.PreviewScaleType
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.result.ImageCaptureResult
@@ -99,6 +100,13 @@ expect class CameraController {
      * @return The configured [AspectRatio]
      */
     fun getAspectRatio(): AspectRatio
+
+    /**
+     * Gets how the preview is scaled within its container view.
+     *
+     * @return The configured [PreviewScaleType]
+     */
+    fun getPreviewScaleType(): PreviewScaleType
 
     /**
      * Gets the current quality prioritization setting.

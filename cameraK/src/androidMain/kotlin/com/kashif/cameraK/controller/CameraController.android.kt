@@ -46,6 +46,7 @@ import com.kashif.cameraK.enums.DeviceOrientation
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.PreviewScaleType
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.result.ImageCaptureResult
@@ -82,6 +83,7 @@ actual class CameraController(
     internal var directory: Directory,
     internal var cameraDeviceType: CameraDeviceType,
     internal var aspectRatio: AspectRatio,
+    internal var previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER,
     internal var targetResolution: Pair<Int, Int>? = null,
     internal var mirrorFrontCamera: Boolean = false,
 ) {
@@ -629,6 +631,8 @@ actual class CameraController(
     actual fun getImageFormat(): ImageFormat = imageFormat
 
     actual fun getAspectRatio(): AspectRatio = aspectRatio
+
+    actual fun getPreviewScaleType(): PreviewScaleType = previewScaleType
 
     actual fun getQualityPrioritization(): QualityPrioritization = qualityPriority
 
