@@ -40,7 +40,6 @@ kotlin {
 
         commonMain.dependencies {
             api(libs.kotlinx.coroutines.core)
-            api(libs.kotlinx.coroutines.test)
             api(libs.kermit)
             api(compose.ui)
             api(compose.material3)
@@ -52,6 +51,13 @@ kotlin {
 
         commonTest.dependencies {
             api(kotlin("test"))
+
+            // Test-only, and it must stay that way. On the runtime classpath, coroutines-test
+            // installs TestMainDispatcherFactory via ServiceLoader, which takes over
+            // Dispatchers.Main and then throws "Dispatchers.Main was accessed when the platform
+            // dispatcher was absent and the test dispatcher was unset" in consumer apps that never
+            // call Dispatchers.setMain(). See issue #165.
+            implementation(libs.kotlinx.coroutines.test)
         }
 
         androidMain.dependencies {
