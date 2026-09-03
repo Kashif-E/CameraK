@@ -7,6 +7,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.PreviewScaleType
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.utils.InvalidConfigurationException
@@ -27,6 +28,7 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
     private var qualityPriority: QualityPrioritization = QualityPrioritization.NONE
     private var targetResolution: Pair<Int, Int>? = null
     private var aspectRatio: AspectRatio = AspectRatio.RATIO_16_9
+    private var previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER
 
     /**
      * Sets the frame grabber for camera input.
@@ -87,6 +89,11 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
         return this
     }
 
+    override fun setPreviewScaleType(previewScaleType: PreviewScaleType): CameraControllerBuilder {
+        this.previewScaleType = previewScaleType
+        return this
+    }
+
     override fun setDirectory(directory: Directory): CameraControllerBuilder {
         this.directory = directory
         return this
@@ -103,6 +110,7 @@ class DesktopCameraControllerBuilder : CameraControllerBuilder {
             customGrabber = grabber,
             targetResolution = targetResolution,
             aspectRatio = aspectRatio,
+            previewScaleType = previewScaleType,
         )
     }
 }

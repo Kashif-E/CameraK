@@ -9,6 +9,7 @@ import com.kashif.cameraK.enums.DeviceOrientation
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.PreviewScaleType
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.result.ImageCaptureResult
@@ -45,6 +46,7 @@ actual class CameraController(
     private val customGrabber: FrameGrabber? = null,
     private val targetResolution: Pair<Int, Int>? = null,
     private val aspectRatio: AspectRatio = AspectRatio.RATIO_16_9,
+    private val previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER,
 ) {
     private var cameraGrabber: CameraGrabber? = null
     private val _frameFlow = MutableSharedFlow<BufferedImage>(
@@ -162,6 +164,8 @@ actual class CameraController(
     // Reports the configured ratio so multiplatform UI can size consistently. The desktop capture
     // path itself renders the webcam's native frame (no ViewPort crop), so it doesn't enforce it.
     actual fun getAspectRatio(): AspectRatio = aspectRatio
+
+    actual fun getPreviewScaleType(): PreviewScaleType = previewScaleType
 
     /**
      * Gets the current quality prioritization setting.

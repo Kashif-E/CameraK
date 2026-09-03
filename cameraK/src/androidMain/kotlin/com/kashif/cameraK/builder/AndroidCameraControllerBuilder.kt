@@ -9,6 +9,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
+import com.kashif.cameraK.enums.PreviewScaleType
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.enums.TorchMode
 import com.kashif.cameraK.utils.InvalidConfigurationException
@@ -30,6 +31,7 @@ class AndroidCameraControllerBuilder(private val context: Context, private val l
     private var qualityPriority: QualityPrioritization = QualityPrioritization.NONE
     private var cameraDeviceType: CameraDeviceType = CameraDeviceType.DEFAULT
     private var aspectRatio: AspectRatio = AspectRatio.RATIO_4_3
+    private var previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER
     private var targetResolution: Pair<Int, Int>? = null
     private var mirrorFrontCamera: Boolean = false
 
@@ -78,6 +80,11 @@ class AndroidCameraControllerBuilder(private val context: Context, private val l
         return this
     }
 
+    override fun setPreviewScaleType(previewScaleType: PreviewScaleType): CameraControllerBuilder {
+        this.previewScaleType = previewScaleType
+        return this
+    }
+
     override fun setResolution(width: Int, height: Int): CameraControllerBuilder {
         this.targetResolution = width to height
         return this
@@ -108,6 +115,7 @@ class AndroidCameraControllerBuilder(private val context: Context, private val l
             qualityPriority = qualityPriority,
             cameraDeviceType = cameraDeviceType,
             aspectRatio = aspectRatio,
+            previewScaleType = previewScaleType,
             targetResolution = targetResolution,
             mirrorFrontCamera = mirrorFrontCamera,
         )

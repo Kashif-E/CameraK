@@ -81,6 +81,38 @@ config = CameraConfiguration(
 )
 ```
 
+## Preview Scale Type
+
+Control how the camera preview is scaled within its container view when the preview and container aspect ratios differ:
+
+```kotlin
+config = CameraConfiguration(
+    previewScaleType = PreviewScaleType.FILL_CENTER
+)
+```
+
+**Options:**
+
+| Scale Type | Behavior | Android | iOS |
+|------------|----------|---------|-----|
+| `FIT_CENTER` | Fit the whole frame, letterboxing overflow (default) | `PreviewView.ScaleType.FIT_CENTER` | `AVLayerVideoGravityResizeAspect` |
+| `FILL_CENTER` | Fill the container, cropping overflow | `PreviewView.ScaleType.FILL_CENTER` | `AVLayerVideoGravityResizeAspectFill` |
+
+**Example:**
+
+```kotlin
+// Edge-to-edge preview that crops to fill the container
+config = CameraConfiguration(
+    previewScaleType = PreviewScaleType.FILL_CENTER
+)
+```
+
+**Runtime query:**
+
+```kotlin
+val scaleType = controller.getPreviewScaleType()  // returns PreviewScaleType
+```
+
 ## Resolution
 
 Optionally set specific resolution:
@@ -236,6 +268,7 @@ fun ProfessionalCameraScreen() {
 
             // Image properties
             aspectRatio = AspectRatio.RATIO_4_3,
+            previewScaleType = PreviewScaleType.FILL_CENTER,
             targetResolution = 3840 to 2160,  // 4K
             imageFormat = ImageFormat.PNG,
 
@@ -351,6 +384,7 @@ controller.toggleCameraLens()  // BACK <-> FRONT
 | `cameraLens` | `CameraLens` | `BACK` | All |
 | `cameraDeviceType` | `CameraDeviceType` | `DEFAULT` | iOS only |
 | `aspectRatio` | `AspectRatio` | `RATIO_16_9` | All |
+| `previewScaleType` | `PreviewScaleType` | `FIT_CENTER` | All |
 | `targetResolution` | `Pair<Int, Int>` | Device default | All |
 | `flashMode` | `FlashMode` | `AUTO` | Android, iOS |
 | `imageFormat` | `ImageFormat` | `JPEG` | All |
