@@ -97,10 +97,9 @@ abstract class ImageSaverPlugin(val config: ImageSaverConfig) : CameraKPlugin {
      * `takePictureToFile()` stores every capture in the controller's [Directory] before listeners
      * run, so a saver writing to that same place saves the image a second time.
      *
-     * Empty by default, because the Android and desktop savers write into their own subfolder
-     * (`customFolderName`, or `CameraK` on Android) rather than the directory the capture landed
-     * in, so their copy is a distinct, deliberately organized file. Platforms with a single
-     * destination and no subfolders override this.
+     * Empty by default: on desktop the capture goes to a temp file, so the saver's copy is the
+     * only one the user ever sees. The Android and iOS savers override this, since their captures
+     * land in the gallery the saver also writes to.
      */
     protected open val autoSaveDestinations: Set<Directory>
         get() = emptySet()

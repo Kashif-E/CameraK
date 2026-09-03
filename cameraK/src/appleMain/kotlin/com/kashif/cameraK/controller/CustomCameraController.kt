@@ -61,10 +61,13 @@ class CustomCameraController(
     @Volatile
     private var isConfiguring = false
 
-    sealed class CameraException : Exception() {
-        class DeviceNotAvailable : CameraException()
-        class ConfigurationError(message: String) : CameraException()
-        class CaptureError(message: String) : CameraException()
+    // Each subtype passes its message to Exception: without that, toString() was just the class
+    // name, so both the error log and the ImageCaptureResult.Error handed to the caller said
+    // nothing about what failed.
+    sealed class CameraException(message: String) : Exception(message) {
+        class DeviceNotAvailable : CameraException("No camera device available")
+        class ConfigurationError(message: String) : CameraException(message)
+        class CaptureError(message: String) : CameraException(message)
     }
 
     /**

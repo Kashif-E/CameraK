@@ -102,6 +102,13 @@ actual class CameraController(
     // installed for the life of the controller, so addImageCaptureListener silently stopped firing
     // after the first file capture (#160).
     private val pendingCapture = atomic<((NSData?, String?) -> Unit)?>(null)
+
+    // One-shot guard for the capture in flight, cleared when one starts and set by whichever of
+    // the photo callback, the error callback or cancellation gets there first. It has to be atomic
+    // because those run on different threads and the winner alone clears isCapturing and
+    // decrements pendingCaptures; a plain flag let two of them through, double-decrementing the
+    // counter and freeing isCapturing while the file write was still running.
+    private val captureCompleted = atomic(true)
     private val maxConcurrentCaptures = 3
 
     init {
@@ -310,12 +317,11 @@ actual class CameraController(
             return@suspendCancellableCoroutine
         }
 
-        val captureHandler = object {
-            var completed = false
+        captureCompleted.value = false
 
+        val captureHandler = object {
             fun process(image: NSData?, error: String?) {
-                if (completed) return
-                completed = true
+                if (!captureCompleted.compareAndSet(expect = false, update = true)) return
 
                 if (image != null) {
                     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH.toLong(), 0u)) {
@@ -389,12 +395,17 @@ actual class CameraController(
         pendingCapture.value = deliverToThisCapture
 
         continuation.invokeOnCancellation {
-            // compareAndSet, not a bare clear: by now the slot may already hold a later capture's
-            // handler, and dropping that one would hang it.
-            pendingCapture.compareAndSet(deliverToThisCapture, null)
-            // No bookkeeping here: process() clears isCapturing and decrements pendingCaptures on
-            // every path, and does nothing if the capture already completed. Doing it here too
-            // double-decremented the counter, which eventually went negative and disabled the
+            // The slot is deliberately left holding this (now completed) handler. Cancelling does
+            // not cancel the AVFoundation capture already in flight, so its frame still arrives;
+            // parked here it is swallowed by this handler, whereas clearing the slot would let it
+            // be delivered to whichever capture registered next, as that capture's photo. A
+            // capture that starts before the stale frame lands still overwrites the slot and hits
+            // that mix-up: correlating frames needs the photo's uniqueID from AVFoundation, which
+            // this callback path does not carry today.
+            //
+            // No counter bookkeeping here either: process() clears isCapturing and decrements
+            // pendingCaptures on every path and no-ops once completed. Doing it here as well
+            // double-decremented, eventually driving the counter negative and disabling the
             // burst-queue guard.
             captureHandler.process(null, "Capture cancelled")
         }

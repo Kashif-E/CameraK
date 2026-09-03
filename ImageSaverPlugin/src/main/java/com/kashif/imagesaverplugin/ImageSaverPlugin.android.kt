@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import coil3.PlatformContext
+import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.utils.CameraKLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,6 +22,14 @@ import java.util.Locale
  * @param config The configuration settings for the plugin.
  */
 class AndroidImageSaverPlugin(private val context: Context, config: ImageSaverConfig) : ImageSaverPlugin(config) {
+    // takePictureToFile() writes the capture to <its directory>/CameraK and registers it with
+    // MediaStore; saveImage() below writes to <config.directory>/<customFolderName ?: "CameraK">.
+    // With no custom folder those are the same folder, so auto-save would put a second identical
+    // image in the gallery. A configured custom folder is a different one, and that copy is the
+    // organized duplicate the caller asked for, so it is kept.
+    override val autoSaveDestinations: Set<Directory>
+        get() = if (config.customFolderName == null) setOf(config.directory) else emptySet()
+
     override suspend fun saveImage(byteArray: ByteArray, imageName: String?): String? = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
         val contentValues =

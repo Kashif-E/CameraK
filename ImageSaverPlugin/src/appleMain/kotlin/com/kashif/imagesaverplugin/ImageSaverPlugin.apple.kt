@@ -34,6 +34,11 @@ class IOSImageSaverPlugin(
 ) : ImageSaverPlugin(config) {
     // saveImage() below always writes to the Photos library, whatever config.directory says, and
     // a capture with either of these directories is already there, put there by takePictureToFile().
+    //
+    // Note for callers: for those captures this plugin does not save, so neither onImageSaved nor
+    // onImageSavedFailed fires. The photo is in the camera roll and takePictureToFile() returns
+    // its path; drive post-capture UI off that result rather than off these callbacks. They still
+    // fire for DOCUMENTS captures and for every explicit saveImage() call.
     override val autoSaveDestinations = setOf(Directory.PICTURES, Directory.DCIM)
 
     override suspend fun saveImage(byteArray: ByteArray, imageName: String?): String? {
