@@ -96,12 +96,37 @@ actual class CameraController(
     private val memoryManager = MemoryManager
     private val pendingCaptures = atomic(0)
 
-    // Delivery slot for an in-flight takePictureToFile(). setupCamera() installs the photo/error
-    // callbacks once and is their only writer; a capture parks its handler here instead of swapping
-    // the callback out. Swapping left the one-shot handler installed for the life of the controller,
-    // so addImageCaptureListener silently stopped firing after the first file capture (#160).
+    // Delivery slot for an in-flight takePictureToFile(). The photo and error callbacks are
+    // installed once, in the init block below, and nothing else ever writes them; a capture parks
+    // its handler here instead of swapping a callback out. Swapping left the one-shot handler
+    // installed for the life of the controller, so addImageCaptureListener silently stopped firing
+    // after the first file capture (#160).
     private val pendingCapture = atomic<((NSData?, String?) -> Unit)?>(null)
     private val maxConcurrentCaptures = 3
+
+    init {
+        // Installed at construction rather than in setupCamera(), which only runs from
+        // viewDidLoad(). A capture attempted before the view is mounted would otherwise find both
+        // callbacks null: captureImage()'s "camera not ready" error would go nowhere, the
+        // continuation would never resume, and isCapturing would stay true, wedging every later
+        // capture.
+        customCameraController.onPhotoCapture = { image ->
+            // Hand the frame to a waiting capture first, so its result is not delayed by the
+            // ByteArray conversion below, then notify listeners for every capture (matching
+            // Android). The conversion only runs when someone is actually listening.
+            pendingCapture.getAndSet(null)?.invoke(image, null)
+            if (image != null && imageCaptureListeners.isNotEmpty()) {
+                processImageCapture(image)
+            }
+        }
+
+        customCameraController.onError = { error ->
+            // Errors reach a waiting capture as before, and are now always logged: previously the
+            // capture's own handler replaced this one and swallowed every later error.
+            pendingCapture.getAndSet(null)?.invoke(null, error.toString())
+            CameraKLogger.e("CameraK", "CameraK Error: $error")
+        }
+    }
 
     override fun viewDidLoad() {
         super.viewDidLoad()
@@ -204,23 +229,6 @@ actual class CameraController(
             CameraKLogger.e("CameraK", "CameraK Error: setupSession - ${e.message}")
             return
         }
-
-        customCameraController.onPhotoCapture = { image ->
-            // Hand the frame to a waiting capture first, so its result is not delayed by the
-            // ByteArray conversion below, then notify listeners for every capture (matching
-            // Android). The conversion only runs when someone is actually listening.
-            pendingCapture.getAndSet(null)?.invoke(image, null)
-            if (image != null && imageCaptureListeners.isNotEmpty()) {
-                processImageCapture(image)
-            }
-        }
-
-        customCameraController.onError = { error ->
-            // Errors reach a waiting capture as before, and are now always logged: previously the
-            // capture's own handler replaced this one and swallowed every later error.
-            pendingCapture.getAndSet(null)?.invoke(null, error.toString())
-            CameraKLogger.e("CameraK", "CameraK Error: $error")
-        }
     }
 
     private fun writeDataToFile(data: NSData, filePath: String): Boolean =
@@ -232,21 +240,16 @@ actual class CameraController(
                 memoryManager.updateMemoryStatus()
 
                 try {
-                    val estimatedSize = imageData.length.toInt()
-                    val buffer = if (estimatedSize > 0) {
-                        memoryManager.getBuffer(estimatedSize)
-                    } else {
-                        ByteArray(imageData.length.toInt())
-                    }
-
-                    val data = imageData.toByteArray(reuseBuffer = buffer)
+                    // Exact-length array the listeners own outright, deliberately not a pooled
+                    // buffer. A pooled one is only "at least" the requested size, so listeners
+                    // would see the photo followed by trailing bytes of an older capture, and it
+                    // was recycled as soon as this block returned while the listeners, dispatched
+                    // to the main queue, had not read it yet. Android hands over an exact
+                    // File.readBytes(), and this is the path that has to match it.
+                    val data = imageData.toByteArray()
 
                     dispatch_async(dispatch_get_main_queue()) {
                         imageCaptureListeners.forEach { it(data) }
-                    }
-
-                    if (buffer.size >= estimatedSize) {
-                        memoryManager.recycleBuffer(buffer)
                     }
                 } catch (e: Exception) {
                     CameraKLogger.e("CameraK", "CameraK: Error processing image data: ${e.message ?: "Unknown error"}")
@@ -389,8 +392,10 @@ actual class CameraController(
             // compareAndSet, not a bare clear: by now the slot may already hold a later capture's
             // handler, and dropping that one would hang it.
             pendingCapture.compareAndSet(deliverToThisCapture, null)
-            isCapturing.value = false
-            pendingCaptures.decrementAndGet()
+            // No bookkeeping here: process() clears isCapturing and decrements pendingCaptures on
+            // every path, and does nothing if the capture already completed. Doing it here too
+            // double-decremented the counter, which eventually went negative and disabled the
+            // burst-queue guard.
             captureHandler.process(null, "Capture cancelled")
         }
 
