@@ -91,6 +91,21 @@ abstract class ImageSaverPlugin(val config: ImageSaverConfig) : CameraKPlugin {
     abstract suspend fun saveImage(byteArray: ByteArray, imageName: String? = null): String?
 
     /**
+     * Capture directories this saver would write a *duplicate* of, i.e. the same image in the same
+     * place. Auto-save skips captures whose controller directory is in this set.
+     *
+     * `takePictureToFile()` stores every capture in the controller's [Directory] before listeners
+     * run, so a saver writing to that same place saves the image a second time.
+     *
+     * Empty by default, because the Android and desktop savers write into their own subfolder
+     * (`customFolderName`, or `CameraK` on Android) rather than the directory the capture landed
+     * in, so their copy is a distinct, deliberately organized file. Platforms with a single
+     * destination and no subfolders override this.
+     */
+    protected open val autoSaveDestinations: Set<Directory>
+        get() = emptySet()
+
+    /**
      * Attaches the plugin to the state holder (new API).
      * If auto-save is enabled, automatically saves images when camera becomes ready.
      *
@@ -107,6 +122,13 @@ abstract class ImageSaverPlugin(val config: ImageSaverConfig) : CameraKPlugin {
         autoSaveJob = stateHolder.pluginScope.launch {
             stateHolder.cameraState.filterIsInstance<CameraKState.Ready>().collect { ready ->
                 registeredController?.removeImageCaptureListener(captureListener)
+                registeredController = null
+
+                // Skip the captures the controller has already written where this saver writes,
+                // which would otherwise be saved twice. Deregistering rather than filtering inside
+                // the listener also spares the platform the ByteArray conversion per capture.
+                if (ready.controller.getDirectory() in autoSaveDestinations) return@collect
+
                 ready.controller.addImageCaptureListener(captureListener)
                 registeredController = ready.controller
             }

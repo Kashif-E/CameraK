@@ -1,5 +1,6 @@
 package com.kashif.imagesaverplugin
 import coil3.PlatformContext
+import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.utils.CameraKLogger
 import com.kashif.cameraK.utils.fixOrientation
 import com.kashif.cameraK.utils.toByteArray
@@ -31,6 +32,10 @@ class IOSImageSaverPlugin(
     private val onImageSaved: () -> Unit,
     private val onImageSavedFailed: (String) -> Unit,
 ) : ImageSaverPlugin(config) {
+    // saveImage() below always writes to the Photos library, whatever config.directory says, and
+    // a capture with either of these directories is already there, put there by takePictureToFile().
+    override val autoSaveDestinations = setOf(Directory.PICTURES, Directory.DCIM)
+
     override suspend fun saveImage(byteArray: ByteArray, imageName: String?): String? {
         return withContext(Dispatchers.Main) {
             try {

@@ -5,6 +5,7 @@ import com.kashif.cameraK.enums.AspectRatio
 import com.kashif.cameraK.enums.CameraDeviceType
 import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.DeviceOrientation
+import com.kashif.cameraK.enums.Directory
 import com.kashif.cameraK.enums.FlashMode
 import com.kashif.cameraK.enums.ImageFormat
 import com.kashif.cameraK.enums.QualityPrioritization
@@ -89,6 +90,16 @@ expect class CameraController {
      * @return The configured [ImageFormat] (JPEG or PNG)
      */
     fun getImageFormat(): ImageFormat
+
+    /**
+     * Gets the directory captures are written to.
+     *
+     * [takePictureToFile] already stores the image here, so a plugin that saves captures of its
+     * own can use this to avoid writing a second copy to the same place.
+     *
+     * @return The configured [Directory]
+     */
+    fun getDirectory(): Directory
 
     /**
      * Gets the configured capture aspect ratio.

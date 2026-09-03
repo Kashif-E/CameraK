@@ -628,6 +628,8 @@ actual class CameraController(
 
     actual fun getImageFormat(): ImageFormat = imageFormat
 
+    actual fun getDirectory(): Directory = directory
+
     actual fun getAspectRatio(): AspectRatio = aspectRatio
 
     actual fun getQualityPrioritization(): QualityPrioritization = qualityPriority

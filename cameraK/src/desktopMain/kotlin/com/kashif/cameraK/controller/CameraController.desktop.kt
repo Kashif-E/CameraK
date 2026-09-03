@@ -159,6 +159,8 @@ actual class CameraController(
      */
     actual fun getImageFormat(): ImageFormat = imageFormat
 
+    actual fun getDirectory(): Directory = directory
+
     // Reports the configured ratio so multiplatform UI can size consistently. The desktop capture
     // path itself renders the webcam's native frame (no ViewPort crop), so it doesn't enforce it.
     actual fun getAspectRatio(): AspectRatio = aspectRatio
