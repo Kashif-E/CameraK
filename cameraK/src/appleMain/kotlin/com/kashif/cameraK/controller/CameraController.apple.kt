@@ -74,9 +74,9 @@ actual class CameraController(
     internal var directory: Directory,
     internal var cameraDeviceType: CameraDeviceType,
     internal var aspectRatio: AspectRatio,
-    internal var previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER,
     internal var targetResolution: Pair<Int, Int>? = null,
     internal var mirrorFrontCamera: Boolean = false,
+    internal var previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER,
 ) : UIViewController(null, null) {
     private var isCapturing = atomic(false)
     private val customCameraController = CustomCameraController(

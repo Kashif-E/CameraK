@@ -37,9 +37,9 @@ class CustomCameraController(
     val qualityPrioritization: QualityPrioritization,
     private var initialCameraLens: CameraLens = CameraLens.BACK,
     private val aspectRatio: AspectRatio = AspectRatio.RATIO_4_3,
-    private val previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER,
     private val targetResolution: Pair<Int, Int>? = null,
     private val mirrorFrontCamera: Boolean = false,
+    private val previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER,
 ) : NSObject(),
     AVCapturePhotoCaptureDelegateProtocol {
     var captureSession: AVCaptureSession? = null

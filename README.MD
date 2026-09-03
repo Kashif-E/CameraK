@@ -327,7 +327,9 @@ PreviewScaleType.FIT_CENTER   // Fit the whole frame, letterboxing overflow (def
 PreviewScaleType.FILL_CENTER  // Fill the container, cropping overflow
 ```
 
-On Android these map to `PreviewView.ScaleType.FIT_CENTER` / `FILL_CENTER`; on iOS they map to `AVLayerVideoGravityResizeAspect` / `AVLayerVideoGravityResizeAspectFill`.
+On Android these map to `PreviewView.ScaleType.FIT_CENTER` / `FILL_CENTER`; on iOS they map to `AVLayerVideoGravityResizeAspect` / `AVLayerVideoGravityResizeAspectFill`. Desktop always fits.
+
+`FILL_CENTER` crops the preview to the container, so the preview shows less than the captured photo; `FIT_CENTER` keeps the two identical.
 
 ### Image Formats
 

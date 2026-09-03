@@ -265,8 +265,8 @@ data class CameraConfiguration(
     val qualityPrioritization: QualityPrioritization = QualityPrioritization.BALANCED,
     val cameraDeviceType: CameraDeviceType = CameraDeviceType.DEFAULT,
     val aspectRatio: AspectRatio = AspectRatio.RATIO_16_9,
-    val previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER,
     val targetResolution: Pair<Int, Int>? = null,
     val directory: Directory = Directory.PICTURES,
     val mirrorFrontCamera: Boolean = false,
+    val previewScaleType: PreviewScaleType = PreviewScaleType.FIT_CENTER,
 )

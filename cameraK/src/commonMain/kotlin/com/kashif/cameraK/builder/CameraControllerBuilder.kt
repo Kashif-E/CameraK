@@ -58,8 +58,11 @@ interface CameraControllerBuilder {
     /**
      * Sets how the preview is scaled within its container view.
      * Defaults to [PreviewScaleType.FIT_CENTER].
+     *
+     * Has a no-op default so that adding it does not break builders implemented outside this
+     * library; every builder shipped here overrides it.
      */
-    fun setPreviewScaleType(previewScaleType: PreviewScaleType): CameraControllerBuilder
+    fun setPreviewScaleType(previewScaleType: PreviewScaleType): CameraControllerBuilder = this
 
     /**
      * Sets a target capture resolution (width x height) for preview/capture when the platform supports it.

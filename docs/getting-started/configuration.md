@@ -98,6 +98,14 @@ config = CameraConfiguration(
 | `FIT_CENTER` | Fit the whole frame, letterboxing overflow (default) | `PreviewView.ScaleType.FIT_CENTER` | `AVLayerVideoGravityResizeAspect` |
 | `FILL_CENTER` | Fill the container, cropping overflow | `PreviewView.ScaleType.FILL_CENTER` | `AVLayerVideoGravityResizeAspectFill` |
 
+`FIT_CENTER` keeps preview and capture showing the same field of view, so what you see is what you
+get. `FILL_CENTER` removes the black bars by cropping the preview to the container, which means the
+preview shows *less* than the photo it captures. The captured image is unaffected either way: it
+follows `aspectRatio`.
+
+Desktop stores and reports the value for API consistency but does not apply it; the desktop preview
+always fits the frame.
+
 **Example:**
 
 ```kotlin
@@ -384,7 +392,7 @@ controller.toggleCameraLens()  // BACK <-> FRONT
 | `cameraLens` | `CameraLens` | `BACK` | All |
 | `cameraDeviceType` | `CameraDeviceType` | `DEFAULT` | iOS only |
 | `aspectRatio` | `AspectRatio` | `RATIO_16_9` | All |
-| `previewScaleType` | `PreviewScaleType` | `FIT_CENTER` | All |
+| `previewScaleType` | `PreviewScaleType` | `FIT_CENTER` | Android, iOS |
 | `targetResolution` | `Pair<Int, Int>` | Device default | All |
 | `flashMode` | `FlashMode` | `AUTO` | Android, iOS |
 | `imageFormat` | `ImageFormat` | `JPEG` | All |
