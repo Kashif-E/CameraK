@@ -14,6 +14,7 @@ import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalZeroShutterLag
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -65,6 +66,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -595,6 +597,22 @@ actual class CameraController(
             CameraKLogger.w("CameraK", "TorchMode.AUTO not natively supported, using ON")
         }
         camera?.cameraControl?.enableTorch(enableTorch)
+    }
+
+    actual fun setFocus(x: Float, y: Float, size: Float) {
+        val previewView = this.previewView ?: return
+        val camera = this.camera ?: return
+
+        val clampedX = x.coerceIn(0f, 1f)
+        val clampedY = y.coerceIn(0f, 1f)
+
+        val factory = previewView.meteringPointFactory
+        val point = factory.createPoint(clampedX * previewView.width, clampedY * previewView.height, size)
+        val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE)
+            .setAutoCancelDuration(3, TimeUnit.SECONDS)
+            .build()
+
+        camera.cameraControl.startFocusAndMetering(action)
     }
 
     actual fun setZoom(zoomRatio: Float) {

@@ -731,6 +731,7 @@ class CameraKStateHolder {
 
     // Camera control
     fun captureImage()
+    fun setFocus(x: Float, y: Float, size: Float = 0.15f)
     fun setZoom(zoom: Float)
     fun toggleFlashMode()
     fun setFlashMode(mode: FlashMode)
@@ -761,6 +762,9 @@ Low-level camera operations returned in `CameraKState.Ready`:
 expect class CameraController {
     // Capture operations
     suspend fun takePictureToFile(): ImageCaptureResult        // Direct file save
+
+    // Focus control
+    fun setFocus(x: Float, y: Float, size: Float = 0.15f)
 
     // Zoom control
     fun setZoom(zoom: Float)

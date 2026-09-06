@@ -131,7 +131,18 @@ expect class CameraController {
     fun setPreferredCameraDeviceType(deviceType: CameraDeviceType)
 
     /**
-     * Returns a snapshot of the device's camera hardware: every lens with its
+     * Sets the focus point and metering area for the camera.
+     *
+     * @param x The horizontal coordinate of the focus point (0.0 to 1.0, where 0 is left and 1 is right).
+     * @param y The vertical coordinate of the focus point (0.0 to 1.0, where 0 is top and 1 is bottom).
+     * @param size The size of the focus/metering area (0.0 to 1.0). Default is 0.15.
+     *
+     * Note: Coordinates are relative to the preview surface.
+     * On Desktop: Not supported, no-op.
+     */
+    fun setFocus(x: Float, y: Float, size: Float = 0.15f)
+    
+     /* Returns a snapshot of the device's camera hardware: every lens with its
      * classified type (ultra-wide / wide / telephoto / macro), facing, zoom range
      * and flash availability.
      *

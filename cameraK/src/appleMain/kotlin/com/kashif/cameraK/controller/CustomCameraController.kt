@@ -7,6 +7,7 @@ import com.kashif.cameraK.enums.CameraLens
 import com.kashif.cameraK.enums.QualityPrioritization
 import com.kashif.cameraK.utils.CameraKLogger
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.useContents
 import platform.AVFoundation.*
 import platform.Foundation.NSData
 import platform.Foundation.NSError
@@ -431,9 +432,13 @@ class CustomCameraController(
         currentCamera?.let { camera ->
             if (camera.hasTorch) {
                 try {
-                    camera.lockForConfiguration(null)
-                    camera.torchMode = mode
-                    camera.unlockForConfiguration()
+                    if (camera.lockForConfiguration(null)) {
+                        try {
+                            camera.torchMode = mode
+                        } finally {
+                            camera.unlockForConfiguration()
+                        }
+                    }
                 } catch (e: Exception) {
                     onError?.invoke(CameraException.ConfigurationError("Failed to set torch mode"))
                 }
@@ -450,9 +455,13 @@ class CustomCameraController(
         currentCamera?.let { camera ->
             val clampedZoom = zoomFactor.coerceIn(1.0f, getMaxZoom())
             try {
-                camera.lockForConfiguration(null)
-                camera.videoZoomFactor = clampedZoom.toDouble()
-                camera.unlockForConfiguration()
+                if (camera.lockForConfiguration(null)) {
+                    try {
+                        camera.videoZoomFactor = clampedZoom.toDouble()
+                    } finally {
+                        camera.unlockForConfiguration()
+                    }
+                }
             } catch (e: Exception) {
                 onError?.invoke(CameraException.ConfigurationError("Failed to set zoom: ${e.message}"))
             }
@@ -470,6 +479,47 @@ class CustomCameraController(
      * @return Maximum zoom factor
      */
     fun getMaxZoom(): Float = currentCamera?.activeFormat?.videoMaxZoomFactor?.toFloat() ?: 1.0f
+
+    /**
+     * Sets the focus point and exposure point of interest.
+     * @param x Normalized x coordinate (0..1)
+     * @param y Normalized y coordinate (0..1)
+     * @param size Size of the metering area (ignored on iOS as AVFoundation uses normalized points)
+     */
+    @OptIn(ExperimentalForeignApi::class)
+    fun setFocus(x: Float, y: Float, size: Float) {
+        val camera = currentCamera ?: return
+        val previewLayer = cameraPreviewLayer ?: return
+
+        val clampedX = x.coerceIn(0f, 1f)
+        val clampedY = y.coerceIn(0f, 1f)
+
+        try {
+            if (camera.lockForConfiguration(null)) {
+                try {
+                    val point = platform.CoreGraphics.CGPointMake(
+                        clampedX.toDouble() * previewLayer.bounds.useContents { this.size.width },
+                        clampedY.toDouble() * previewLayer.bounds.useContents { this.size.height },
+                    )
+                    val devicePoint = previewLayer.captureDevicePointOfInterestForPoint(point)
+
+                    if (camera.isFocusPointOfInterestSupported()) {
+                        camera.focusPointOfInterest = devicePoint
+                        camera.focusMode = AVCaptureFocusModeAutoFocus
+                    }
+
+                    if (camera.isExposurePointOfInterestSupported()) {
+                        camera.exposurePointOfInterest = devicePoint
+                        camera.exposureMode = AVCaptureExposureModeContinuousAutoExposure
+                    }
+                } finally {
+                    camera.unlockForConfiguration()
+                }
+            }
+        } catch (e: Exception) {
+            onError?.invoke(CameraException.ConfigurationError("Failed to set focus: ${e.message}"))
+        }
+    }
 
     /**
      * Capture an image. Output quality is governed by the configured [qualityPrioritization].
