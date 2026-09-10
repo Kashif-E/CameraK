@@ -1,18 +1,14 @@
 package com.kashif.qrscannerplugin
 
-import android.graphics.ImageFormat
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import com.google.zxing.BinaryBitmap
-import com.google.zxing.DecodeHintType
-import com.google.zxing.MultiFormatReader
-import com.google.zxing.NotFoundException
-import com.google.zxing.PlanarYUVLuminanceSource
-import com.google.zxing.common.HybridBinarizer
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.common.InputImage
 import com.kashif.cameraK.controller.CameraController
 import com.kashif.cameraK.utils.CameraKLogger
-import java.util.EnumMap
 
 /**
  * Enables QR code and barcode scanning on this camera controller.
@@ -33,7 +29,7 @@ fun CameraController.enableQrCodeScanner(onQrScanner: (String) -> Unit): ImageAn
 }
 
 /**
- * Internal analyzer for QR codes and barcodes using ZXing library.
+ * Internal analyzer for QR codes and barcodes using Google ML Kit Barcode Scanning.
  *
  * Processes camera frames to detect and decode QR codes and common barcode formats
  * (EAN-13, EAN-8, CODE-128, CODE-39, UPC-A, UPC-E). Implements debouncing to prevent
@@ -42,118 +38,93 @@ fun CameraController.enableQrCodeScanner(onQrScanner: (String) -> Unit): ImageAn
  * @param onQrScanner Callback invoked when a QR code is successfully decoded
  */
 private class QRCodeAnalyzer(private val onQrScanner: (String) -> Unit) : ImageAnalysis.Analyzer {
-    private val decodeHints =
-        EnumMap<DecodeHintType, Any>(DecodeHintType::class.java).apply {
-            put(DecodeHintType.CHARACTER_SET, "UTF-8")
-            // Spend more effort per frame: rotated 1D barcodes, harder-to-read codes.
-            put(DecodeHintType.TRY_HARDER, true)
-            put(
-                DecodeHintType.POSSIBLE_FORMATS,
-                listOf(
-                    com.google.zxing.BarcodeFormat.QR_CODE,
-                    com.google.zxing.BarcodeFormat.EAN_13,
-                    com.google.zxing.BarcodeFormat.EAN_8,
-                    com.google.zxing.BarcodeFormat.CODE_128,
-                    com.google.zxing.BarcodeFormat.CODE_39,
-                    com.google.zxing.BarcodeFormat.UPC_A,
-                    com.google.zxing.BarcodeFormat.UPC_E,
-                ),
+    private val options =
+        BarcodeScannerOptions.Builder()
+            .setBarcodeFormats(
+                Barcode.FORMAT_QR_CODE,
+                Barcode.FORMAT_EAN_13,
+                Barcode.FORMAT_EAN_8,
+                Barcode.FORMAT_CODE_128,
+                Barcode.FORMAT_CODE_39,
+                Barcode.FORMAT_UPC_A,
+                Barcode.FORMAT_UPC_E,
             )
-        }
-    private val reader = MultiFormatReader().apply { setHints(decodeHints) }
+            .build()
+    private val scanner = BarcodeScanning.getClient(options)
     private var lastScannedCode: String? = null
     private var lastScanTime: Long = 0
     private val scanDebounceMs = 1000L
 
-    // Inverted (white-on-black) codes are uncommon, and the retry costs a second full ZXing
-    // decode. Only attempt it every Nth frame so normal scanning isn't doing two decodes on
-    // every empty frame — still catches an inverted code within a few frames (#116).
-    private var frameCount = 0L
-    private val invertedRetryEveryNFrames = 3
-
     /**
      * Analyzes camera frames to detect QR codes and barcodes.
-     *
-     * Converts YUV_420_888 frame data to RGB for ZXing processing and applies debouncing
-     * to prevent repeated detections of the same code.
      *
      * @param imageProxy The camera frame to analyze
      */
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
-        val image = imageProxy.image
-        if (image == null) {
-            imageProxy.close()
-            return
-        }
-
-        if (image.format != ImageFormat.YUV_420_888) {
-            CameraKLogger.e("QRScanner", "Unsupported image format: ${image.format}")
+        val mediaImage = imageProxy.image
+        if (mediaImage == null) {
             imageProxy.close()
             return
         }
 
         try {
-            // The Y plane of YUV_420_888 IS the luminance ZXing wants — use it directly via
-            // PlanarYUVLuminanceSource (faster and correct). The previous RGBLuminanceSource
-            // path fed the luma byte in as the blue channel, producing a dim/wrong luminance.
-            // rowStride is honored so row padding doesn't skew the image.
-            val plane = image.planes[0]
-            val buffer = plane.buffer
-            // Rewind so we always copy the full Y plane regardless of the buffer's position.
-            buffer.rewind()
-            val bytes = ByteArray(buffer.remaining())
-            buffer.get(bytes)
+            val image = InputImage.fromMediaImage(
+                mediaImage,
+                imageProxy.imageInfo.rotationDegrees,
+            )
 
-            val source =
-                PlanarYUVLuminanceSource(
-                    bytes,
-                    plane.rowStride,
-                    image.height,
-                    0,
-                    0,
-                    image.width,
-                    image.height,
-                    false,
-                )
-
-            frameCount++
-            val result =
-                try {
-                    reader.decodeWithState(BinaryBitmap(HybridBinarizer(source)))
-                } catch (_: NotFoundException) {
-                    if (frameCount % invertedRetryEveryNFrames == 0L) {
-                        // Periodic inverted pass for white-on-black / light-on-dark codes (#116).
-                        try {
-                            reader.decodeWithState(BinaryBitmap(HybridBinarizer(source.invert())))
-                        } catch (_: NotFoundException) {
-                            null
-                        }
-                    } else {
-                        null
+            scanner.process(image).addOnSuccessListener { barcodes ->
+                for (barcode in barcodes) {
+                    val rawValue = barcode.rawValue ?: continue
+                    val currentTime = System.currentTimeMillis()
+                    if (rawValue != lastScannedCode || (currentTime - lastScanTime) > scanDebounceMs) {
+                        CameraKLogger.d("QRScanner", "QR Code detected: $rawValue")
+                        lastScannedCode = rawValue
+                        lastScanTime = currentTime
+                        onQrScanner(rawValue)
+                        break
                     }
                 }
-
-            if (result != null) {
-                val currentTime = System.currentTimeMillis()
-                if (result.text != lastScannedCode || (currentTime - lastScanTime) > scanDebounceMs) {
-                    CameraKLogger.d("QRScanner", "QR Code detected: ${result.text}")
-                    lastScannedCode = result.text
-                    lastScanTime = currentTime
-                    onQrScanner(result.text)
-                }
+            }.addOnFailureListener { exception ->
+                CameraKLogger.e(
+                    tag = "QRScanner",
+                    message = "QR scanning failed",
+                    throwable = exception,
+                )
+            }.addOnCompleteListener {
+                imageProxy.close()
             }
         } catch (e: Exception) {
-            // QR code detection failed - no code found in frame (expected during normal scanning)
-        } finally {
-            reader.reset()
+            CameraKLogger.e(
+                tag = "QRScanner",
+                message = "Analyzer error",
+                throwable = e,
+            )
             imageProxy.close()
+        }
+    }
+
+    fun shutdown() {
+        try {
+            scanner.close()
+        } catch (e: Exception) {
+            CameraKLogger.e(
+                tag = "QRScanner",
+                message = "Error closing scanner",
+                throwable = e,
+            )
         }
     }
 }
 
 actual fun startScanning(controller: CameraController, onQrScanner: (String) -> Unit): ScannerHandle {
     CameraKLogger.d("QRScanner", "Starting QR scanner")
-    val analyzer = controller.enableQrCodeScanner(onQrScanner)
-    return ScannerHandle { analyzer?.let { controller.unregisterImageAnalyzer(it) } }
+    val analyzer = controller.enableQrCodeScanner(onQrScanner) as? QRCodeAnalyzer
+    return ScannerHandle {
+        analyzer?.let {
+            controller.unregisterImageAnalyzer(it)
+            it.shutdown()
+        }
+    }
 }

@@ -27,6 +27,7 @@ javacpp = "1.5.12"
 videoinput = "1.5.12"
 tesseractPlatform = "5.5.1-1.5.12"
 textRecognition = "16.0.1"
+barcodeScanning = "17.3.0"
 
 kflite = "1.1.40"
 
@@ -62,6 +63,7 @@ javacpp = { module = "org.bytedeco:javacpp", version.ref = "javacpp" }
 videoinput = { module = "org.bytedeco:videoinput", version.ref = "videoinput" }
 tesseract-platform = { module = "org.bytedeco:tesseract-platform", version.ref = "tesseractPlatform" }
 text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "textRecognition" }
+barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "barcodeScanning" }
 
 kflite = {module = "io.github.shadmanadman:kflite", version.ref = "kflite"}
 [plugins]
