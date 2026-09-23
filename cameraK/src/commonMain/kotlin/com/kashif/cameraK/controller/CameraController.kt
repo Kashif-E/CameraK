@@ -117,7 +117,9 @@ expect class CameraController {
     /**
      * Switches to a different camera device type at runtime.
      *
-     * On iOS this switches between wide-angle, telephoto, ultra-wide, etc.
+     * On iOS this switches between wide-angle, telephoto, ultra-wide, etc. on the current facing. If that
+     * facing has no such lens, or the session rejects it, the current camera stays bound, the preference
+     * is left unchanged and the failure is reported as an error.
      * On Android this resolves the request against the device's classified lenses
      * (ultra-wide/telephoto/macro, including physical sub-lenses of logical multi-cameras)
      * and switches to the matching one; if the requested type isn't available on the current
