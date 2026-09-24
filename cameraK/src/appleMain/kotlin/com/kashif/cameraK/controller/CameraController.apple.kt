@@ -46,10 +46,7 @@ import platform.Foundation.NSData
 import platform.Foundation.NSDate
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSNotificationCenter
-import platform.Foundation.NSNumber
 import platform.Foundation.NSURL
-import platform.Foundation.NSURLIsExcludedFromBackupKey
-import platform.Foundation.numberWithBool
 import platform.Foundation.timeIntervalSince1970
 import platform.Photos.PHAssetChangeRequest
 import platform.Photos.PHPhotoLibrary
@@ -649,14 +646,6 @@ actual class CameraController(
                         error = null,
                     )
                 }
-                // Documents/ is backed up to iCloud by default. DOCUMENTS is the private option, so
-                // keep its captures out of the backup (#158). Set on every capture so folders created
-                // by earlier versions are covered too; the flag applies to the folder's contents.
-                NSURL.fileURLWithPath(cameraKDir, isDirectory = true).setResourceValue(
-                    NSNumber.numberWithBool(true),
-                    forKey = NSURLIsExcludedFromBackupKey,
-                    error = null,
-                )
 
                 "$cameraKDir/$fileName"
             }
